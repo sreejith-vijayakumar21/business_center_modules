@@ -1,0 +1,120 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- FORM VIEW -->
+    <record id="business_center_leased_asset_view_form" model="ir.ui.view">
+        <field name="name">business.center.leased.asset.view.form</field>
+        <field name="model">business.center.leased.asset</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <group>
+                        <field name="renewal_of_contract_id" invisible="1"/>
+                        <field name="lease_asset_type" readonly="renewal_of_contract_id"/>
+                        <field name="space_id" invisible="lease_asset_type != 'office'"
+                            required="lease_asset_type == 'office'"
+                            readonly="renewal_of_contract_id"/>
+                        <field name="desk_id" invisible="lease_asset_type != 'desk'"
+                            required="lease_asset_type == 'desk'"
+                            readonly="renewal_of_contract_id"/>
+                    </group>
+                    <group string="Billing &amp; Financials">
+                        <group>
+                            <field name="product_id" readonly="1" options="{'no_open': True}"/>
+                            <field name="monthly_rent_total" widget="monetary" readonly="contract_state != 'draft'"/>
+                        </group>
+
+                        <field name="currency_id" invisible="1"/>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- KANBAN VIEW -->
+    <record id="business_center_leased_asset_view_kanban" model="ir.ui.view">
+        <field name="name">business.center.leased.asset.view.kanban</field>
+        <field name="model">business.center.leased.asset</field>
+        <field name="arch" type="xml">
+            <kanban>
+                <field name="lease_asset_type"/>
+                <field name="space_id"/>
+                <field name="desk_id"/>
+                <field name="monthly_rent_total" widget="monetary" readonly="contract_state != 'draft'"/>
+                <field name="contract_state"/>
+                <field name="product_id"/>
+                <field name="renewal_of_contract_id"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex p-2 position-relative">
+                            <t t-if="record.contract_state.raw_value == 'draft' and !record.renewal_of_contract_id.raw_value">
+                                <div class="o_dropdown_kanban dropdown position-absolute end-0 top-0">
+                                    <a role="button" class="dropdown-toggle o-no-caret btn"
+                                    data-bs-toggle="dropdown" href="#">
+                                        <span class="fa fa-ellipsis-v" title="Actions"/>
+                                    </a>
+                                    <div class="dropdown-menu" role="menu">
+                                        <a role="menuitem" type="delete" class="dropdown-item">Delete</a>
+                                    </div>
+                                </div>
+                            </t>
+                            <!-- Icon avatar: building = Office, desktop = Desk -->
+                            <aside class="me-3">
+                                <div class="d-flex align-items-center justify-content-center rounded-3 text-white"
+                                    t-att-style="'width:52px; height:52px; font-size:22px; background-color:#' + (record.lease_asset_type.raw_value == 'office' ? '017E84' : '875A7B') + ';'">
+                                    <t t-if="record.lease_asset_type.raw_value == 'office'">
+                                        <i class="fa fa-building-o" title="Office"/>
+                                    </t>
+                                    <t t-elif="record.lease_asset_type.raw_value == 'desk'">
+                                        <i class="fa fa-desktop" title="Desk"/>
+                                    </t>
+                                    <t t-else="">
+                                        <i class="fa fa-question" title="Unknown"/>
+                                    </t>
+                                </div>
+                            </aside>
+
+                            <!-- Details -->
+                            <main class="flex-grow-1">
+                                <!-- Title = asset type label -->
+                                <div class="fw-bold fs-6">
+                                    <t t-esc="record.lease_asset_type.value"/>
+                                </div>
+
+                                <!-- Reference: office -> space, desk -> desk -->
+                                <div class="text-muted small mb-2">
+                                    <i class="fa fa-hashtag fa-fw me-1" title="Reference"/>
+                                    <t t-if="record.lease_asset_type.raw_value == 'office'">
+                                        <field name="space_id"/>
+                                    </t>
+                                    <t t-elif="record.lease_asset_type.raw_value == 'desk'">
+                                        <field name="desk_id"/>
+                                    </t>
+                                </div>
+
+                                    <!-- Row 1: Rent | Pending (Pending is office-only) -->
+                                <div class="d-flex flex-wrap align-items-center mb-1" style="gap:4px 12px;">
+                                    <span class="small" style="white-space:nowrap;">
+                                        <i class="fa fa-money me-1 text-success" title="Monthly Rent"/>
+                                        <span class="text-muted">Rent:</span>
+                                        <field name="monthly_rent_total" widget="monetary" class="fw-medium" 
+                                        readonly="contract_state != 'draft'"/>
+                                    </span>
+                                </div>
+                            </main>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ACTION -->
+    <record id="action_business_center_leased_asset" model="ir.actions.act_window">
+        <field name="name">Business Center Leased Asset</field>
+        <field name="res_model">business.center.leased.asset</field>
+        <field name="view_mode">kanban,form</field>
+    </record>
+
+</odoo>

@@ -1,0 +1,192 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- HOME TILE -->
+    <template id="portal_my_home_contract" name="Portal My Home: Contracts"
+              inherit_id="portal.portal_my_home" priority="31">
+        <xpath expr="//div[@id='portal_common_category']" position="inside">
+            <t t-if="request.env.user.has_group('business_center_portal.group_bc_tenant_admin')">
+                <t t-call="portal.portal_docs_entry">
+                    <t t-set="icon" t-value="'/portal/static/src/img/portal-addresses.svg'"/>
+                    <t t-set="title">Contracts</t>
+                    <t t-set="text">Follow your business center contracts</t>
+                    <t t-set="url" t-value="'/my/contracts'"/>
+                    <t t-set="placeholder_count" t-value="'contract_count'"/>
+                </t>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- LIST -->
+    <template id="portal_my_contracts" name="My Contracts">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True"/>
+
+            <t t-call="portal.portal_searchbar">
+                <t t-set="title">Contracts</t>
+            </t>
+
+            <t t-if="not contracts">
+                <div class="alert alert-warning" role="alert">
+                    There are currently no contracts for your account.
+                </div>
+            </t>
+
+            <t t-if="contracts" t-call="portal.portal_table">
+                <thead>
+                    <tr class="active">
+                        <th>Contract</th>
+                        <th>Leased Assets</th>
+                        <th class="text-end">Start Date</th>
+                        <th class="text-end">End Date</th>
+                        <th class="text-center">Auto Renew</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="contracts" t-as="contract">
+                        <td>
+                            <a t-attf-href="/my/contracts/#{contract.id}">
+                                <span t-field="contract.name"/>
+                            </a>
+                        </td>
+                        <td>
+                            <t t-set="assets" t-value="contract.leased_asset_ids"/>
+                            <t t-foreach="assets[:2]" t-as="asset">
+                                <span class="badge rounded-pill text-bg-light border me-1"
+                                      t-esc="asset.display_name"/>
+                            </t>
+                            <span t-if="len(assets) &gt; 2" class="text-muted small">
+                                +<t t-esc="len(assets) - 2"/> more
+                            </span>
+                        </td>
+                        <td class="text-end"><span t-field="contract.date_start"/></td>
+                        <td class="text-end"><span t-field="contract.date_end"/></td>
+                        <td class="text-center">
+                            <i t-if="contract.auto_renew" class="fa fa-check text-success"/>
+                            <i t-else="" class="fa fa-minus text-muted"/>
+                        </td>
+                        <td class="text-center">
+                            <span t-if="contract.state == 'upcoming'"   class="badge rounded-pill text-bg-primary">Upcoming</span>
+                            <span t-elif="contract.state == 'active'"   class="badge rounded-pill text-bg-success">Running</span>
+                            <span t-elif="contract.state == 'draft'"   class="badge rounded-pill text-bg-info">Draft</span>
+                            <span t-elif="contract.state == 'expired'" class="badge rounded-pill text-bg-danger">Expired</span>
+                            <span t-else=""                            class="badge rounded-pill text-bg-secondary">Cancelled</span>
+                        </td>
+                    </tr>
+                </tbody>
+            </t>
+        </t>
+    </template>
+
+    <!-- DETAIL -->
+    <template id="portal_contract_page" name="Contract Portal Page">
+        <t t-call="portal.portal_layout">
+            <t t-set="additional_title"><span t-field="contract.name"/></t>
+
+            <!-- Header -->
+            <div class="row mt-4 mb-3">
+                <div class="col-12">
+                    <h5 class="mb-1">
+                        Contract <span t-field="contract.name"/>
+                        <span t-if="contract.state == 'upcoming'"   class="badge rounded-pill text-bg-primary">Upcoming</span>
+                        <span t-elif="contract.state == 'active'"   class="badge text-bg-success">Running</span>
+                        <span t-elif="contract.state == 'draft'"   class="badge text-bg-info">Draft</span>
+                        <span t-elif="contract.state == 'expired'" class="badge text-bg-danger">Expired</span>
+                        <span t-else=""                            class="badge text-bg-secondary">Cancelled</span>
+                    </h5>
+                </div>
+            </div>
+
+            <!-- Tenant & Period -->
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <h6 class="text-muted text-uppercase small">Tenant &amp; Contacts</h6>
+                    <div><strong>Partner:</strong> <span t-field="contract.partner_id"/></div>
+                    <div t-if="contract.contact_ids">
+                        <strong>Employees:</strong>
+                        <t t-foreach="contract.contact_ids" t-as="emp">
+                            <span class="badge text-bg-light border me-1" t-esc="emp.name"/>
+                        </t>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <h6 class="text-muted text-uppercase small">Contract Period</h6>
+                    <div><strong>Start:</strong> <span t-field="contract.date_start"/></div>
+                    <div><strong>End:</strong> <span t-field="contract.date_end"/></div>
+                    <div>
+                        <strong>Auto Renew:</strong>
+                        <i t-if="contract.auto_renew" class="fa fa-check text-success"/>
+                        <i t-else="" class="fa fa-minus text-muted"/>
+                    </div>
+                </div>
+            </div>
+            <!-- Free-Hours Wallet: one shared allowance for the whole contract -->
+            <div t-if="contract.is_wallet_eligible" class="row">
+                <div class="col-12 mb-3">
+                    <h6 class="text-muted text-uppercase small">Free-Hours Wallet</h6>
+                    <div>
+                        <strong>Monthly Allowance:</strong>
+                        <span t-field="contract.free_hours_monthly"/> hr
+                    </div>
+                    <div>
+                        <strong>Balance:</strong>
+                        <span t-field="contract.wallet_balance"/> hr
+                    </div>
+                    <div class="text-muted small">
+                        Shared across every office on this contract.
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pending charges: contract-wide, so desk-only tenants see them too -->
+            <div t-if="contract.pending_charge_total" class="row">
+                <div class="col-12 mb-3">
+                    <h6 class="text-muted text-uppercase small">Pending Charges</h6>
+                    <div>
+                        <strong>Not yet invoiced:</strong>
+                        <span t-field="contract.pending_charge_total"/>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charges -->
+            <t t-if="contract.charge_ids">
+                <h6 class="mt-3 text-muted text-uppercase small">Charges</h6>
+                <table class="table table-sm">
+                    <thead>
+                        <tr>
+                            <th>Description</th>
+                            <th class="text-end">Date</th>
+                            <th class="text-end">Qty</th>
+                            <th class="text-end">Unit Price</th>
+                            <th class="text-end">Amount</th>
+                            <th class="text-center">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="contract.charge_ids" t-as="charge">
+                            <td><span t-field="charge.description"/></td>
+                            <td class="text-end"><span t-field="charge.date"/></td>
+                            <td class="text-end"><span t-field="charge.quantity"/></td>
+                            <td class="text-end"><span t-field="charge.unit_price"/></td>
+                            <td class="text-end"><span t-field="charge.amount"/></td>
+                            <td class="text-center">
+                                <span t-if="charge.state == 'pending'"  class="badge text-bg-warning">Pending</span>
+                                <span t-elif="charge.state == 'invoiced'" class="badge text-bg-success">Invoiced</span>
+                                <span t-else="" class="badge text-bg-secondary">Cancelled</span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </t>
+
+            <!-- Terms & Conditions -->
+            <t t-if="contract.note">
+                <h6 class="mt-3 text-muted text-uppercase small">Terms &amp; Conditions</h6>
+                <div class="border rounded p-3 bg-light" t-out="contract.note"/>
+            </t>
+        </t>
+    </template>
+
+</odoo>

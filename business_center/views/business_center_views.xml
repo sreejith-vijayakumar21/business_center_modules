@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- FORM VIEW -->
+    <record id="business_center_view_form" model="ir.ui.view">
+        <field name="name">business.center.view.form</field>
+        <field name="model">business.center</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_set_active" type="object" string="Set Active"
+                            class="btn-primary" invisible="state == 'active'"/>
+                    <button name="action_set_maintenance" type="object" string="Set Maintenance"
+                            invisible="state == 'maintenance'"/>
+                    <button name="action_set_no_active" type="object" string="Deactivate"
+                            invisible="state == 'no_active'"/>
+
+                    <field name="state" widget="statusbar"
+                        statusbar_visible="no_active,active,maintenance"
+                        options="{'clickable': '1'}"/>
+                </header>
+                <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        
+                        <button name="action_open_available_spaces"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-building">
+                            <field name="space_count" 
+                                   widget="statinfo" 
+                                   string="Spaces"/>
+                        </button>
+                        <button name="action_open_available_desks"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-tasks">
+                            <field name="desk_count" 
+                                   widget="statinfo" 
+                                   string="Desks"/>
+                        </button>
+                        <button name="action_open_available_meeting_rooms"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-tasks">
+                            <field name="meeting_room_count" 
+                                   widget="statinfo" 
+                                   string="Meeting Rooms"/>
+                        </button>
+                        <button name="action_open_available_contracts"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-file-text-o">
+                            <field name="contract_count" 
+                                   widget="statinfo" 
+                                   string="Contracts"/>
+                        </button>
+                    </div>
+                        <div class="mb8">
+                            <div class="oe_title">
+                                <h1>
+                                    <field name="code" readonly="1"/>
+                                </h1>
+                            </div> 
+                            <div class="d-flex gap-3">
+                                <field name="image_1920" widget="contact_image" 
+                                options="{'size': [130,130], 'img_class': 'rounded border'}"/>
+                                <div class="d-flex flex-column flex-grow-1">
+                                    <div class="oe_title">
+                                        <h2>
+                                            <field name="name" placeholder="Building/Center Name"/>
+                                        </h2>
+                                    </div> 
+                                    <div class="d-flex align-items-baseline w-md-50">
+                                        <i class="fa fa-fw me-1 fa-envelope text-primary" title="Email"/>
+                                        <field name="email" class="w-100" widget="email" placeholder="Email"/>
+                                    </div>
+                                    <div class="d-flex align-items-baseline w-md-50">
+                                        <i class="fa fa-fw me-1 fa-phone text-primary" title="Phone"/>
+                                        <field name="phone_number" class="w-100" widget="phone" placeholder="Phone"/>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    <group>
+                        <group>
+                            <label for="street" string="Address"/>
+                            <div class="o_address_format">
+                                <field name="street"
+                                       placeholder="Street..."
+                                       class="o_address_street"/>
+                                <field name="street2"
+                                       placeholder="Street 2..."
+                                       class="o_address_street"/>
+                                <field name="city"
+                                       placeholder="City"
+                                       class="o_address_city"/>
+                                <field name="state_id"
+                                       placeholder="State"
+                                       class="o_address_state"/>
+                                <field name="zip"
+                                       placeholder="ZIP"
+                                       class="o_address_zip"/>
+                                <field name="country_id"
+                                       placeholder="Country"
+                                       class="o_address_country"/>
+                            </div>
+                            <field name="company_id"/>
+                        </group>
+
+                        <group>
+                            <field name="manager_id"/>
+                            <field name="occupancy_rate" widget="percentpie"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Floors" name="floors">
+                            <field name="floor_ids">
+                                <list editable="bottom">
+                                    <field name="name" placeholder="Eg: F0"/>
+                                    <field name="note"/>
+                                    <field name="space_count"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Spaces" name="spaces">
+                            <div class="alert alert-info d-flex align-items-center"
+                                 role="alert" invisible="id">
+                                <i class="fa fa-info-circle fa-lg me-2"/>
+                                <span>
+                                    Save this business center before adding spaces —
+                                    spaces are numbered from the center code and floor.
+                                </span>
+                            </div>
+                            <field name="space_ids" readonly="not id" mode="kanban"
+                            context="{'default_center_id': id,
+                                    'kanban_view_ref': 'business_center.business_center_space_view_kanban',
+                                    'form_view_ref': 'business_center.business_center_space_view_form'}"/>
+                        </page>
+                        <page string="Gallery">
+                            <field name="gallery_attachment_ids" mode="kanban" nolabel="1">
+                                <kanban>
+                                    <field name="id"/>
+                                    <field name="name"/>
+                                    <field name="mimetype"/>
+                                    <templates>
+                                        <t t-name="card">
+                                            <div class="o_kanban_global_click p-1">
+                                                <img t-att-src="'/web/image/' + record.id.raw_value"
+                                                    class="w-100 rounded object-fit-cover border"
+                                                    style="height: 140px; width: 140px;"
+                                                    t-att-alt="record.name.value"
+                                                    t-att-title="record.name.value"/>
+                                            </div>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                            </field>
+                            <div class="mt-3">
+                                <field name="attachment_ids" widget="many2many_binary" nolabel="1"/>
+                            </div>
+                        </page>
+                        <page string="Internal Notes" name="internal_notes">
+                            <field name="notes"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- LIST VIEW -->
+    <record id="business_center_view_tree" model="ir.ui.view">
+        <field name="name">business.center.view.tree</field>
+        <field name="model">business.center</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="notes"/>
+                <field name="state" widget="badge"
+                    decoration-danger="state == 'no_active'"
+                    decoration-success="state == 'active'"
+                    decoration-warning="state == 'maintenance'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- KANBAN VIEW -->
+    <record id="business_center_view_kanban" model="ir.ui.view">
+        <field name="name">business.center.view.kanban</field>
+        <field name="model">business.center</field>
+        <field name="arch" type="xml">
+            <kanban>
+                <field name="name"/>
+                <field name="code"/>
+                <field name="state"/>
+                <field name="city"/>
+                <field name="space_count"/>
+                <field name="desk_count"/>
+                <field name="meeting_room_count"/>
+                <templates>
+                    <t t-name="card" class="flex-row align-items-center">
+                        <aside class="pe-3">
+                            <field name="image_1920" widget="image"
+                                options="{'size': [64, 64]}"
+                                class="o_image_64_contain rounded"/>
+                        </aside>
+                        <main class="d-flex flex-column justify-content-center overflow-hidden flex-grow-1">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div class="overflow-hidden">
+                                    <strong class="fs-6 d-block text-truncate">
+                                        <field name="name"/>
+                                    </strong>
+                                    <span>
+                                        <i class="fa fa-hashtag fa-fw text-muted me-1" title="Code"/>
+                                        <field name="code"/>
+                                    </span>
+                                </div>
+                                <field name="state" widget="label_selection"
+                                    options="{'classes': {'no_active': 'danger', 'active': 'success', 'maintenance': 'warning'}}"/>
+                            </div>
+                            <div>
+                                <span class="text-muted small d-flex align-items-center gap-3">
+                                    <span invisible="not city">
+                                        <i class="fa fa-map-marker fa-fw me-1 text-danger" title="City"/>
+                                        <field name="city"/>
+                                    </span>
+                                    <span class="d-flex align-items-center" title="Occupancy">
+                                        <field name="occupancy_rate" widget="percentpie"/>
+                                        <span class="ms-1">Occupancy</span>
+                                    </span>
+                                </span>
+                            </div>
+
+                            <!-- Counts -->
+                            <div class="d-flex gap-3 text-muted small mt-2">
+                                <span>
+                                    <i class="fa fa-building-o fa-fw me-1 text-info" title="Cabin Spaces"/>
+                                    <field name="space_count"/> Offices
+                                </span>
+                                <span>
+                                    <i class="fa fa-desktop fa-fw me-1 text-info" title="Fixed Desks"/>
+                                    <field name="desk_count"/> Desks
+                                </span>
+                                <span>
+                                    <i class="fa fa-users fa-fw me-1 text-info" title="Meeting Rooms"/>
+                                    <field name="meeting_room_count"/> Rooms
+                                </span>
+                            </div>
+                        </main>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+
+    <!-- ACTION -->
+    <record id="action_business_center" model="ir.actions.act_window">
+        <field name="name">Business Centers</field>
+        <field name="res_model">business.center</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+</odoo>

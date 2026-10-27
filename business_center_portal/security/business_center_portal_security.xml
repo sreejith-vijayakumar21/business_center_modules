@@ -1,0 +1,151 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        RULE OF THUMB FOR THIS FILE
+        ===========================
+        A record rule only ever narrows access that an ACL has already
+        granted. Since business_center_portal.ir_model_access.csv now gives
+        the inventory and contract models to group_bc_tenant_admin only, every
+        rule below must be attached to the SAME group as its ACL. A rule left
+        on group_bc_tenant_employee would be dead code; worse, a model that an
+        admin can read but for which no rule of theirs applies is completely
+        UNRESTRICTED - they would see every centre and contract in the
+        database. Group is the first thing to check when editing this file.
+
+        Bookings are the one model a Tenant Employee still reaches directly,
+        so they keep the two-rule employee/admin pattern.
+    -->
+
+    <!-- =============================================================
+         CONTRACT CONFIGURATION - Tenant Corporate Admin only
+         ============================================================= -->
+    <record id="rule_bc_contract_tenant_admin" model="ir.rule">
+        <field name="name">Contract: corporate admin sees own company</field>
+        <field name="model_id" ref="business_center.model_business_center_contract"/>
+        <field name="domain_force">[('partner_id', 'child_of', user.partner_id.commercial_partner_id.id)]</field>
+        <field name="groups" eval="[(4, ref('group_bc_tenant_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_bc_leased_asset_tenant" model="ir.rule">
+        <field name="name">Leased asset: corporate admin sees own company</field>
+        <field name="model_id" ref="business_center.model_business_center_leased_asset"/>
+        <field name="domain_force">[('contract_id.partner_id', 'child_of', user.partner_id.commercial_partner_id.id)]</field>
+        <field name="groups" eval="[(4, ref('group_bc_tenant_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_bc_charge_tenant" model="ir.rule">
+        <field name="name">Charge: corporate admin sees own company</field>
+        <field name="model_id" ref="business_center.model_business_center_contract_charge"/>
+        <field name="domain_force">[('contract_id.partner_id', 'child_of', user.partner_id.commercial_partner_id.id)]</field>
+        <field name="groups" eval="[(4, ref('group_bc_tenant_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- =============================================================
+         ASSET INVENTORY - Tenant Corporate Admin only.
+         An employee never reads these models directly: the booking
+         controller resolves offices and meeting rooms with sudo() and
+         hands the template only the fields the form needs.
+         ============================================================= -->
+    <record id="rule_bc_space_tenant" model="ir.rule">
+        <field name="name">Space: meeting rooms plus own offices</field>
+        <field name="model_id" ref="business_center.model_business_center_space"/>
+        <field name="domain_force">['|',
+            '&amp;', ('space_type', '=', 'meeting_room'),
+                    ('center_id', 'in', user.partner_id.commercial_partner_id.bc_center_ids.ids),
+            ('leased_asset_ids.contract_id.partner_id', 'child_of', user.partner_id.commercial_partner_id.id)]</field>
+        <field name="groups" eval="[(4, ref('group_bc_tenant_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_bc_desk_tenant" model="ir.rule">
+        <field name="name">Desk: corporate admin sees own leased desks</field>
+        <field name="model_id" ref="business_center.model_business_center_desk"/>
+        <field name="domain_force">[('leased_asset_ids.contract_id.partner_id', 'child_of', user.partner_id.commercial_partner_id.id)]</field>
+        <field name="groups" eval="[(4, ref('group_bc_tenant_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_bc_center_tenant" model="ir.rule">
+        <field name="name">Centre: corporate admin sees own centres</field>
+        <field name="model_id" ref="business_center.model_business_center"/>
+        <field name="domain_force">[('id', 'in', user.partner_id.commercial_partner_id.bc_center_ids.ids)]</field>
+        <field name="groups" eval="[(4, ref('group_bc_tenant_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_bc_floor_tenant" model="ir.rule">
+        <field name="name">Floor: corporate admin sees own centres' floors</field>
+        <field name="model_id" ref="business_center.model_business_center_floor"/>
+        <field name="domain_force">[('center_id', 'in', user.partner_id.commercial_partner_id.bc_center_ids.ids)]</field>
+        <field name="groups" eval="[(4, ref('group_bc_tenant_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- =============================================================
+         BOOKINGS - the only model a Tenant Employee touches directly.
+         An employee sees their own; a corporate admin sees the whole
+         company. Two rules on two groups, so the domains are OR'ed.
+         ============================================================= -->
+    <record id="rule_bc_booking_employee" model="ir.rule">
+        <field name="name">Booking: employee sees own only</field>
+        <field name="model_id" ref="business_center.model_business_center_booking"/>
+        <field name="domain_force">['&amp;', ('user_id', '=', user.id),
+                            ('contract_id.partner_id', 'child_of', user.partner_id.commercial_partner_id.id)]</field>
+        <field name="groups" eval="[(4, ref('group_bc_tenant_employee'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <record id="rule_bc_booking_tenant_admin" model="ir.rule">
+        <field name="name">Booking: corporate admin sees own company</field>
+        <field name="model_id" ref="business_center.model_business_center_booking"/>
+        <field name="domain_force">[('contract_id.partner_id', 'child_of', user.partner_id.commercial_partner_id.id)]</field>
+        <field name="groups" eval="[(4, ref('group_bc_tenant_admin'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="True"/>
+        <field name="perm_create" eval="True"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+    <!-- =============================================================
+         INVOICES - read-only, Tenant Corporate Admin only.
+         account already grants every portal user read on their own
+         company's invoices (account.account_invoice_rule_portal, on
+         base.group_portal). Rules of different groups are OR'ed, so a
+         stricter rule of ours cannot take that away, and deleting the
+         stock rule would leave the model with no rule at all - which in
+         Odoo means unrestricted. We narrow the stock rule in place.
+         ============================================================= -->
+    <!-- account's portal rules are noupdate, so XML cannot update them on
+         upgrade. The domains live in models/ir_rule.py and are written by
+         this call on every install and upgrade of this module. -->
+    <function model="ir.rule" name="_bc_apply_portal_invoice_rules"/>
+
+</odoo>

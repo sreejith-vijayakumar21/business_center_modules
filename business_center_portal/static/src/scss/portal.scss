@@ -1,0 +1,189 @@
+.o_portal_docs {
+    #portal_common_category {
+        order: -1;
+    }
+}
+.o_bc_slot_free {
+    cursor: pointer;
+}
+.o_bc_slot_busy {
+    cursor: not-allowed;
+    opacity: .85;
+}
+.o_bc_book {
+    max-width: 920px;
+    margin: 1.5rem auto 3rem;
+
+    .o_bc_book_head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        margin-bottom: 1.25rem;
+
+        h4 { margin: 0; font-weight: 600; letter-spacing: -0.01em; }
+        .o_bc_back { font-size: 0.875rem; text-decoration: none; color: #6b7280; }
+        .o_bc_back:hover { color: #111827; }
+    }
+}
+
+.o_bc_card {
+    background: #fff;
+    border: 1px solid #e8e8ec;
+    border-radius: 12px;
+    padding: 1.25rem 1.5rem 1.5rem;
+    margin-bottom: 1rem;
+    box-shadow: 0 1px 2px rgba(16, 24, 40, 0.04);
+}
+
+.o_bc_step {
+    display: flex;
+    align-items: center;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: #6b7280;
+    margin-bottom: 1rem;
+
+    .o_bc_num {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 22px;
+        height: 22px;
+        margin-right: 0.5rem;
+        border-radius: 50%;
+        background: #111827;
+        color: #fff;
+        font-size: 0.6875rem;
+        letter-spacing: 0;
+    }
+}
+
+.o_bc_label {
+    display: block;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: #374151;
+    margin-bottom: 0.35rem;
+}
+
+.o_bc_book .form-select,
+.o_bc_book .form-control {
+    border-color: #d8dae0;
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+}
+.o_bc_book .form-select:focus,
+.o_bc_book .form-control:focus {
+    border-color: #111827;
+    box-shadow: 0 0 0 3px rgba(17, 24, 39, 0.08);
+}
+
+.o_bc_time { font-variant-numeric: tabular-nums; letter-spacing: 0.02em; }
+
+.o_bc_meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed #e8e8ec;
+}
+
+.o_bc_chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    background: #f4f4f6;
+    font-size: 0.8125rem;
+    color: #374151;
+
+    i { color: #9ca3af; }
+    &.o_bc_chip_wallet { background: #eef6ef; color: #2f6b3a; i { color: #4d9159; } }
+}
+
+.o_bc_dim { color: #9ca3af; }
+
+.o_bc_slots {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+
+    .o_bc_slot {
+        border-radius: 8px !important;
+        padding: 0.55rem 0.85rem !important;
+        font-size: 0.75rem !important;
+        font-weight: 500;
+        transition: transform 0.12s ease, box-shadow 0.12s ease;
+    }
+    .o_bc_slot_free {
+        cursor: pointer;
+        &:hover { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(16, 24, 40, 0.14); }
+    }
+    .o_bc_slot_busy { opacity: 0.75; cursor: not-allowed; }
+    .o_bc_slot_active {
+        outline: 2px solid #111827;
+        outline-offset: 1px;
+    }
+}
+
+.o_bc_legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-top: 0.85rem;
+    font-size: 0.8125rem;
+    color: #6b7280;
+
+    span { display: inline-flex; align-items: center; gap: 0.4rem; }
+    .o_bc_dot { width: 10px; height: 10px; border-radius: 3px; display: inline-block; }
+    .o_bc_dot_free { background: #7ed957; }
+    .o_bc_dot_busy { background: #e74c8b; }
+}
+
+.o_bc_summary {
+    border-radius: 8px;
+    padding: 0.6rem 0.85rem;
+    font-size: 0.8125rem;
+    line-height: 1.5;
+
+    &.o_bc_summary_idle { background: #f4f4f6; color: #9ca3af; }
+    &.o_bc_summary_ok   { background: #eef6ef; color: #2f6b3a; }
+    &.o_bc_summary_warn { background: #fdf3e7; color: #8a5a12; }
+    &.o_bc_summary_bad  { background: #fdeced; color: #a3242f; }
+
+    strong { font-weight: 600; }
+}
+
+.o_bc_actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 1.25rem;
+
+    .btn { border-radius: 8px; }
+}
+
+@media (max-width: 575px) {
+    .o_bc_card { padding: 1rem; }
+    .o_bc_actions { flex-direction: column-reverse; .btn { width: 100%; } }
+}
+
+.o_bc_who {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    white-space: nowrap;
+
+    .o_bc_avatar {
+        width: 24px;
+        height: 24px;
+        border-radius: 50%;
+        object-fit: cover;
+        flex: 0 0 24px;
+        background: #f4f4f6;
+    }
+}

@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Odoo's account module ships three invoice tiles: "Invoices to pay" in
+        the alert category, "Your Invoices" in the client category, and "Our
+        Invoices" (vendor bills). None are relevant to a tenant, who gets our
+        own Invoice History tile instead - but they are hidden only for
+        Business Center portal users. Deactivating the stock view outright
+        would strip them from every portal user in the database, including
+        ones with no BC role, and would not revert on uninstall.
+    -->
+    <template id="portal_my_home_invoice_hide_stock"
+              inherit_id="account.portal_my_home_invoice" priority="31">
+        <xpath expr="//div[@id='portal_alert_category']//t[@t-call='portal.portal_docs_entry']"
+               position="attributes">
+            <attribute name="t-if">not is_bc_portal_user</attribute>
+        </xpath>
+        <xpath expr="//div[@id='portal_client_category']//t[@t-set='icon'][@t-value=&quot;'/account/static/src/img/bill.svg'&quot;]/.."
+               position="attributes">
+            <attribute name="t-if">not is_bc_portal_user</attribute>
+        </xpath>
+        <xpath expr="//div[@id='portal_vendor_category']//t[@t-call='portal.portal_docs_entry']"
+               position="attributes">
+            <attribute name="t-if">not is_bc_portal_user</attribute>
+        </xpath>
+        <xpath expr="//div[hasclass('o_portal_docs')]" position="before">
+            <t t-set="is_bc_portal_user" t-value="request.env.user.has_group('business_center_portal.group_bc_tenant_admin') or request.env.user.has_group('business_center_portal.group_bc_tenant_employee')"/>
+        </xpath>
+    </template>
+
+    <!-- HOME TILE - only a Tenant Corporate Admin sees it -->
+    <template id="portal_my_home_invoice_history"
+              name="Portal My Home: Invoice History"
+              inherit_id="portal.portal_my_home" priority="32">
+        <xpath expr="//div[@id='portal_common_category']" position="inside">
+            <t t-if="request.env.user.has_group('business_center_portal.group_bc_tenant_admin')">
+                <t t-call="portal.portal_docs_entry">
+                    <t t-set="icon" t-value="'/account/static/src/img/bill.svg'"/>
+                    <t t-set="title">Invoice History</t>
+                    <t t-set="text">View and download your company's invoices</t>
+                    <t t-set="url" t-value="'/my/invoices'"/>
+                    <t t-set="placeholder_count" t-value="'invoice_count'"/>
+                </t>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- BREADCRUMB - "Invoices & Bills" is the wrong wording for a tenant -->
+    <template id="portal_breadcrumb_invoice_bc"
+              name="Portal Breadcrumb: Invoice History"
+              inherit_id="account.portal_my_home_menu_invoice" priority="32">
+        <xpath expr="//li[@name='invoices_breadcrumb']" position="replace">
+            <li name="invoices_breadcrumb" t-if="page_name == 'invoice'"
+                t-attf-class="breadcrumb-item #{'active ' if not invoice else ''}">
+                <a t-if="invoice" t-attf-href="/my/invoices?{{ keep_query() }}">Invoice History</a>
+                <t t-else="">Invoice History</t>
+            </li>
+        </xpath>
+    </template>
+
+</odoo>

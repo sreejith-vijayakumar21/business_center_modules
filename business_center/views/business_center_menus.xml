@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+    <!--Root-->
+    <menuitem id="business_center_menu_root"
+            name="Business Center"
+            groups="business_center.group_bc_user"
+            web_icon="business_center,static/description/icon.png"
+            sequence="1"/>
+
+    <!--Business Center Meeting Room Booking-->
+    <menuitem id="bc_booking_menu"
+            name="Bookings"
+            parent="business_center_menu_root"
+            sequence="10">
+
+        <menuitem id="business_center_booking_menu"
+                name="Bookings"
+                sequence="10"
+                action="action_business_center_booking"/>
+    </menuitem>
+
+    <!--Business Center-->
+    <menuitem id="bc_property_menu"
+            name="Properties"
+            parent="business_center_menu_root"
+            sequence="20">
+
+        <menuitem id="business_center_menu"
+                name="Business Centers"
+                sequence="10"
+                action="action_business_center"/>
+
+        <menuitem id="business_center_space_menu"
+                name="Spaces"
+                sequence="20"
+                action="action_business_center_space"/>
+
+        <menuitem id="business_center_desk_menu"
+                name="Desks"
+                sequence="30"
+                action="action_business_center_desk"/>
+
+    </menuitem>
+
+    <!--Business Center Contract-->
+    <menuitem id="bc_contract_menu"
+            name="Contracts"
+            parent="business_center_menu_root"
+            sequence="30">
+
+        <menuitem id="business_center_contract_menu"
+                name="Contracts"
+                sequence="10"
+                action="action_business_center_contract"/>
+
+        <menuitem id="business_center_tenant_menu"
+                name="Tenants"
+                sequence="20"
+                action="base.action_partner_customer_form"/>
+
+    </menuitem>
+
+    <!--Configuration-->
+    <menuitem id="business_center_configuration_menu"
+            name="Configuration"
+            sequence="50"
+            parent="business_center_menu_root"
+            groups="business_center.group_bc_manager">
+
+        <menuitem id="business_center_settings_menu"
+                name="Settings"
+                sequence="0"
+                action="action_business_center_config_settings"/>
+
+        <menuitem id="business_center_amenity_menu"
+                name="Amenities"
+                sequence="10"
+                action="action_business_center_amenity"/>
+
+    </menuitem>
+</odoo>

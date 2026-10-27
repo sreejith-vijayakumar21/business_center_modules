@@ -1,0 +1,176 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- FORM VIEW -->
+    <record id="business_center_contract_view_form" model="ir.ui.view">
+        <field name="name">business.center.contract.view.form</field>
+        <field name="model">business.center.contract</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_create_invoice" type="object"
+                            string="Create Invoice"
+                            groups="business_center.group_bc_manager"
+                            invisible="state not in ('active', 'expired')"/>
+                    <button name="action_renew" type="object" string="Renew"
+                            groups="business_center.group_bc_manager"
+                            invisible="state not in ('active', 'expired') or renewal_contract_id"/>
+                    <button name="action_send_expiry_reminder" type="object"
+                            string="Send Expiry Reminder"
+                            invisible="state != 'active' or not send_expiry_reminder"
+                            confirm="Send the renewal reminder to this tenant now?"/>
+                    <field name="send_expiry_reminder" invisible="1"/>
+                    <button name="action_set_confirm" type="object"
+                            string="Confirm"
+                            groups="business_center.group_bc_manager"
+                            invisible="state != 'draft'"/>
+                    <button name="action_set_cancel" type="object" string="Cancel"
+                            groups="business_center.group_bc_manager"
+                            invisible="state not in ('draft', 'upcoming', 'active')"/>
+                    <button name="action_set_draft" type="object" string="Reset to Draft"
+                            groups="business_center.group_bc_manager"
+                            invisible="state not in ('upcoming', 'active', 'cancelled')"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,upcoming,active,expired,cancelled"/>
+                    <field name="is_wallet_eligible" invisible="1"/>
+                </header>
+                <sheet>
+                    <!-- Smart buttons -->
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_invoices" type="object"
+                                class="oe_stat_button" icon="fa-pencil-square-o"
+                                groups="business_center.group_bc_manager">
+                            <field name="invoice_count" widget="statinfo" string="Invoices"/>
+                        </button>
+                    </div>
+
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <group string="Tenant &amp; Contacts">
+                            <field name="partner_id" readonly="state != 'draft'"/>
+                            <field name="contact_ids" widget="many2many_tags"/>
+                        </group>
+
+                        <group string="Contract Period">
+                            <field name="date_start" readonly="state != 'draft'"/>
+                            <field name="date_end" readonly="state != 'draft'"/>
+                        </group>
+                    </group>
+                    <group string="Renewal &amp; Reminders">
+                        <group>
+                            <field name="auto_renew"/>
+                              <field name="renewal_increase_pct" invisible="not auto_renew"/>
+                            <field name="renewal_contract_id" invisible="not renewal_contract_id"/>
+                            <field name="previous_contract_id" invisible="not previous_contract_id"/>
+                            <field name="send_expiry_reminder"/>
+                        </group>
+                        <group>
+                            <field name="expiry_reminder_days"
+                                    invisible="not send_expiry_reminder"/>
+                            <field name="expiry_reminder_date" readonly="1"
+                                    invisible="not send_expiry_reminder"/>
+                            <field name="expiry_reminder_sent_date" readonly="1"
+                                    invisible="not expiry_reminder_sent_date"/>
+                            <field name="expiry_reminder_template_id"
+                                    invisible="1"
+                                    groups="base.group_no_one"/>
+                        </group>
+                    </group>
+
+                    <notebook>
+                        <page string="Leased Assets" name="leased_assets">
+                            <field name="leased_asset_ids" mode="kanban"
+                            context="{'default_contract_id': id,
+                            'kanban_view_ref': 'business_center.business_center_leased_asset_view_kanban',
+                            'form_view_ref': 'business_center.business_center_leased_asset_view_form'}"
+                            readonly="state != 'draft' or not date_start or not date_end"/>
+
+                            <group string="Security Deposit" class="mt-3">
+                                <group>
+                                    <field name="currency_id" invisible="1"/>
+                                    <field name="deposit_amount" widget="monetary"
+                                           readonly="state != 'draft'"/>
+                                    <field name="deposit_invoice_id"
+                                           invisible="not deposit_invoice_id"
+                                           groups="business_center.group_bc_manager"/>
+                                    <field name="deposit_refund_id"
+                                           invisible="not deposit_refund_id"
+                                           groups="business_center.group_bc_manager"/>
+                                </group>
+                            </group>
+
+                            <group string="Free-Hours Wallet"
+                                   invisible="not is_wallet_eligible" class="mt-3">
+                                <group>
+                                    <field name="free_hours_monthly"
+                                           readonly="state != 'draft'"/>
+                                    <field name="wallet_balance"
+                                           invisible="state == 'draft'"/>
+                                </group>
+                                <group>
+                                    <field name="last_wallet_reset_date"
+                                           invisible="state == 'draft'"/>
+                                </group>
+                            </group>
+
+                            <div class="alert alert-info mt-3" role="alert"
+                                 invisible="is_wallet_eligible or not leased_asset_ids">
+                                This contract leases desks only. Free meeting-room
+                                hours apply to contracts holding at least one office
+                                space.
+                            </div>
+                        </page>
+                        <page string="Charges" name="charges">
+                            <field name="charge_ids" mode="list"
+                            options="{'create': False}"
+                            context="{'default_center_id': id,
+                                    'list_view_ref': 'business_center.business_center_contract_charge_view_list'}"/>
+                        </page>
+
+                        <page string="Terms &amp; Conditions" name="terms">
+                            <field name="note" placeholder="Contract terms and conditions..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- LIST VIEW -->
+    <record id="business_center_contract_view_tree" model="ir.ui.view">
+        <field name="name">business.center.contract.view.tree</field>
+        <field name="model">business.center.contract</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="leased_asset_ids" widget="many2many_tags"
+                       options="{'color_field': 'color'}"
+                       string="Leased Assets"/>
+                <field name="date_start"/>
+                <field name="date_end" readonly="1"/>
+                <field name="company_id"/>
+                <field name="auto_renew"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-primary="state == 'upcoming'"
+                       decoration-success="state == 'active'"
+                       decoration-warning="state == 'cancelled'"
+                       decoration-danger="state == 'expired'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ACTION -->
+    <record id="action_business_center_contract" model="ir.actions.act_window">
+        <field name="name">Business Center Contract</field>
+        <field name="res_model">business.center.contract</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>

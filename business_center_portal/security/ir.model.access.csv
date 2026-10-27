@@ -1,0 +1,10 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_bc_center_tenant,bc.center.tenant,business_center.model_business_center,group_bc_tenant_admin,1,0,0,0
+access_bc_floor_tenant,bc.floor.tenant,business_center.model_business_center_floor,group_bc_tenant_admin,1,0,0,0
+access_bc_space_tenant,bc.space.tenant,business_center.model_business_center_space,group_bc_tenant_admin,1,0,0,0
+access_bc_desk_tenant,bc.desk.tenant,business_center.model_business_center_desk,group_bc_tenant_admin,1,0,0,0
+access_bc_amenity_tenant,bc.amenity.tenant,business_center.model_business_center_amenity,group_bc_tenant_admin,1,0,0,0
+access_bc_contract_tenant,bc.contract.tenant,business_center.model_business_center_contract,group_bc_tenant_admin,1,0,0,0
+access_bc_leased_asset_tenant,bc.leased.asset.tenant,business_center.model_business_center_leased_asset,group_bc_tenant_admin,1,0,0,0
+access_bc_charge_tenant,bc.charge.tenant,business_center.model_business_center_contract_charge,group_bc_tenant_admin,1,0,0,0
+access_bc_booking_tenant,bc.booking.tenant,business_center.model_business_center_booking,group_bc_tenant_employee,1,1,1,0

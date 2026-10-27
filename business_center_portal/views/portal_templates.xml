@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!--
+        Base changes to the /my home page.
+        This file only removes the standard Odoo tiles we do not want.
+        The tiles we add live in the contract and booking template files.
+    -->
+    <template id="portal_my_home_business_center"
+              name="Portal My Home: Business Center"
+              inherit_id="portal.portal_my_home" priority="30">
+
+        <xpath expr="//t[@t-call='portal.portal_docs_entry'][t[@t-set='url' and contains(@t-value, '/my/addresses')]]"
+               position="replace"/>
+        <xpath expr="//t[@t-call='portal.portal_docs_entry'][t[@t-set='url' and contains(@t-value, '/my/orders')]]"
+               position="replace"/>
+        <xpath expr="//t[@t-call='portal.portal_docs_entry'][t[@t-set='url' and contains(@t-value, '/my/security')]]"
+               position="replace"/>
+
+    </template>
+
+</odoo>

@@ -1,0 +1,301 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- FORM VIEW -->
+    <record id="business_center_space_view_form" model="ir.ui.view">
+        <field name="name">business.center.space.view.form</field>
+        <field name="model">business.center.space</field>
+        <field name="arch" type="xml">
+            <form>
+            <header>
+                <button name="action_set_occupied" type="object"
+                        string="Set Occupied" class="btn-primary"
+                        groups="business_center.group_bc_manager"
+                        invisible="state == 'occupied' or not current_contract_id"/>
+                <button name="action_set_available" type="object"
+                        string="Set Available"
+                        groups="business_center.group_bc_manager"
+                        invisible="state in ('available', 'occupied')"/>
+                <button name="action_set_maintenance" type="object"
+                        string="Maintenance"
+                        groups="business_center.group_bc_manager"
+                        invisible="state in ('draft', 'maintenance')"/>
+                <button name="action_set_draft" type="object"
+                        string="Reset to Draft" class="btn-secondary"
+                        groups="business_center.group_bc_manager"
+                        invisible="state == 'draft'"/>
+                <button name="action_toggle_bookable" type="object"
+                        string="Withdraw from Booking"
+                        groups="business_center.group_bc_manager"
+                        invisible="space_type != 'meeting_room' or not is_bookable or state == 'draft'"/>
+                <button name="action_toggle_bookable" type="object"
+                        string="Open for Booking" class="btn-primary"
+                        groups="business_center.group_bc_manager"
+                        invisible="space_type != 'meeting_room' or is_bookable or state == 'draft'"/>
+                <field name="space_type" invisible="1"/>
+                <field name="state" widget="statusbar" statusbar_visible="draft,available,occupied,maintenance"/>
+            </header>
+                <sheet readonly="state != 'draft'">
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_contracts"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-file-text-o">
+                            <field name="contract_count" 
+                                   widget="statinfo" 
+                                   string="Contracts"/>
+                        </button>
+                    </div>
+                    <field name="image_1920" widget="image"
+                           class="oe_avatar"
+                           options="{'size': [160, 160]}"/>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <group string="Location &amp; Setup">
+                            <field name="space_type" string="Space Type" widget="radio"
+                                   options="{'horizontal': True}"
+                                   readonly="is_coworking"
+                                   help="Untick Coworking to change the space type."/>
+                            <field name="center_id" readonly="context.get('default_center_id', False)"/>
+                            <field name="floor_id"/>
+                            <field name="is_coworking" invisible="space_type != 'office'"
+                                   readonly="desk_ids"
+                                   help="Remove all desks before unticking Coworking."/>
+                            <field name="company_id"/>
+                        </group>
+
+                        <group string="Occupancy &amp; Status" readonly="state != 'occupied'" invisible="is_coworking">
+                            <field name="occupant_id" readonly="1"/>
+                            <field name="current_contract_id" domain="[('id', 'in', contract_ids)]"
+                            readonly="1"/>
+                            <field name="contract_period_display" readonly="1"/>
+                            <field name="contract_ids" invisible="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Desks" name="desks" invisible="not is_coworking">
+                            <div class="alert alert-info d-flex align-items-center"
+                                 role="alert" invisible="id">
+                                <i class="fa fa-info-circle fa-lg me-2"/>
+                                <span>
+                                    Save this space before adding desks —
+                                    desks are numbered from the center code and floor.
+                                </span>
+                            </div>
+                            <field name="desk_ids" readonly="not id" mode="kanban"
+                                    context="{'default_space_id': id,
+                                    'kanban_view_ref': 'business_center.business_center_desk_view_kanban',
+                                    'form_view_ref': 'business_center.business_center_desk_view_form'}"/>
+                        </page>
+                        <page string="Pricing &amp; Booking" name="pricing_booking"
+                            invisible="is_coworking and space_type != 'meeting_room'">
+                            <group>
+                                <group string="Rates">
+                                    <field name="monthly_rent" widget="monetary"
+                                        invisible="is_coworking or space_type != 'office'"/>
+                                    <field name="hourly_rate" widget="monetary"
+                                        invisible="space_type != 'meeting_room'"/>
+                                </group>
+                                <group string="Contract Terms" invisible="space_type != 'office'">
+                                    <field name="is_lock_period"/>
+                                    <label for="min_lock_period" string="Min Contract Lock Period" invisible="not is_lock_period"/>
+                                    <div class="o_row">
+                                        <field name="min_lock_period" nolabel="1" invisible="not is_lock_period"/>
+                                        <field name="min_lock_period_unit" nolabel="1" invisible="not is_lock_period"/>
+                                    </div>
+                                </group>
+                                <group string="Booking Rules" invisible="space_type != 'meeting_room'">
+                                    <field name="is_bookable"/>
+                                    <field name="min_booking_hour" widget="float_time"
+                                            placeholder="e.g. 14:30"
+                                            help="Enter in 24-hour format, HH:MM. E.g. 2:30 PM = 14:30."/>
+                                    <field name="max_booking_hour" widget="float_time"
+                                            placeholder="e.g. 16:00"
+                                            help="Enter in 24-hour format, HH:MM. E.g. 4:00 PM = 16:00."/>
+                                    <field name="operating_hours_display"/>
+                                </group>
+                            </group>
+                        </page>
+                        <page string="Space Specifications" name="specifications">
+                            <group>
+                                <group>
+                                    <field name="area_sqm"/>
+                                    <field name="capacity"/>
+                                </group>
+                            </group>
+                        </page>
+
+                        <page string="Amenities" invisible="is_coworking">
+                            <field name="amenity_ids" mode="kanban">
+                                <kanban>
+                                    <templates>
+                                        <t t-name="card">
+                                            <div class="d-flex align-items-center">
+                                                <field name="icon" widget="image"
+                                                options="{'size': [24, 24]}" class="me-2"/>
+                                                <field name="name"/>
+                                            </div>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                            </field>
+                        </page>
+                        <page string="Gallery">
+                            <field name="gallery_attachment_ids" mode="kanban" nolabel="1">
+                                <kanban>
+                                    <field name="id"/>
+                                    <field name="name"/>
+                                    <field name="mimetype"/>
+                                    <templates>
+                                        <t t-name="card">
+                                            <div class="o_kanban_global_click p-1">
+                                                <img t-att-src="'/web/image/' + record.id.raw_value"
+                                                    class="w-100 rounded object-fit-cover border"
+                                                    style="height: 140px; width: 140px;"
+                                                    t-att-alt="record.name.value"
+                                                    t-att-title="record.name.value"/>
+                                            </div>
+                                        </t>
+                                    </templates>
+                                </kanban>
+                            </field>
+                            <field name="attachment_ids" widget="many2many_binary" class="oe_inline"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- LIST VIEW -->
+    <record id="business_center_space_view_tree" model="ir.ui.view">
+        <field name="name">business.center.space.view.tree</field>
+        <field name="model">business.center.space</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="image_1920" widget="image" class="oe_avatar" options="{'size': [40, 40]}"/>
+                <field name="name"/>
+                <field name="space_type"/>
+                <field name="center_id"/>
+                <field name="company_id"/>
+                <field name="floor_id"/>
+                <field name="desk_count"/>
+                <field name="occupant_id"/>
+                <field name="state" widget="badge"
+                    decoration-info="state == 'draft'"
+                    decoration-success="state == 'available'"
+                    decoration-warning="state == 'maintenance'"
+                    decoration-danger="state == 'occupied'"/>
+            </list>
+        </field>
+    </record>
+
+ <!-- KANBAN VIEW -->
+    <record id="business_center_space_view_kanban" model="ir.ui.view">
+        <field name="name">business.center.space.view.kanban</field>
+        <field name="model">business.center.space</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state">
+                <field name="name"/>
+                <field name="center_id"/>
+                <field name="capacity"/>
+                <field name="desk_count"/>
+                <field name="occupant_id"/>
+                <field name="occupied_desk_count"/>
+                <field name="monthly_rent"/>
+                <field name="hourly_rate"/>
+                <field name="state"/>
+                <field name="space_type"/>
+                <field name="is_coworking"/>
+                <field name="contract_period_display"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex">
+                            <aside class="me-3">
+                                <t t-set="is_office" t-value="record.space_type.raw_value == 'office'"/>
+                                <t t-set="is_cowork" t-value="record.is_coworking.raw_value"/>
+                                <div class="d-flex align-items-center justify-content-center rounded-3 text-white fw-bold"
+                                    t-att-style="'width:52px; height:52px; font-size:18px; background-color:#' + (
+                                        is_office and is_cowork ? '9C27B0' :
+                                        is_office ? '017E84' : 'D9822B') + ';'">
+                                    <t t-if="is_office and is_cowork">CO</t>
+                                    <t t-elif="is_office">O</t>
+                                    <t t-else="">M</t>
+                                </div>
+                            </aside>
+                            <!-- Details -->
+                            <main class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <strong class="fs-6">
+                                        <field name="name"/>
+                                    </strong>
+                                    <field name="state" widget="label_selection"
+                                        options="{'classes': {'available': 'success', 'occupied': 'info', 'maintenance': 'warning'}}"/>
+                                </div>
+                                <t t-if="record.state.raw_value == 'occupied' and record.occupant_id.raw_value">
+                                    <div class="text-muted small mb-1">
+                                        <i class="fa fa-hashtag fa-fw me-2 text-secondary" title="Space Reference"/>
+                                        <field name="occupant_id"/>
+                                    </div>
+                                </t>
+
+                                <div class="text-muted small mb-1">
+                                    <i class="fa fa-building-o fa-fw me-2 text-primary" title="Business Center"/>
+                                    <field name="center_id"/>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <!-- LEFT: desks or seats -->
+                                    <span class="text-muted small">
+                                        <t t-if="is_office and is_cowork">
+                                            <i class="fa fa-th-large fa-fw me-2 text-info" title="Desk Occupancy"/>
+                                            <span class="text-muted">Desks:</span>
+                                            <field name="occupied_desk_count"/> / <field name="desk_count"/>
+                                            <span class="text-muted small ms-1">occupied</span>
+                                        </t>
+                                        <t t-else="">
+                                            <i class="fa fa-users fa-fw me-2 text-info" title="Seats"/>
+                                            <span class="text-muted">Seats:</span>
+                                            <field name="capacity"/>
+                                        </t>
+                                    </span>
+                                    <!-- RIGHT: rent or hourly rate -->
+                                    <span>
+                                        <span invisible="space_type == 'meeting_room' or (space_type == 'office' and is_coworking)">
+                                            <i class="fa fa-money fa-fw me-2 text-success" title="Monthly Rent"/>
+                                            <field name="monthly_rent" widget="monetary"/>
+                                            <span class="text-muted small">/ month</span>
+                                        </span>
+                                        <span invisible="space_type != 'meeting_room'">
+                                            <i class="fa fa-money fa-fw me-2 text-success" title="Hourly Rate"/>
+                                            <field name="hourly_rate" widget="monetary"/>
+                                            <span class="text-muted small">/ hour</span>
+                                        </span>
+                                    </span>
+                                </div>
+                                <t t-if="record.state.raw_value == 'occupied' and record.contract_period_display.raw_value">
+                                    <div class="text-muted small mb-1">
+                                        <i class="fa fa-calendar-check-o fa-fw me-2 text-warning" title="Contract Period"/>
+                                        <field name="contract_period_display"/>
+                                    </div>
+                                </t>
+                            </main>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+    <!-- ACTION -->
+    <record id="action_business_center_space" model="ir.actions.act_window">
+        <field name="name">Business Center Space</field>
+        <field name="res_model">business.center.space</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+</odoo>

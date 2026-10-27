@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.business.center</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//form" position="inside">
+                <app string="Business Center" name="business_center"
+                     logo="/business_center/static/description/icon.png">
+                    <block title="Contracts" name="bc_contract_setting">
+                        <setting string="Expiry Reminder Lead Days"
+                                help="Days before a contract ends that the renewal reminder is sent. Individual contracts can override this.">
+                            <field name="bc_expiry_reminder_days"/>
+                        </setting>
+                        <setting string="Default Renewal Rent Increase (%)"
+                                help="Applied to the rent when a contract renews. Each contract can override it; use 0 to renew at the same rent.">
+                            <field name="bc_renewal_increase_pct"/>
+                        </setting>
+                    </block>
+                    <block title="Bookings" name="bc_booking_setting">
+                        <setting string="Timezone"
+                                help="Booking dates and times are compared in this timezone, including for portal users.">
+                            <field name="bc_timezone" class="w-100"/>
+                        </setting>
+                    </block>
+                </app>
+            </xpath>
+        </field>
+    </record>
+
+    <record id="action_business_center_config_settings" model="ir.actions.act_window">
+        <field name="name">Settings</field>
+        <field name="res_model">res.config.settings</field>
+        <field name="view_mode">form</field>
+        <field name="context">{'module': 'business_center'}</field>
+    </record>
+
+</odoo>

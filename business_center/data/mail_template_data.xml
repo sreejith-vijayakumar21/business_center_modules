@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <record id="mail_template_contract_expiry_reminder" model="mail.template">
+            <field name="name">Business Center: Contract Expiry Reminder</field>
+            <field name="model_id" ref="model_business_center_contract"/>
+            <field name="subject">Renewal of contract {{ object.name }}</field>
+            <field name="email_from">{{ object.company_id.email_formatted or user.email_formatted }}</field>
+            <field name="lang">{{ object.partner_id.lang }}</field>
+            <field name="auto_delete" eval="False"/>
+            <field name="body_html" type="html">
+                <div style="margin:0px;padding:0px;">
+                    <p>Dear <t t-out="object.partner_id.name or ''">Customer</t>,</p>
+                    <p>
+                        Your agreement <strong t-out="object.name or ''"/> with
+                        <t t-out="object.company_id.name or ''"/> is due to end on
+                        <strong t-out="format_date(object.date_end) or ''"/>.
+                    </p>
+                    <p>It covers the following:</p>
+                    <ul>
+                        <li t-foreach="object.leased_asset_ids" t-as="asset">
+                            <t t-out="asset.display_name or ''"/>
+                        </li>
+                    </ul>
+                    <p>
+                        Please let us know whether you would like to continue for
+                        a further term. Replying to this email is enough — your
+                        response reaches us directly.
+                    </p>
+                    <p>
+                        Kind regards,<br/>
+                        <t t-out="object.company_id.name or ''"/>
+                    </p>
+                </div>
+            </field>
+        </record>
+
+    </data>
+</odoo>

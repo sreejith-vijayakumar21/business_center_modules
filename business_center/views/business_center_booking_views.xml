@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- FORM VIEW -->
+    <record id="business_center_booking_view_form" model="ir.ui.view">
+        <field name="name">business.center.booking.view.form</field>
+        <field name="model">business.center.booking</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_confirm" string="Confirm" type="object"
+                            class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_cancel" string="Cancel" type="object"
+                            invisible="state not in ('draft', 'confirmed')"/>
+                    <button name="action_reset_to_draft" string="Reset to Draft" type="object"
+                            invisible="state != 'cancelled'"/>
+                    <field name="state" widget="statusbar"
+                        statusbar_visible="draft,confirmed,cancelled"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+                    <group>
+                        <group string="Booking Details">
+                            <field name="contract_id"/>
+                            <field name="center_id" readonly="1" invisible="not contract_id"/>
+                            <field name="meeting_room_id" readonly="not contract_id"/>
+                        </group>
+                        <group string="Schedule">
+                            <field name="booking_date"/>
+                            <field name="operating_time"/>
+                            <field name="slot_availability_html" widget="html" nolabel="1" colspan="2"
+                               invisible="not meeting_room_id or not booking_date"/>
+                            <field name="start_time" widget="float_time"
+                                placeholder="e.g. 14:30"
+                                help="Enter in 24-hour format, HH:MM. E.g. 2:30 PM = 14:30."/>
+                            <field name="end_time" widget="float_time"
+                                placeholder="e.g. 16:00"
+                                help="Enter in 24-hour format, HH:MM. E.g. 4:00 PM = 16:00."/>
+                            <field name="selected_slot_display" invisible="not start_time and not end_time"/>
+                        </group>
+                        <group string="Wallet &amp; Charges">
+                            <field name="total_wallet_credits" string="Wallet Balance"/>
+                            <field name="balance_wallet_credits" string="Balance After Booking (hrs)" invisible="total_wallet_credits == 0"/>
+                            <field name="charge_per_hr"/>
+                            <field name="chargeable_hours" invisible="1"/>
+                            <field name="chargeable_hours_display"/>
+                            <field name="overage_amount" string="Extra Charge"/>
+                            <field name="currency_id" invisible="1"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- LIST VIEW -->
+    <record id="business_center_booking_view_tree" model="ir.ui.view">
+        <field name="name">business.center.booking.view.tree</field>
+        <field name="model">business.center.booking</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="meeting_room_id"/>
+                <field name="contract_id"/>
+                <field name="center_id" optional="hide"/>
+                <field name="booking_date"/>
+                <field name="start_time" widget="float_time"/>
+                <field name="end_time" widget="float_time"/>
+                <field name="total_wallet_credits"/>
+                <field name="balance_wallet_credits"/>
+                <field name="chargeable_hours" invisible="1"/>
+                <field name="chargeable_hours_display"/>
+                <field name="overage_amount" string="Extra Charge"/>
+                <field name="state" widget="badge"
+                    decoration-info="state == 'draft'"
+                    decoration-success="state == 'confirmed'"
+                    decoration-warning="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ACTION -->
+    <record id="action_business_center_booking" model="ir.actions.act_window">
+        <field name="name">Business Center Booking</field>
+        <field name="res_model">business.center.booking</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>

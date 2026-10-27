@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="group_bc_tenant_employee" model="res.groups">
+        <field name="name">Tenant Employee</field>
+        <field name="implied_ids" eval="[(4, ref('base.group_portal'))]"/>
+    </record>
+
+    <record id="group_bc_tenant_admin" model="res.groups">
+        <field name="name">Tenant Corporate Admin</field>
+        <field name="implied_ids" eval="[(4, ref('group_bc_tenant_employee'))]"/>
+    </record>
+</odoo>

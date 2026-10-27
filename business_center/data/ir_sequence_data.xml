@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+
+    <record id="seq_business_center" model="ir.sequence">
+        <field name="name">Business Center</field>
+        <field name="code">business.center</field>
+        <field name="prefix">BC</field>
+        <field name="padding">2</field>
+        <field name="number_next">1</field>
+        <field name="number_increment">1</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <record id="seq_business_center_contract" model="ir.sequence">
+        <field name="name">Business Center Contract</field>
+        <field name="code">business.center.contract</field>
+        <field name="prefix">CT/%(year)s/</field>
+        <field name="padding">5</field>
+        <field name="number_next">1</field>
+        <field name="number_increment">1</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+    <record id="seq_business_center_booking" model="ir.sequence">
+        <field name="name">Business Center Booking</field>
+        <field name="code">business.center.booking</field>
+        <field name="prefix">B/%(year)s/M</field>
+        <field name="padding">5</field>
+        <field name="number_next">1</field>
+        <field name="number_increment">1</field>
+        <field name="company_id" eval="False"/>
+    </record>
+
+</odoo>

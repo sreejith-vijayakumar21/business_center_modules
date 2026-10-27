@@ -1,0 +1,186 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- FORM VIEW -->
+    <record id="business_center_desk_view_form" model="ir.ui.view">
+        <field name="name">business.center.desk.view.form</field>
+        <field name="model">business.center.desk</field>
+        <field name="arch" type="xml">
+            <form>
+            <header>
+                <button name="action_set_occupied" type="object"
+                        string="Set Occupied" class="btn-primary"
+                        groups="business_center.group_bc_manager"
+                        invisible="state == 'occupied' or not current_contract_id"/>
+                <button name="action_set_available" type="object"
+                        string="Set Available"
+                        groups="business_center.group_bc_manager"
+                        invisible="state in ('available', 'occupied')"/>
+                <button name="action_set_maintenance" type="object"
+                        string="Maintenance"
+                        groups="business_center.group_bc_manager"
+                        invisible="state in ('draft', 'maintenance')"/>
+                <button name="action_set_draft" type="object"
+                        string="Reset to Draft" class="btn-secondary"
+                        groups="business_center.group_bc_manager"
+                        invisible="state == 'draft'"/>
+                <field name="state" widget="statusbar" statusbar_visible="draft,available,occupied,maintenance"/>
+            </header>
+                <sheet readonly="state != 'draft'">
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_open_desk_contracts"
+                                type="object"
+                                class="oe_stat_button"
+                                icon="fa-file-text-o">
+                            <field name="desk_contract_count" 
+                                   widget="statinfo" 
+                                   string="Contracts"/>
+                        </button>
+                    </div>
+                    <div class="oe_title">
+                        <h1>
+                            <field name="name" readonly="1"/>
+                        </h1>
+                    </div>
+
+                    <group>
+                        <group string="Location &amp; Setup">
+                            <field name="space_id"
+                                   readonly="context.get('default_space_id', False)"
+                                   force_save="1"
+                                   options="{'no_create': True}"/>
+                            <field name="center_id"/>
+                            <field name="floor_id"/>
+                            <field name="row_label"/>
+                            <field name="position"/>
+                            <field name="company_id"/>
+                            <field name="active"/>
+                        </group>
+
+                        <group string="Occupancy &amp; Status">
+                            <field name="occupant_id" readonly="1"/>
+                            <field name="current_contract_id" readonly="1"/>
+                            <field name="contract_period_display" readonly="1"/>
+                        </group>
+                    </group>
+
+                    <group>
+                        <group string="Pricing &amp; Booking">
+                            <field name="monthly_rent" widget="monetary"/>
+                        </group>
+                        <group string="Contract Terms">
+                            <field name="is_lock_period"/>
+                            <label for="min_lock_period" string="Min Contract Lock Period" invisible="not is_lock_period"/>
+                            <div class="o_row">
+                                <field name="min_lock_period" nolabel="1" invisible="not is_lock_period"/>
+                                <field name="min_lock_period_unit" nolabel="1" invisible="not is_lock_period"/>
+                            </div>
+                        </group>
+                    </group>
+                </sheet>
+            <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- LIST VIEW -->
+    <record id="business_center_desk_view_list" model="ir.ui.view">
+        <field name="name">business.center.desk.view.list</field>
+        <field name="model">business.center.desk</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name" string="Desk"/>
+                <field name="center_id" string="Center"/>
+                <field name="space_id" string="Space"/>
+                <field name="floor_id" string="Floor" optional="show"/>
+                <field name="occupant_id" string="Occupant" optional="show"/>
+                <field name="current_contract_id" string="Contract" optional="hide"/>
+                <field name="monthly_rent" widget="monetary" sum="Total Rent"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="state" widget="badge"
+                    decoration-success="state == 'available'"
+                    decoration-info="state == 'occupied'"
+                    decoration-warning="state == 'maintenance'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- KANBAN VIEW -->
+    <record id="business_center_desk_view_kanban" model="ir.ui.view">
+        <field name="name">business.center.desk.view.kanban</field>
+        <field name="model">business.center.desk</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state">
+                <field name="name"/>
+                <field name="center_id"/>
+                <field name="space_id"/>
+                <field name="occupant_id"/>
+                <field name="monthly_rent"/>
+                <field name="state"/>
+                <field name="contract_period_display"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex">
+                            <!-- Icon avatar (desktop for Desk) -->
+                            <aside class="me-2">
+                                <div class="d-flex align-items-center justify-content-center rounded-3 text-white"
+                                    style="width:48px; height:48px; background-color:#670675; font-size:20px;">
+                                    <i class="fa fa-desktop" title="Desk"/>
+                                </div>
+                            </aside>
+
+                            <!-- Details -->
+                            <main class="flex-grow-1">
+                                <div class="d-flex justify-content-between align-items-start">
+                                    <strong class="fs-6">
+                                        <field name="name"/>
+                                    </strong>
+                                    <field name="state" widget="label_selection"
+                                        options="{'classes': {'available': 'success', 'occupied': 'info', 'maintenance': 'warning'}}"/>
+                                </div>
+                                <t t-if="record.state.raw_value == 'occupied' and record.occupant_id.raw_value">
+                                    <div class="text-muted small mb-1">
+                                        <i class="fa fa-hashtag fa-fw me-2 text-secondary" title="Desk Reference"/>
+                                        <field name="occupant_id"/>
+                                    </div>
+                                </t>
+                                <div class="text-muted small mb-1">
+                                    <i class="fa fa-building-o fa-fw me-2 text-primary" title="Business Center"/>
+                                    <field name="center_id"/>
+                                </div>
+                                <div class="d-flex justify-content-between align-items-center mb-1">
+                                    <!-- LEFT: space -->
+                                    <span class="text-muted small">
+                                        <i class="fa fa-th-large fa-fw me-2 text-info" title="Space"/>
+                                        <field name="space_id"/>
+                                    </span>
+                                    <!-- RIGHT: monthly rent -->
+                                    <span class="small">
+                                        <i class="fa fa-money fa-fw me-2 text-success" title="Monthly Rent"/>
+                                        <field name="monthly_rent" widget="monetary"/>
+                                        <span class="text-muted">/ month</span>
+                                    </span>
+                                </div>
+
+                                <t t-if="record.state.raw_value == 'occupied' and record.contract_period_display.raw_value">
+                                    <div class="text-muted small mb-1">
+                                        <i class="fa fa-calendar-check-o fa-fw me-2 text-warning" title="Contract Period"/>
+                                        <field name="contract_period_display"/>
+                                    </div>
+                                </t>
+                            </main>
+                        </div>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- ACTION -->
+    <record id="action_business_center_desk" model="ir.actions.act_window">
+        <field name="name">Business Center Desk</field>
+        <field name="res_model">business.center.desk</field>
+        <field name="view_mode">kanban,list,form</field>
+    </record>
+
+</odoo>

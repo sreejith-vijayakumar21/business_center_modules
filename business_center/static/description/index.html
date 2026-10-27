@@ -1,0 +1,657 @@
+<!DOCTYPE html>
+<html lang="en">
+   <head>
+      <meta charset="UTF-8">
+      <meta name="viewport" content="width=device-width, initial-scale=1.0">
+      <title>Business Center &amp; Co-Working Space Management</title>
+      <!-- Font Awesome CDN for Icons -->
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css">
+      <!-- Bootstrap CSS -->
+      <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
+      <style>
+        /* General Styles */
+         body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f9fbff;
+         }
+         .bc-table {
+            width: 100%;
+            max-width: 900px;
+            margin: 20px auto 10px auto;
+            background-color: #ffffff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0px 0px 10px 0px #9ec6ba75;
+            font-size: 16px;
+            color: #5c5f6e;
+         }
+         .bc-table th {
+            background-color: #65488c;
+            color: #ffffff;
+            padding: 12px 16px;
+            text-align: left;
+         }
+         .bc-table td {
+            padding: 12px 16px;
+            text-align: left;
+            border-top: 1px solid #e6e2ee;
+         }
+         .bc-table td:first-child {
+            font-weight: 700;
+            color: #593987;
+         }
+      </style>
+   </head>
+   <body>
+      <script src="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.3/js/bootstrap.min.js"></script>
+      <div class="main-body">
+
+      <!-- ================= HERO ================= -->
+      <section class="container">
+               <div class="position-relative pt-5 pb-5">
+                <div class="row position-relative justify-content-center">
+                  <h1 class="mb-2 col-12" style="font-weight:700; font-size:50px; line-height:60px; text-align:center; color:#171618">
+                    <span style="color:#be5fa5">Business Center &amp; Co-Working </span>Space Management for Odoo
+                  </h1>
+                  <p style="text-align:center; font-weight:400; font-size:16px; line-height:25px; color:#171618" class="mb-4 col-lg-10 col-12">
+The Business Center module turns a business centre or co-working operation into a single connected system inside Odoo. Physical space, tenant agreements, meeting-room bookings and monthly billing all reference the same records, so occupancy, usage and revenue stay consistent without anyone reconciling them by hand.
+
+It replaces spreadsheets that track which office is occupied by whom, meeting rooms booked over email with double-bookings caught late, free meeting-room hours tracked manually, and invoices raised one tenant at a time with partial months calculated by hand.
+
+In their place you get a live inventory of centres, floors, offices and desks, a tenant portal for self-service meeting-room booking, automatic enforcement of free-hour allowances, nightly draft invoicing with prorated partial months, renewal reminders ahead of expiry, and automatic contract renewal with a configurable rent increase.
+                  </p>
+                </div>
+                <div class="position-relative row mx-auto justify-content-center">
+                  <div class="col-9">
+                    <div class="d-flex justify-content-center align-items-center flex-wrap gap-2">
+<div class="d-flex align-items-center" style="justify-content: center; width:30%;background-color:#65488c;border:2px solid #ffffff;border-radius:50px;padding:10px 20px;">
+                        <p style="color:#ffffff; font-size:1.6vw" class="mb-0">Community</p>
+                      </div>
+<div class="d-flex align-items-center" style="justify-content: center; width:30%;background-color:#65488c;border:2px solid #ffffff;border-radius:50px;padding:10px 20px;">
+                        <p style="color:#ffffff; font-size:1.6vw" class="mb-0">Enterprise</p>
+                      </div><div class="d-flex align-items-center" style="justify-content: center; width:30%;background-color:#65488c;border:2px solid #ffffff;border-radius:50px;padding:10px 20px;">
+                        <p style="color:#ffffff; font-size:1.6vw" class="mb-0">Odoo.sh</p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+         </section>
+
+         <!-- ================= KEY FEATURES ================= -->
+         <section class="container">
+         <div class="container features-highlight text-center pt-5">
+            <div class="row my-3 py-2" style="justify-content:center">
+               <h2 class="pt-5 mb-2 col-12" style="font-size:38px;font-weight:700;line-height: 40px;text-align:center;color:#171618">
+                  <span style="color:#be5fa5">Key Features </span>of Business Center for Odoo
+               </h2>
+               <div class="col-md-6 col-sm-6 feature-item p-1">
+                  <div class="box d-flex" style="padding: 40px;border-radius: 15px;background-color: #c1e0ed36;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/custom.png">
+                     <div class="box-in" style="text-align: left;">
+                         <h5 style="color: #593987;font-size: 24px;letter-spacing: -.4px;">Property Hierarchy &amp; Smart References</h5>
+                         <p style="margin: 0px;text-align: justify;">Model your property four levels deep &mdash; Business Centre, Floor, Space and Desk. References are generated from the hierarchy, so a meeting room on floor 1 of centre BC01 becomes BC01/F1/MS0019 and the reference alone tells you where the space is.</p>
+                     </div>
+                  </div>
+               </div>
+               <div class="col-md-6 col-sm-6 feature-item p-1">
+                  <div class="box d-flex" style="padding: 40px;border-radius: 15px;background-color: #c1e0ed36;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/responsive.png">
+                     <div class="box-in" style="text-align: left;">
+                        <h5 style="color: #593987;font-size: 24px;letter-spacing: -.4px;">Live Space &amp; Desk Inventory</h5>
+                        <p style="margin: 0px;text-align: justify;">Offices, co-working spaces, desks and meeting rooms move through Draft, Available, Occupied and Maintenance &mdash; driven by contracts, not edited by hand. Each record shows its current occupant and contract dates at a glance.</p>
+                     </div>
+                  </div>
+               </div>
+               <div class="col-md-6 col-sm-6 feature-item p-1">
+                  <div class="box d-flex" style="padding: 40px;border-radius: 15px;background-color: #c1e0ed36;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/booking.png">
+                     <div class="box-in" style="text-align: left;">
+                        <h5 style="color: #593987;font-size: 24px;letter-spacing: -.4px;">Tenant Contracts with One-Click Confirmation</h5>
+                        <p style="margin: 0px;text-align: justify;">Link a tenant company to the offices and desks they lease over a fixed date range. Confirming marks every asset Occupied, credits the free-hour wallet, sets the first billing date and moves the contract to Running or Upcoming.</p>
+                      </div>
+                 </div>
+               </div>
+               <div class="col-md-6 col-sm-6 feature-item p-1">
+                  <div class="box d-flex" style="padding: 40px;border-radius: 15px;background-color: #c1e0ed36;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/schedule.png">
+                     <div class="box-in" style="text-align: left;">
+                        <h5 style="color: #593987;font-size: 24px;letter-spacing: -.4px;">Free-Hour Meeting Room Wallet</h5>
+                        <p style="margin: 0px;text-align: justify;">Contracts with at least one office carry a monthly pool of free meeting-room hours, shared across the whole contract. The balance resets on the 1st of each month, and anything beyond it is automatically accrued as a billable charge.</p>
+                     </div>
+                  </div>
+               </div>
+               <div class="col-md-6 col-sm-6 feature-item p-1">
+                  <div class="box d-flex" style="padding: 40px;border-radius: 15px;background-color: #c1e0ed36;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/direction.png">
+                     <div class="box-in" style="text-align: left;">
+                        <h5 style="color: #593987;font-size: 24px;letter-spacing: -.4px;">Meeting Room Booking without Double-Bookings</h5>
+                        <p style="margin: 0px;text-align: justify;">A visual availability strip splits the day into free and busy blocks. Overlaps are blocked at three levels &mdash; the strip, the form and the database &mdash; so two people booking the same slot at the same moment can never both succeed.</p>
+                     </div>
+                  </div>
+               </div>
+               <div class="col-md-6 col-sm-6 feature-item p-1">
+                  <div class="box d-flex" style="padding: 40px;border-radius: 15px;background-color: #c1e0ed36;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/user.png">
+                     <div class="box-in" style="text-align: left;">
+                        <h5 style="color: #593987;font-size: 24px;letter-spacing: -.4px;">Self-Service Tenant Portal</h5>
+                        <p style="margin: 0px;text-align: justify;">Tenants log in to their own portal to book and cancel meeting rooms, see their remaining free hours and a live cost summary before committing, and &mdash; for corporate admins &mdash; view contracts and download invoices. Provided by the Business Center Portal add-on.</p>
+                     </div>
+                  </div>
+               </div>
+                <div class="col-md-6 col-sm-6 feature-item p-1">
+                  <div class="box d-flex" style="padding: 40px;border-radius: 15px;background-color: #c1e0ed36;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/cloud-server.png">
+                     <div class="box-in" style="text-align: left;">
+                        <h5 style="color: #593987;font-size: 24px;letter-spacing: -.4px;">Automated Monthly Billing with Proration</h5>
+                        <p style="margin: 0px;text-align: justify;">Draft invoices are raised overnight for every tenant due &mdash; one rent line per office and desk with the exact period covered, plus meeting-room overage. Partial months are prorated on days, and staff review the batch before posting.</p>
+                      </div>
+                 </div>
+               </div>
+               <div class="col-md-6 col-sm-6 feature-item p-1">
+                  <div class="box d-flex" style="padding: 40px;border-radius: 15px;background-color: #c1e0ed36;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/consultant.png">
+                     <div class="box-in" style="text-align: left;">
+                         <h5 style="color: #593987;font-size: 24px;letter-spacing: -.4px;">Reminders &amp; Automatic Renewal</h5>
+                         <p style="margin: 0px;text-align: justify;">Contracts never lapse silently. Tenants are emailed ahead of expiry, auto-renewing contracts continue without a gap at a rent increase the centre sets, and contracts that end release their offices and desks back to Available automatically.</p>
+                     </div>
+                  </div>
+               </div>
+            </div>
+         </div>
+         </section>
+
+         <!-- ================= HOW IT WORKS: PROPERTY SETUP ================= -->
+         <section class="container pt-5">
+            <div class="row pt-5 pb-5" style="background-image: linear-gradient(to right, rgb(191 228 255 / 34%), rgb(198 209 255 / 14%)); border-radius: 30px;">
+              <div class="row_box" style="width: 1000px;margin-left: auto;margin-right: auto;justify-content: center;">
+               <div class="row pt-5 pb-5">
+                  <h3 class="pb-3 mb-2 col-12" style="font-size:30px;font-weight:300;line-height: 40px;text-align:center;color:#674a83">
+                     --- HOW IT WORKS ---
+                  </h3>
+                  <h2 class="mb-2 col-12" style="font-size:44px;font-weight:700;line-height: 40px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Setting Up </span>the Property
+                  </h2>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e">
+                    Everything in the system hangs off the property hierarchy &mdash; Business Centre, Floor, Space and Desk &mdash; so this is where a new deployment starts.
+                  </p>
+                  <table class="bc-table">
+                     <tr><th>Level</th><th>What it represents</th></tr>
+                     <tr><td>Business Centre</td><td>A building or property. Carries the address, manager and a short code used in every reference below it.</td></tr>
+                     <tr><td>Floor</td><td>A storey within the centre. Used to group and locate spaces.</td></tr>
+                     <tr><td>Space</td><td>An office or a meeting room. An office can be flagged as co-working, which exposes desks instead of being leased whole.</td></tr>
+                     <tr><td>Desk</td><td>An individual seat inside a co-working space, leased separately.</td></tr>
+                  </table>
+                  <h3 class="mt-5 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Business </span>Centres
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e">See every centre at a glance with its code, city, status, occupancy percentage and counts of offices, desks and meeting rooms.<br>
+                  Open Business Center &rarr; Properties &rarr; Business Centers, click New, and enter the building name, address, contact email and manager.<br>
+                  A unique centre code is assigned automatically on save.</p>
+                  <img class="mt-3" src="./images/bc_list_view.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Centre </span>Dashboard &amp; Floors
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">The centre form carries live counters &mdash; spaces, desks, meeting rooms and contracts &mdash; plus an occupancy rate, each clickable through to the underlying records.<br>
+                  Floors are added from the Floors tab. Each needs only a name and a display sequence, and the name becomes part of every space reference on that floor.</p>
+                  <img class="mt-3" src="./images/bc_floor_view.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                  <span style="color:#be5fa5">Spaces </span>&amp; Gallery
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">The Spaces tab lists every office, co-working space and meeting room in the centre with its status, occupant, seats, rate and contract dates.<br>
+                  A Gallery tab keeps photos of the property alongside the record.</p>
+                  <img class="mt-3" src="./images/bc_form_view_01.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+                  <img class="mt-3" src="./images/bc_form_view_02.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                  <span style="color:#be5fa5">Adding </span>Spaces
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">A space is either an Office or a Meeting Room, chosen at the top of the form. The choice changes what the rest of the form shows.</p>
+                  <table class="bc-table">
+                     <tr><th>Space type</th><th>What it exposes</th></tr>
+                     <tr><td>Office</td><td>Monthly lease rate, minimum lock-in period, amenities, and occupancy details once leased.</td></tr>
+                     <tr><td>Office marked Co-Working</td><td>Hides the whole-space lease rate and opens a Desks tab, so seats are created and leased individually.</td></tr>
+                     <tr><td>Meeting Room</td><td>Hourly rate, opening and closing times, seat capacity, and a Bookable flag controlling whether it appears in booking screens.</td></tr>
+                  </table>
+                  <img class="mt-4" src="./images/space_form_view_01.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Amenities </span>&amp; Space Gallery
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">Tag each space with the amenities it offers &mdash; CCTV, Front Desk, Tea / Coffee, UPS and more.<br>
+                  Upload photos of the individual space to its own Gallery tab.</p>
+                  <img class="mt-3" src="./images/space_form_view_02.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+                  <img class="mt-3" src="./images/space_form_view_03.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Space </span>Status
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;" class="mb-0">Every space and desk moves through four states, driven by contracts rather than edited by hand.</p>
+                  <table class="bc-table">
+                     <tr><th>Status</th><th>Meaning</th></tr>
+                     <tr><td>Draft</td><td>Being configured. Commercial terms can still be changed.</td></tr>
+                     <tr><td>Available</td><td>Ready to be leased or booked.</td></tr>
+                     <tr><td>Occupied</td><td>Held by a running contract. The occupant and contract dates are shown on the record.</td></tr>
+                     <tr><td>Maintenance</td><td>Temporarily out of service and excluded from new bookings. Putting a co-working space into Maintenance moves its available desks with it.</td></tr>
+                  </table>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;" class="mt-3">A meeting room can also be withdrawn from booking without going into Maintenance &mdash; useful when a room is functioning but reserved for internal use.</p>
+                  <img class="mt-3" src="./images/bc_space_list_view.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Co-Working </span>Desks
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;" class="mb-0">Desks inside a co-working space are leased individually, each with its own per-seat monthly rent, seat row, position and minimum lock-in period.<br>
+                  The desk kanban shows every seat grouped by status, with the occupant and contract dates on occupied desks.<br>
+                  A desk can only be made Available once its co-working space is Available, so no seat is let in an area that is not open.</p>
+                  <img class="mt-3" src="./images/bc_desk_list_view.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+                  <img class="mt-3" src="./images/desk_form_view.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               </div>
+             </div>
+         </section>
+
+         <!-- ================= TENANT ONBOARDING ================= -->
+         <section class="container pt-5">
+            <div class="row pt-5 pb-5" style="background-image: linear-gradient(to right, rgb(191 228 255 / 34%), rgb(198 209 255 / 14%)); border-radius: 30px;">
+               <div class="row_box" style="width: 1000px;margin-left: auto;margin-right: auto;justify-content: center;">
+               <div class="row pt-5 pb-5">
+                  <h2 class="mb-2 col-12" style="font-size:44px;font-weight:700;line-height: 40px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Onboarding </span>a Tenant
+                  </h2>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e">
+                   A contract links a tenant company to the specific offices and desks they lease, over a fixed date range. Confirming it is what claims the space.
+                  </p>
+                  <h3 class="mt-3 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Creating </span>the Contract
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e">Open Business Center &rarr; Contracts, click New, select the tenant company and list the employees who will use the portal.<br>
+                     Set the start and end dates, then add each leased asset &mdash; an office or a desk &mdash; with its rent product and security deposit.<br>
+                     Each asset's rent starts from the space or desk's list rent and can be negotiated while the contract is in Draft. Once confirmed it is locked, and later changes to the list rent do not affect it.<br>
+                     Set the monthly free meeting-room hours if the tenant is entitled to them, and the renewal rent increase if the contract is to renew automatically.<br>
+                     For a contract that started before the current month &mdash; one migrated from an earlier system &mdash; set the Next Invoice Date to the first period not yet billed, so past months are not invoiced again.</p>
+                  <img class="mt-3" src="./images/contract_form_view_01.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+                  <img class="mt-3" src="./images/contract_form_view_02.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">What </span>Confirmation Does
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">Confirm is not just a status change. In one action the system marks every leased office and desk as Occupied, stamping the tenant name and contract dates onto each,<br>
+                  credits the free-hour wallet with the monthly allowance, sets the first billing date, and moves the contract to Running &mdash; or to Upcoming if the start date is still in the future.<br>
+                  Confirming, cancelling, renewing and resetting a contract are reserved for Business Center Managers, checked on the server rather than only by hiding buttons.</p>
+                  <img class="mt-3" src="./images/contract_form_view_03.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Free-Hour </span>Wallet
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">A contract that includes at least one office carries a monthly meeting-room allowance &mdash; a pool of hours shared across the whole contract rather than per office.<br>
+                  Desk-only contracts do not receive one; every booked hour is billed.<br>
+                  The balance resets on the first of each month. Unused hours do not carry forward, and the reset is a fresh credit rather than a top-up.</p>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Contract </span>Lifecycle
+                  </h3>
+                  <table class="bc-table">
+                     <tr><th>Status</th><th>Meaning</th></tr>
+                     <tr><td>Draft</td><td>Being prepared. Nothing is reserved and terms can still change.</td></tr>
+                     <tr><td>Upcoming</td><td>Signed, but the start date has not arrived. Assets are held against competing contracts.</td></tr>
+                     <tr><td>Running</td><td>Live. Assets are Occupied, the wallet is active and invoices are being raised.</td></tr>
+                     <tr><td>Expired</td><td>The end date has passed and the contract was not renewed. Assets are released back to Available automatically.</td></tr>
+                     <tr><td>Cancelled</td><td>Terminated early. Assets released immediately.</td></tr>
+                  </table>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;" class="mt-3">Transitions are protected. A contract that has been invoiced cannot be quietly reset, and one holding confirmed meeting-room bookings must have those cancelled first &mdash; so free hours already spent cannot be silently restored.<br>
+                  A renewed contract shows the contract that continues it (Renewed As), and the new contract shows the one it continues (Renewed From).</p>
+                  <img class="mt-3" src="./images/contracts_list_view.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               </div>
+             </div>
+         </section>
+
+         <!-- ================= MEETING ROOM BOOKINGS ================= -->
+         <section class="container pt-5">
+            <div class="row pt-5 pb-5" style="background-image: linear-gradient(to right, rgb(191 228 255 / 34%), rgb(198 209 255 / 14%)); border-radius: 30px;">
+               <div class="row_box" style="width: 1000px;margin-left: auto;margin-right: auto;justify-content: center;">
+               <div class="row pt-5 pb-5">
+                  <h2 class="mb-2 col-12" style="font-size:44px;font-weight:700;line-height: 40px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Meeting Room </span>Bookings
+                  </h2>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e">
+                   Bookings can be made by centre staff in the back office or by tenants themselves through the portal &mdash; both paths run the same rules.
+                  </p>
+                  <h3 class="mt-3 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Booking </span>from the Back Office
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e">Open Business Center &rarr; Bookings and click New, then choose the contract &mdash; only meeting rooms in that contract's own centre are offered.<br>
+                     Pick a date and the availability strip shows the day broken into free and busy blocks. Click a free block to fill the times, review the cost summary, then Confirm.<br>
+                     A slot that has already started cannot be booked &mdash; except by a manager recording usage after the fact. Booking times follow the centre's timezone set in Settings, so these rules hold for every user, including tenants on the portal.</p>
+                  <img class="mt-3" src="./images/booking_list_view.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">How Charges </span>Are Calculated
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">The system compares the hours requested against the wallet balance at the moment of confirmation.</p>
+                  <table class="bc-table">
+                     <tr><th>Case</th><th>Wallet after</th><th>Charge raised</th></tr>
+                     <tr><td>Booking fits within the balance</td><td>Balance less the hours booked</td><td>None</td></tr>
+                     <tr><td>Booking exceeds the balance</td><td>Zero</td><td>The excess hours at the room's hourly rate</td></tr>
+                     <tr><td>Contract has no allowance</td><td>Not applicable</td><td>Every hour at the room's hourly rate</td></tr>
+                  </table>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;" class="mt-3">The balance used is frozen onto the booking at confirmation, so a later reset or another booking does not change what this one was charged.<br>
+                  Charges accrue against the contract and are swept onto the next invoice automatically.</p>
+                  <img class="mt-3" src="./images/booking_form_view_01.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+                  <img class="mt-3" src="./images/contract_form_view_04.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Preventing </span>Double Bookings
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">Overlapping bookings are blocked at three levels: the availability strip will not offer a busy block, the form warns before saving,<br>
+                  and the database itself refuses to store two overlapping confirmed bookings for the same room &mdash; which is what holds when two people book the same slot at the same moment.</p>
+                  <img class="mt-3" src="./images/portal_booking_form_view_01.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Cancelling </span>a Booking
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">Cancelling releases the slot, returns the wallet hours it drew and voids any charge not yet invoiced.<br>
+                  Hours are only returned within the same monthly period &mdash; hours drawn in August do not reappear in September's allowance.<br>
+                  A booking cannot be cancelled once its session has started.<br>
+                  A charge already on an invoice can only be reversed by a manager; if that invoice is posted, a credit note is issued instead, so accounting stays correct.</p>
+                  <img class="mt-3" src="./images/portal_booking_cancel.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               </div>
+             </div>
+         </section>
+
+         <!-- ================= TENANT PORTAL ================= -->
+         <section class="container pt-5">
+            <div class="row pt-5 pb-5" style="background-image: linear-gradient(to right, rgb(191 228 255 / 34%), rgb(198 209 255 / 14%)); border-radius: 30px;">
+               <div class="row_box" style="width: 1000px;margin-left: auto;margin-right: auto;justify-content: center;">
+               <div class="row pt-5 pb-5">
+                  <h2 class="mb-2 col-12" style="font-size:44px;font-weight:700;line-height: 40px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">The Tenant </span>Portal
+                  </h2>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e">
+                   Tenants log in to a portal of their own, separate from the back office &mdash; the part of the system your customers actually see.<br>
+                   The portal is provided by the Business Center Portal add-on; the back office works on its own without it.
+                  </p>
+                  <table class="bc-table">
+                     <tr><th>Section</th><th>Purpose</th></tr>
+                     <tr><td>Contracts</td><td>Their own agreements, leased assets and dates. Visible to the corporate administrator only.</td></tr>
+                     <tr><td>Bookings</td><td>Meeting-room reservations, with search, filters and the ability to cancel.</td></tr>
+                     <tr><td>New Booking</td><td>Self-service booking with live availability and wallet balance.</td></tr>
+                     <tr><td>Invoice History</td><td>Read-only access to their invoices, viewable and downloadable.</td></tr>
+                  </table>
+                  <img class="mt-4" src="./images/portal_dashboard.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+                  <img class="mt-3" src="./images/portal_booking_list_view.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Self-Service </span>Booking
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">The booking form shows the tenant their remaining free hours before they commit, and updates a live cost summary as they pick times &mdash; so there is no surprise charge afterwards.<br>
+                  Select a contract and meeting room, choose a date to refresh the availability strip, click a free block to fill the times, and confirm.<br>
+                  The summary shows how many hours come from the wallet and what, if anything, will be billed.</p>
+                  <img class="mt-3" src="./images/portal_booking_form_view_02.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Two </span>Tenant Roles
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">Tenant staff are given one of two roles, which changes what the portal shows them.</p>
+                  <table class="bc-table">
+                     <tr><th>Role</th><th>Can see and do</th></tr>
+                     <tr><td>Tenant Corporate Admin</td><td>The company's contracts, every booking made by anyone at the company, and the full invoice history. Can book rooms.</td></tr>
+                     <tr><td>Tenant Employee</td><td>Their own bookings only, against the contracts they are named on. No contract or invoice access. Can book and cancel their own reservations.</td></tr>
+                  </table>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;" class="mt-3">A tenant contact given portal access without a role becomes a Tenant Employee automatically, the least privileged role.<br>
+                  Other tenants' bookings appear on the availability strip only as &ldquo;Booked&rdquo;, never with their reference.</p>
+                  <img class="mt-4" src="./images/portal_tenant_dashboard.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               </div>
+             </div>
+         </section>
+
+         <!-- ================= BILLING ================= -->
+         <section class="container pt-5">
+            <div class="row pt-5 pb-5" style="background-image: linear-gradient(to right, rgb(191 228 255 / 34%), rgb(198 209 255 / 14%)); border-radius: 30px;">
+               <div class="row_box" style="width: 1000px;margin-left: auto;margin-right: auto;justify-content: center;">
+               <div class="row pt-5 pb-5">
+                  <h2 class="mb-2 col-12" style="font-size:44px;font-weight:700;line-height: 40px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Automated </span>Billing
+                  </h2>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e">
+                   Invoicing runs on its own overnight. Nobody raises invoices tenant by tenant.
+                  </p>
+                  <h3 class="mt-3 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">The </span>Monthly Cycle
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e">Billing periods follow the calendar month. A contract starting mid-month is billed for the remainder of that month only,<br>
+                  which puts every cycle after the first on the 1st &mdash; so all tenants bill together regardless of when they signed.<br>
+                  Worked example: an office at &#8377;20,000 per month with a contract running 10 August to 20 November.</p>
+                  <table class="bc-table">
+                     <tr><th>Period billed</th><th>Days</th><th>Amount</th></tr>
+                     <tr><td>10 &ndash; 31 August</td><td>22 of 31</td><td>&#8377;14,193.55</td></tr>
+                     <tr><td>1 &ndash; 30 September</td><td>Full month</td><td>&#8377;20,000.00</td></tr>
+                     <tr><td>1 &ndash; 31 October</td><td>Full month</td><td>&#8377;20,000.00</td></tr>
+                     <tr><td>1 &ndash; 20 November</td><td>20 of 30</td><td>&#8377;13,333.33</td></tr>
+                  </table>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e" class="mt-3">Partial months are prorated on days, so a tenant pays for what they occupied rather than a full month at either end of the agreement.</p>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">What Lands </span>on the Invoice
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">Each invoice is a single draft document carrying one rent line per leased office and desk, labelled with the exact period covered,<br>
+                  one line per meeting room for any overage accrued since the last invoice, showing the exact duration (for example &ldquo;50 min&rdquo;) and billed at the exact amount,<br>
+                  and tax taken from the rent products and the tenant's fiscal position.</p>
+                  <img class="mt-3" src="./images/invoice.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Review </span>Before Posting
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">Invoices are created as drafts, never posted automatically. On the first of the month a member of staff opens the invoice list, reviews the batch and posts them together.<br>
+                  This keeps a human check between the system and the customer, and means a mistake is corrected by editing rather than by credit note.<br>
+                  After each run the contract's next invoice date moves forward to the start of the following period.</p>
+                  <img class="mt-3" src="./images/bc_invoice.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               </div>
+             </div>
+         </section>
+
+         <!-- ================= EXPIRY & AUTOMATION ================= -->
+         <section class="container pt-5">
+            <div class="row pt-5 pb-5" style="background-image: linear-gradient(to right, rgb(191 228 255 / 34%), rgb(198 209 255 / 14%)); border-radius: 30px;">
+               <div class="row_box" style="width: 1000px;margin-left: auto;margin-right: auto;justify-content: center;">
+               <div class="row pt-5 pb-5">
+                  <h2 class="mb-2 col-12" style="font-size:44px;font-weight:700;line-height: 40px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Expiry &amp; </span>Renewal
+                  </h2>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e">
+                   Contracts do not lapse silently. The system emails the tenant ahead of expiry, and contracts set to auto-renew continue without a gap &mdash; at a new rent where one was agreed.
+                  </p>
+                  <h3 class="mt-3 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Centre-Wide </span>Settings
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e">Defaults are configured once under Business Center &rarr; Configuration &rarr; Settings, in two groups.</p>
+                  <table class="bc-table">
+                     <tr><th>Setting</th><th>What it controls</th></tr>
+                     <tr><td>Expiry Reminder Lead Days</td><td>How many days before the end date the renewal reminder is sent.</td></tr>
+                     <tr><td>Default Renewal Rent Increase (%)</td><td>The rent increase applied when a contract renews. Use 0 to renew at the same rent.</td></tr>
+                     <tr><td>Timezone</td><td>The centre's local time, used for every booking-time rule.</td></tr>
+                  </table>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e" class="mt-3">The contract defaults take effect for contracts created afterwards. An individual contract can carry its own lead time and renewal increase where a tenant has negotiated different terms.</p>
+                  <img class="mt-3" src="./images/bc_settings.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">The </span>Reminder Email
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">When the reminder date arrives, the tenant receives an email from the centre's company address naming the contract, the end date and the spaces it covers, inviting them to confirm whether they wish to continue.<br>
+                  The message is recorded against the contract, and with incoming mail configured the tenant's reply threads back to it, so the conversation stays on the record rather than in a staff member's inbox.<br>
+                  The wording is an editable template, and the reminder can be sent manually at any time with the Send Expiry Reminder button.</p>
+                  <img class="mt-3" src="./images/bc_contract_expiry_reminder_mail.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Automatic </span>Renewal
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">A contract marked Auto Renew is renewed the day after it ends: a new contract is created and confirmed for the same term length, with the same offices, desks, employees and free hours.<br>
+                  Each asset's rent rises by the contract's Renewal Rent Increase, which starts from the centre-wide default and can be changed per contract. The space never becomes Available in between, and billing continues from the new start date.</p>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">Worked example: a desk at &#8377;5,000 per month on a one-year contract with a 10% renewal increase.</p>
+                  <table class="bc-table">
+                     <tr><th>Contract</th><th>Period</th><th>Monthly rent</th></tr>
+                     <tr><td>Original</td><td>1 January &ndash; 31 December 2026</td><td>&#8377;5,000.00</td></tr>
+                     <tr><td>Renewal (+10%)</td><td>1 January &ndash; 31 December 2027</td><td>&#8377;5,500.00</td></tr>
+                  </table>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;" class="mt-3">Staff can also renew any running or expired contract with the Renew button, which prepares a draft renewal to review &mdash; its rent and deposit can be adjusted, its spaces and desks stay the same.<br>
+                  A move, expansion or downsizing is a new contract rather than a renewal.<br>
+                  If a renewal cannot go ahead &mdash; for example the space has already been let to someone else &mdash; a note is left on the contract and it expires normally.</p>
+                  <img class="mt-3" src="./images/bc_auto_renew.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mb-2 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">On </span>Expiry
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;">When the end date passes, a contract that is not renewed moves to Expired and every office and desk it held returns to Available with the occupant cleared &mdash;<br>
+                  so the space is immediately re-lettable and the occupancy figures correct themselves without anyone intervening.</p>
+                  <img class="mt-3" src="./images/contract-expired.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <hr>
+               <div class="row pt-5 pb-5">
+                  <h3 class="mt-3 mb-3 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">What Runs </span>Automatically
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;" class="mb-0">Six scheduled jobs run overnight, in a fixed order so that each has the results of the one before it.</p>
+                  <table class="bc-table">
+                     <tr><th>Order</th><th>Job</th><th>What it does</th></tr>
+                     <tr><td>1</td><td>Activate contracts</td><td>Promotes contracts whose start date has arrived, claiming their spaces.</td></tr>
+                     <tr><td>2</td><td>Generate invoices</td><td>Raises a draft invoice for every contract with a billing period open, including any accrued overage.</td></tr>
+                     <tr><td>3</td><td>Reset wallets</td><td>On the first of the month, credits each eligible contract with its free-hour allowance.</td></tr>
+                     <tr><td>4</td><td>Renew contracts</td><td>Renews auto-renew contracts that have just ended, applying the rent increase, before expiry runs.</td></tr>
+                     <tr><td>5</td><td>Expire contracts</td><td>Closes contracts past their end date that were not renewed and releases their spaces.</td></tr>
+                     <tr><td>6</td><td>Send reminders</td><td>Emails renewal reminders for contracts that have reached their notice date.</td></tr>
+                  </table>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;" class="mt-3">Each job is visible and can be run by hand from the technical settings &mdash; the whole monthly cycle can be demonstrated in a few minutes.</p>
+                  <img class="mt-3" src="./images/bc_schedulers_list_view.png" alt="" style="padding: 0px;box-shadow: 0px 0px 10px 0px #9ec6ba75;"/>
+               </div>
+               <div class="row pt-3 pb-5">
+                  <h3 class="mt-3 mb-3 col-12" style="font-size:34px;font-weight:700;line-height: 30px;text-align:center;color:#171618">
+                    <span style="color:#be5fa5">Who </span>Can Do What
+                  </h3>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;" class="mb-0">Four roles cover every user of the system &mdash; two for the centre's staff and two for tenants.</p>
+                  <table class="bc-table">
+                     <tr><th>Role</th><th>Access</th></tr>
+                     <tr><td>Business Center Manager</td><td>Full control of property, contracts, bookings and billing: configuration, space and desk status, confirming, cancelling and renewing contracts, invoicing, and recording past bookings.</td></tr>
+                     <tr><td>Business Center User</td><td>Front desk. Views centres, spaces and desks, creates and confirms bookings, and prepares draft contracts for a manager to confirm.</td></tr>
+                     <tr><td>Tenant Corporate Admin</td><td>Read-only view of their company's contracts and leased space, full booking rights, and read-only invoice history.</td></tr>
+                     <tr><td>Tenant Employee</td><td>Books and cancels their own meeting-room reservations against the contracts they are named on. No access to contracts, other people's bookings, or billing.</td></tr>
+                  </table>
+                  <p style="font-size:18px;text-align:center;color:#5c5f6e;" class="mt-3">Tenants are strictly separated from one another. A tenant sees only their own company's records, enforced at the database layer rather than by hiding menus &mdash; so the separation holds regardless of how a page is reached.<br>
+                  The two tenant roles are provided by the Business Center Portal add-on.</p>
+               </div>
+               </div>
+             </div>
+         </section>
+
+         <!-- ================= SERVICES ================= -->
+         <div class="container services-section text-center py-5 my-5">
+            <h3>Our Services</h3>
+            <div class="services-container row my-3 py-2" style="justify-content: center">
+               <div class="row">
+               <div class="col-md-3 col-sm-6 feature-item p-1">
+                  <div class="box" style="padding:15px; background-color:#f9fcfd;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/custom.png">
+                     <h4>Odoo Implementation</h4>
+                     <p>End-to-end Odoo implementation to meet your business needs.</p>
+                  </div>
+               </div>
+               <div class="col-md-3 col-sm-6 feature-item p-1">
+                  <div class="box" style="padding:15px; background-color:#f9fcfd;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/implementation.png">
+                     <h4>Odoo Customization</h4>
+                     <p>Custom solutions tailored to your unique requirements.</p>
+                  </div>
+               </div>
+               <div class="col-md-3 col-sm-6 feature-item p-1">
+                  <div class="box" style="padding:15px; background-color:#f9fcfd;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/customer-service.png">
+                     <h4>Odoo Support &amp; Training</h4>
+                     <p>Comprehensive support and training to enhance your Odoo usage.</p>
+                  </div>
+               </div>
+               <div class="col-md-3 col-sm-6 feature-item p-1">
+                  <div class="box" style="padding:15px; background-color:#f9fcfd;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/hired.png">
+                     <h4>Hire an Odoo Developer</h4>
+                     <p>Get access to skilled Odoo developers for your project needs.</p>
+                  </div>
+               </div>
+               <div class="col-md-3 col-sm-6 feature-item p-1">
+                  <div class="box" style="padding:15px; background-color:#f9fcfd;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/technology.png">
+                     <h4>Odoo Integration</h4>
+                     <p>Integrate Odoo seamlessly with third-party apps and systems.</p>
+                  </div>
+               </div>
+               <div class="col-md-3 col-sm-6 feature-item p-1">
+                  <div class="box" style="padding:15px; background-color:#f9fcfd;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/cloud-server.png">
+                     <h4>Odoo Hosting &amp; Cloud</h4>
+                     <p>Secure and scalable Odoo hosting solutions.</p>
+                  </div>
+               </div>
+               <div class="col-md-3 col-sm-6 feature-item p-1">
+                  <div class="box" style="padding:15px; background-color:#f9fcfd;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/schedule.png">
+                     <h4>Odoo Maintenance</h4>
+                     <p>Ensure smooth and uninterrupted operations.</p>
+                  </div>
+               </div>
+               <div class="col-md-3 col-sm-6 feature-item p-1">
+                  <div class="box" style="padding:15px; background-color:#f9fcfd;">
+                     <img class="img img-responsive mx-4 my-4" alt="not found" width="55" height="55" src="./images/consultant.png">
+                     <h4>Odoo Consulting</h4>
+                     <p>Expert consulting to help you leverage Odoo for maximum efficiency.</p>
+                  </div>
+               </div>
+            </div>
+         </div>
+         <div class="support-section support-section text-center pb-5">
+            <h3>Support &amp; Demo</h3>
+            <div class="support-content" style="display: inline-block; text-align: center;">
+               <div class="support-item" style="padding:10px 30px; margin:2px; background-color: #f9fcfd; width:500px;">
+                  <i class="fas fa-shield-alt"></i>
+                  <span>90 Days Free Support Available</span>
+               </div>
+               <div class="support-item" style="padding: 10px 30px; margin: 2px; background-color: #f9fcfd; width: 500px;">
+                  <i class="fas fa-ticket-alt"></i>
+                  <span>Create a support ticket <a href="https://people.infintor.com/contactus" target="_blank">people.infintor.com/contactus</a> </span>
+               </div>
+               <div class="support-item" style="padding: 10px 30px; margin: 2px; background-color: #f9fcfd; width: 500px;">
+                  <i class="fas fa-envelope"></i>
+                  <span>Send an email to <a href="mailto:odoo@infintor.com">odoo@infintor.com</a></span>
+               </div>
+               <div class="support-item" style="padding: 10px 30px; margin: 2px; background-color: #f9fcfd; width: 500px;">
+                  <i class="fas fa-globe"></i>
+                  <span>Visit <a href="https://www.infintor.com" target="_blank">www.infintor.com</a></span>
+               </div>
+            </div>
+         </div>
+      </div>
+      </div>
+   </body>
+</html>

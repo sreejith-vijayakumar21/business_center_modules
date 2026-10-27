@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="product_office_rent" model="product.product">
+        <field name="name">Office Rent</field>
+        <field name="type">service</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0.0</field>
+    </record>
+    <record id="product_desk_rent" model="product.product">
+        <field name="name">Desk Rent</field>
+        <field name="type">service</field>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0.0</field>
+    </record>
+    <record id="product_meeting_room_hire" model="product.product">
+        <field name="name">Meeting Room Hire</field>
+        <field name="type">service</field>
+        <field name="uom_id" ref="uom.product_uom_hour"/>
+        <field name="sale_ok" eval="True"/>
+        <field name="purchase_ok" eval="False"/>
+        <field name="list_price">0.0</field>
+    </record>
+    <record id="product_security_deposit" model="product.product">
+            <field name="name">Security Deposit</field>
+            <field name="type">service</field>
+            <field name="sale_ok" eval="True"/>
+            <field name="purchase_ok" eval="False"/>
+            <field name="taxes_id" eval="[Command.clear()]"/>
+        </record>
+</odoo>
