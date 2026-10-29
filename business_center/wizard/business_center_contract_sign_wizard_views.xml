@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_bc_contract_sign_wizard_form" model="ir.ui.view">
+        <field name="name">business.center.contract.sign.wizard.form</field>
+        <field name="model">business.center.contract.sign.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="contract_id"/>
+                    <field name="signed_by"/>
+                    <field name="signed_on"/>
+                    <field name="signed_file" filename="signed_filename"/>
+                    <field name="signed_filename" invisible="1"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Mark as Signed"
+                            class="btn-primary"/>
+                    <button string="Discard" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

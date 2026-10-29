@@ -13,7 +13,8 @@
                         <field name="lease_asset_type" readonly="renewal_of_contract_id"/>
                         <field name="space_id" invisible="lease_asset_type != 'office'"
                             required="lease_asset_type == 'office'"
-                            readonly="renewal_of_contract_id"/>
+                            readonly="renewal_of_contract_id"
+                            context="{'bc_show_capacity': True}"/>
                         <field name="desk_id" invisible="lease_asset_type != 'desk'"
                             required="lease_asset_type == 'desk'"
                             readonly="renewal_of_contract_id"/>

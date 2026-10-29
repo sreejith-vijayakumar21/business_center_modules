@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_bc_contract_decline_wizard_form" model="ir.ui.view">
+        <field name="name">business.center.contract.decline.wizard.form</field>
+        <field name="model">business.center.contract.decline.wizard</field>
+        <field name="arch" type="xml">
+            <form>
+                <group>
+                    <field name="contract_id"/>
+                    <field name="reason" placeholder="e.g. Asked for a lower rent / changed move-in date / chose another provider"/>
+                </group>
+                <footer>
+                    <button name="action_revise" type="object" string="Revise Contract"
+                            class="btn-primary"/>
+                    <button name="action_cancel_contract" type="object" string="Cancel Contract"
+                            class="btn-danger"
+                            confirm="Cancel this contract and release its space?"/>
+                    <button string="Discard" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

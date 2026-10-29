@@ -1,0 +1,50 @@
+// Lease agreement PDF (business_center.report_bc_contract_document).
+// web.report_assets_common is shared by every report, so all rules are
+// scoped under .o_bc_contract_report.
+
+.o_bc_contract_report {
+    hr {
+        border-top: 2px solid #ccc;
+        opacity: 1;
+    }
+
+    .o_bc_table {
+        border-collapse: collapse;
+        font-size: 12px;
+
+        th, td {
+            border: 1px solid #ccc;
+            padding: 6px 8px;
+            vertical-align: top;
+        }
+
+        thead {
+            display: table-header-group;  // repeat the header row on page breaks
+
+            th {
+                background-color: #714B67;  // Odoo purple
+                color: #fff;
+                text-align: center;
+            }
+        }
+
+        tfoot td, td.o_bc_label {
+            background-color: #f2f2f2;
+            font-weight: bold;
+        }
+
+        tr {
+            page-break-inside: avoid;
+        }
+    }
+
+    .o_bc_signatures {
+        page-break-inside: avoid;
+    }
+
+    // Short sections move to the next page as a whole instead of leaving
+    // their heading stranded at the bottom of a page.
+    .o_bc_section_block {
+        page-break-inside: avoid;
+    }
+}

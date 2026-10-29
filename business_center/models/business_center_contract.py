@@ -4,7 +4,7 @@
 from odoo import _, api, fields, models, Command
 from odoo.exceptions import UserError, ValidationError
 from dateutil.relativedelta import relativedelta
-from odoo.tools import format_date
+from odoo.tools import format_date, is_html_empty
 
 
 import logging
@@ -17,6 +17,7 @@ class BusinessCenterContract(models.Model):
     _name = 'business.center.contract'
     _description = 'A central registry of business center contracts'
     _inherit = ['mail.thread', 'mail.activity.mixin']
+    _order = 'name desc'
     
     # ------------------------------------------------------------------------------
     #   MARK: FIELDS
@@ -32,7 +33,10 @@ class BusinessCenterContract(models.Model):
         ('expired', 'Expired'),
         ('cancelled', 'Cancelled')
     ], default='draft', tracking=True)
-    note = fields.Html(string='Terms & Conditions')
+    note = fields.Html(string='Terms & Conditions',
+        help="Loaded from the business centre's terms when the first asset is "
+             "chosen. Edit freely for this tenant; this text is printed on the "
+             "agreement.")
     invoice_count = fields.Integer(string='Invoice Count',
                                    compute='_compute_invoice_count')
     auto_renew = fields.Boolean(string='Auto Renew', default=False)
@@ -41,12 +45,6 @@ class BusinessCenterContract(models.Model):
         help="Applied to every leased asset's rent when this contract renews. "
              "New contracts start from the company setting; use 0 to renew at "
              "the same rent.")
-    previous_contract_id = fields.Many2one(
-        'business.center.contract', string='Renewed From', readonly=True, copy=False,
-        help="The contract this one continues.")
-    renewal_contract_id = fields.Many2one(
-        'business.center.contract', string='Renewed As', readonly=True, copy=False,
-        help="The contract that continues this one after its end date.")
     send_expiry_reminder = fields.Boolean(
         string='Send Expiry Reminder', default=True, tracking=True,
         help="Email the tenant before this contract ends, asking whether they "
@@ -64,14 +62,23 @@ class BusinessCenterContract(models.Model):
         string='Reminder Sent', readonly=True, copy=False,
         help="Set once the reminder has gone out, so a scheduler does not "
              "send it twice.")
-    expiry_reminder_template_id = fields.Many2one(
-        'mail.template', string='Reminder Template',
-        domain="[('model', '=', 'business.center.contract')]",
-        default=lambda self: self.env.ref(
-            'business_center.mail_template_contract_expiry_reminder',
-            raise_if_not_found=False),
-        help="Template used for the reminder. Swap it to change the wording "
-             "for a particular tenant.")
+    contract_sent_date = fields.Date(
+        string='Agreement Sent', readonly=True, copy=False,
+        help="Last date the lease agreement PDF was emailed to the tenant.")
+    agreement_state = fields.Selection([
+        ('not_sent', 'Not Sent'),
+        ('sent', 'Awaiting Signature'),
+        ('signed', 'Signed'),
+        ('declined', 'Declined'),
+    ], string='Agreement', default='not_sent', required=True, tracking=True, copy=False,
+        help="Signing status of the lease agreement. Tracked on its own: billing "
+             "and occupancy start from the contract start date even while the "
+             "signature is pending.")
+    signed_by = fields.Char(string='Signed By', tracking=True, copy=False)
+    signed_on = fields.Date(string='Signed On', tracking=True, copy=False)
+    signature = fields.Image(string='Signature', copy=False, attachment=True,
+                             max_width=1024, max_height=1024,
+                             help="Signature captured online, printed on the agreement.")
     next_invoice_date = fields.Date(string='Next Invoice Date', tracking=True, 
                                     help="Start of the next rent period to be billed")
     free_hours_monthly = fields.Float(string='Monthly Free Hours', default=0.0, 
@@ -97,6 +104,22 @@ class BusinessCenterContract(models.Model):
              "the contract is draft; it is invoiced on confirmation and locked "
              "afterwards.")
     
+    signed_attachment_id = fields.Many2one('ir.attachment', string='Signed Copy',
+                                           readonly=True, copy=False)
+    expiry_reminder_template_id = fields.Many2one(
+        'mail.template', string='Reminder Template',
+        domain="[('model', '=', 'business.center.contract')]",
+        default=lambda self: self.env.ref(
+            'business_center.mail_template_contract_expiry_reminder',
+            raise_if_not_found=False),
+        help="Template used for the reminder. Swap it to change the wording "
+             "for a particular tenant.")
+    previous_contract_id = fields.Many2one(
+        'business.center.contract', string='Renewed From', readonly=True, copy=False,
+        help="The contract this one continues.")
+    renewal_contract_id = fields.Many2one(
+        'business.center.contract', string='Renewed As', readonly=True, copy=False,
+        help="The contract that continues this one after its end date.")
     deposit_refund_id = fields.Many2one('account.move', string='Deposit Refund', readonly=True, copy=False,
         groups='business_center.group_bc_manager',
         help="Draft credit note prepared for the deposit when the contract "
@@ -136,7 +159,8 @@ class BusinessCenterContract(models.Model):
         'is_wallet_eligible',
         'pending_charge_total', 'center_id',
         'renewal_contract_id', 'renewal_increase_pct', 'deposit_invoice_id',
-        'deposit_refund_id',
+        'deposit_refund_id', 'contract_sent_date',
+        'agreement_state', 'signed_by', 'signed_on', 'signature', 'signed_attachment_id',
     }
     
     # ------------------------------------------------------------------------------
@@ -186,7 +210,11 @@ class BusinessCenterContract(models.Model):
                 vals['name'] = self.env['ir.sequence'].sudo().next_by_code(
                     'business.center.contract') or _("New")
                 
-        return super().create(vals_list)
+        records =  super().create(vals_list)
+        for rec in records:
+            if rec.center_id and is_html_empty(rec.note):
+                rec.note = rec.center_id.contract_terms
+        return records
     
     def unlink(self):
         """Release leased assets before deleting so no resource is left
@@ -194,6 +222,14 @@ class BusinessCenterContract(models.Model):
         
         self._sync_leased_occupancy(exclude=self)
         return super().unlink()
+    
+    def message_post(self, **kwargs):
+        """Mark the agreement as sent when it goes out from the composer opened
+        by Send Contract (mirrors sale's mark_so_as_sent)."""
+
+        if self.env.context.get('mark_contract_as_sent'):
+            self._mark_agreement_sent()
+        return super().message_post(**kwargs)
     
     @api.depends('invoice_ids')
     def _compute_invoice_count(self):
@@ -329,6 +365,20 @@ class BusinessCenterContract(models.Model):
         for contract in self:
             if not contract.is_wallet_eligible and contract.free_hours_monthly:
                 contract.free_hours_monthly = 0.0
+                
+    @api.onchange('center_id')
+    def _onchange_center_terms(self):
+        """Load the business centre's terms onto the contract.
+
+        All leased assets share one centre (_check_single_center), so the
+        centre only changes when the first asset is picked or when every
+        asset is swapped for another centre's. Adding more assets from the
+        same centre leaves it unchanged, so terms edited for this tenant are
+        kept.
+        """
+
+        if self.center_id and self.state == 'draft':
+            self.note = self.center_id.contract_terms
             
     @api.onchange('date_start', 'date_end')
     def _onchange_contract_dates(self):
@@ -467,6 +517,113 @@ class BusinessCenterContract(models.Model):
         days_in_month = (period_start + relativedelta(day=31)).day
         billed_days = (period_end - period_start).days + 1
         return billed_days, days_in_month, float(billed_days) / days_in_month
+    
+    def _get_term_display(self):
+        """Contract length in words for the agreement PDF, end date inclusive,
+        e.g. 1 Jan - 31 Dec reads '1 year'."""
+
+        self.ensure_one()
+        if not (self.date_start and self.date_end):
+            return ''
+        delta = relativedelta(self.date_end + relativedelta(days=1), self.date_start)
+        parts = []
+        for value, one, many in ((delta.years, _('year'), _('years')),
+                                 (delta.months, _('month'), _('months')),
+                                 (delta.days, _('day'), _('days'))):
+            if value:
+                parts.append('%s %s' % (value, one if value == 1 else many))
+        return ', '.join(parts)
+
+    def _get_meeting_room_rates(self):
+        """Bookable meeting rooms at this contract's centre with their hourly
+        rate and opening hours, for the agreement PDF. Draft rooms are not set
+        up yet and withdrawn rooms cannot be booked, so both are left out.
+        Sudo so the report renders for any user."""
+
+        self.ensure_one()
+        if not self.center_id:
+            return []
+        rooms = self.env['business.center.space'].sudo().search([
+            ('center_id', '=', self.center_id.id),
+            ('space_type', '=', 'meeting_room'),
+            ('is_bookable', '=', True),
+            ('state', '!=', 'draft'),
+        ], order='name')
+        return [{
+            'name': room.display_name,
+            'rate': room.hourly_rate,
+            'hours': room.operating_hours_display or '',
+        } for room in rooms]
+        
+    def _get_center_address(self):
+        """One-line address of the leased premises for the agreement PDF."""
+
+        self.ensure_one()
+        center = self.center_id
+        if not center:
+            return ''
+        city_line = ' '.join(p for p in (center.city, center.zip) if p)
+        parts = (center.street, center.street2, city_line,
+                 center.state_id.name, center.country_id.name)
+        return ', '.join(p for p in parts if p)
+    
+    def _mark_agreement_sent(self):
+        """Stamp the send date and, unless already signed, set the agreement to
+        Awaiting Signature with one follow-up activity for the sender."""
+
+        today = fields.Date.context_today(self)
+        for contract in self:
+            vals = {'contract_sent_date': today}
+            if contract.agreement_state != 'signed':
+                vals['agreement_state'] = 'sent'
+            contract.with_context(tracking_disable=True).write(vals)
+            if contract.agreement_state == 'sent':
+                contract.activity_unlink(['business_center.mail_activity_type_contract_signature'])
+                contract.activity_schedule(
+                    'business_center.mail_activity_type_contract_signature',
+                    user_id=self.env.user.id)
+
+    def _mark_agreement_signed(self, signed_by, signed_on=None, attachment=None, signature=None):
+        """Record the signature. Shared by the backend wizard (signed paper
+        copy) and the portal Accept & Sign (drawn signature)."""
+
+        self.ensure_one()
+        signed_on = signed_on or fields.Date.context_today(self)
+        vals = {
+            'agreement_state': 'signed',
+            'signed_by': signed_by,
+            'signed_on': signed_on,
+        }
+        if attachment:
+            vals['signed_attachment_id'] = attachment.id
+        if signature:
+            vals['signature'] = signature
+        self.write(vals)
+        self.activity_feedback(
+            ['business_center.mail_activity_type_contract_signature'],
+            feedback=_("Agreement signed by %s", signed_by))
+        self.message_post(
+            body=_("Agreement signed by %(name)s on %(date)s.",
+                   name=signed_by, date=format_date(self.env, signed_on)),
+            attachment_ids=attachment.ids if attachment else [])
+
+    def _reset_agreement(self):
+        """A contract sent back to draft will change, so any signature no
+        longer matches it. The signed copy stays in the chatter as history."""
+
+        self.ensure_one()
+        if self.agreement_state == 'signed':
+            self.message_post(body=_(
+                "Agreement signed by %s is void after reset to draft; it must be "
+                "signed again.", self.signed_by))
+        self.activity_unlink(['business_center.mail_activity_type_contract_signature'])
+        self.write({
+            'agreement_state': 'not_sent',
+            'signed_by': False,
+            'signed_on': False,
+            'signature': False,
+            'signed_attachment_id': False,
+        })
     
     def _create_deposit_invoice(self):
         """Raise a draft invoice for the security deposit, separate from rent.
@@ -679,6 +836,7 @@ class BusinessCenterContract(models.Model):
         self.write(vals)
         self._sync_leased_occupancy()
         self._create_deposit_invoice()
+        return self.action_send_contract()
 
     def action_set_cancel(self):
         """Cancel the contract and mark its leased assets as available"""
@@ -688,6 +846,7 @@ class BusinessCenterContract(models.Model):
         self.state = 'cancelled'
         self._sync_leased_occupancy()
         self._create_deposit_refund()
+        self.activity_unlink(['business_center.mail_activity_type_contract_signature'])
 
     def action_set_draft(self):
         """Reset the contract back to draft """
@@ -715,7 +874,74 @@ class BusinessCenterContract(models.Model):
         self.state = 'draft'
         self.wallet_seeded = False
         self._sync_leased_occupancy()
+        self._reset_agreement()
         
+    def action_send_contract(self):
+        """Open the email composer with the lease agreement PDF attached, the
+        way a quotation is sent. The template carries the report, so the
+        composer renders and attaches the PDF itself."""
+
+        self.ensure_one()
+        if self.state not in ('upcoming', 'active'):
+            raise UserError(_("Only a confirmed contract can be sent to the tenant."))
+        template = self.env.ref(
+            'business_center.mail_template_contract_confirmation',
+            raise_if_not_found=False)
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Send Lease Agreement'),
+            'res_model': 'mail.compose.message',
+            'view_mode': 'form',
+            'views': [(False, 'form')],
+            'target': 'new',
+            'context': {
+                'default_model': self._name,
+                'default_res_ids': self.ids,
+                'default_template_id': template.id if template else False,
+                'default_composition_mode': 'comment',
+                'default_email_layout_xmlid': 'mail.mail_notification_layout',
+                'force_email': True,
+                'mark_contract_as_sent': True,
+            },
+        } 
+        
+    def action_mark_agreement_signed(self):
+        """Record a signed paper copy returned by the tenant."""
+
+        self.ensure_one()
+        self._check_bc_manager()
+        if self.state not in ('upcoming', 'active'):
+            raise UserError(_("Only a confirmed contract can be marked as signed."))
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Record Signed Agreement'),
+            'res_model': 'business.center.contract.sign.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_contract_id': self.id,
+                'default_signed_by': self.partner_id.name,
+            },
+        }
+
+    def action_mark_agreement_declined(self):
+        """The tenant refused the agreement. A refusal always needs a decision,
+        so the wizard records the reason and either revises the contract
+        (back to draft) or cancels it; a declined contract never sits in
+        Upcoming or Running, where it would activate and be billed."""
+
+        self.ensure_one()
+        self._check_bc_manager()
+        if self.agreement_state != 'sent':
+            raise UserError(_("Only an agreement awaiting signature can be declined."))
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Agreement Declined'),
+            'res_model': 'business.center.contract.decline.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_contract_id': self.id},
+        }     
                 
     def _create_rent_invoice(self):
         """Build one draft customer invoice for the next billing period plus any

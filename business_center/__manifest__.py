@@ -24,10 +24,17 @@
         'security/ir.model.access.csv',
         'security/business_center_security.xml',
         
+        'report/business_center_contract_report.xml',
+        
+        'data/mail_activity_type_data.xml',
+        'data/mail_template_contract_data.xml',
         'data/mail_template_data.xml',
         'data/product_data.xml',
         'data/ir_sequence_data.xml',
         'data/ir_cron_data.xml',
+        
+        'wizard/business_center_contract_sign_wizard_views.xml',
+        'wizard/business_center_contract_decline_wizard_views.xml',
 
         'views/res_config_settings_views.xml',
         'views/business_center_booking_views.xml',
@@ -40,6 +47,11 @@
         'views/business_center_views.xml',
         'views/business_center_menus.xml'
     ],
+    'assets': {
+        'web.report_assets_common': [
+            'business_center/static/src/scss/business_center_contract_report.scss',
+        ],
+    },
     'installable': True,
     'application': True,
     'pre_init_hook': 'pre_init_hook',

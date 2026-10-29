@@ -16,6 +16,7 @@ class BusinessCenterBooking(models.Model):
     _name = 'business.center.booking'
     _description = 'A central registry of business center bookings'
     _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.time.format.mixin']
+    _order = 'name desc'
     
     # ------------------------------------------------------------------------------
     #   MARK: FIELDS

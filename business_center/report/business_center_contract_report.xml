@@ -1,0 +1,251 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="paperformat_bc_contract" model="report.paperformat">
+        <field name="name">Lease Agreement (A4, compact header)</field>
+        <field name="default" eval="False"/>
+        <field name="format">A4</field>
+        <field name="orientation">Portrait</field>
+        <field name="margin_top">35</field>
+        <field name="margin_bottom">28</field>
+        <field name="margin_left">7</field>
+        <field name="margin_right">7</field>
+        <field name="header_line" eval="False"/>
+        <field name="header_spacing">30</field>
+        <field name="dpi">90</field>
+    </record>
+
+    <record id="action_report_bc_contract" model="ir.actions.report">
+        <field name="name">Lease Agreement</field>
+        <field name="model">business.center.contract</field>
+        <field name="report_type">qweb-pdf</field>
+        <field name="report_name">business_center.report_bc_contract</field>
+        <field name="report_file">business_center.report_bc_contract</field>
+        <field name="print_report_name">'Lease Agreement - %s' % object.name.replace('/', '-')</field>
+        <field name="binding_model_id" ref="model_business_center_contract"/>
+        <field name="binding_type">report</field>
+        <field name="paperformat_id" ref="paperformat_bc_contract"/>
+    </record>
+
+    <template id="report_bc_contract_document">
+        <t t-call="web.external_layout">
+            <t t-set="o" t-value="o.with_context(lang=o.partner_id.lang)"/>
+            <t t-set="money" t-value="{'widget': 'monetary', 'display_currency': o.currency_id}"/>
+            <t t-set="monthly_total" t-value="sum(o.leased_asset_ids.mapped('monthly_rent_total'))"/>
+            <t t-set="authorised" t-value="o.contact_ids - o.partner_id"/>
+            <t t-set="vat_label" t-value="o.company_id.account_fiscal_country_id.vat_label"/>
+
+            <t t-set="address">
+                <div t-field="o.partner_id" class="mb-0"
+                     t-options='{"widget": "contact", "fields": ["address", "name"], "no_marker": True}'/>
+                <p t-if="o.partner_id.vat" class="mb-0">
+                    <t t-if="vat_label" t-out="vat_label"/><t t-else="">Tax ID</t>:
+                    <span t-field="o.partner_id.vat"/>
+                </p>
+            </t>
+
+            <div class="page o_bc_contract_report">
+                <div class="oe_structure"/>
+
+                <t t-set="layout_document_title">
+                    <span t-if="o.state == 'draft'">Draft Lease Agreement </span>
+                    <span t-else="">Lease Agreement </span>
+                    <span t-field="o.name">CT/2026/00001</span>
+                </t>
+
+                <div class="row mb-4" id="informations">
+                    <div t-if="o.center_id" class="col" name="informations_center">
+                        <strong>Business Centre</strong>
+                        <div t-field="o.center_id.name"/>
+                    </div>
+                    <div class="col" name="informations_date_start">
+                        <strong>Start Date</strong>
+                        <div t-field="o.date_start"/>
+                    </div>
+                    <div class="col" name="informations_date_end">
+                        <strong>End Date</strong>
+                        <div t-field="o.date_end"/>
+                    </div>
+                    <div class="col" name="informations_term">
+                        <strong>Term</strong>
+                        <div t-out="o._get_term_display()"/>
+                    </div>
+                </div>
+
+                <!-- 1. Parties -->
+                <hr/>
+                <h4 class="mb-3">1. Parties</h4>
+                <table class="table table-sm o_bc_table" name="parties_table">
+                    <tbody>
+                        <tr>
+                            <td class="o_bc_label w-25">Lessor</td>
+                            <td>
+                                <span t-field="o.company_id.name"/>
+                                <t t-if="o.company_id.vat">
+                                    (<t t-if="vat_label" t-out="vat_label"/><t t-else="">Tax ID</t>
+                                    <span t-field="o.company_id.vat"/>)
+                                </t>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td class="o_bc_label">Lessee</td>
+                            <td>
+                                <span t-field="o.partner_id.name"/>
+                                <t t-if="o.partner_id.vat">
+                                    (<t t-if="vat_label" t-out="vat_label"/><t t-else="">Tax ID</t>
+                                    <span t-field="o.partner_id.vat"/>)
+                                </t>
+                            </td>
+                        </tr>
+                        <tr t-if="authorised">
+                            <td class="o_bc_label">Authorised Occupants</td>
+                            <td t-out="', '.join(authorised.mapped('name'))"/>
+                        </tr>
+                    </tbody>
+                </table>
+
+                <!-- 2. Leased premises -->
+                <hr/>
+                <h4 class="mb-3">2. Leased Premises</h4>
+                <p t-if="o.center_id" class="mb-2">
+                    <strong t-field="o.center_id.name"/>
+                    <t t-set="center_address" t-value="o._get_center_address()"/>
+                    <span t-if="center_address">, <t t-out="center_address"/></span>
+                </p>
+                <table class="table table-sm o_bc_table" name="leased_assets_table">
+                    <thead>
+                        <tr>
+                            <th name="th_type" class="w-25">Type</th>
+                            <th name="th_resource">Space / Desk</th>
+                            <th name="th_rent" class="w-25">Monthly Rent</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr t-foreach="o.leased_asset_ids" t-as="asset">
+                            <td name="td_type"><span t-field="asset.lease_asset_type"/></td>
+                            <td name="td_resource"><span t-out="(asset.space_id or asset.desk_id).display_name"/></td>
+                            <td name="td_rent" class="text-end"><span t-field="asset.monthly_rent_total"/></td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="2">Total Monthly Rent</td>
+                            <td class="text-end" t-out="monthly_total" t-options="money"/>
+                        </tr>
+                    </tfoot>
+                </table>
+
+                <!-- 3. Financial terms -->
+                <hr/>
+                <h4 class="mb-3">3. Financial Terms</h4>
+                <table class="table table-sm o_bc_table" name="financial_terms_table">
+                    <tbody>
+                        <tr>
+                            <td class="o_bc_label w-50">Total Monthly Rent</td>
+                            <td class="text-end" t-out="monthly_total" t-options="money"/>
+                        </tr>
+                        <tr>
+                            <td class="o_bc_label">Security Deposit (refundable)</td>
+                            <td class="text-end" t-out="o.deposit_amount" t-options="money"/>
+                        </tr>
+                        <tr>
+                            <td class="o_bc_label">Auto Renewal</td>
+                            <td class="text-end">
+                                <t t-if="o.auto_renew">
+                                    Yes, same term, rent revised by <t t-out="'%g' % o.renewal_increase_pct"/>%
+                                </t>
+                                <t t-else="">No</t>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+                <ul class="small">
+                    <li>Rent is invoiced monthly per calendar month. A partial first or last month is charged pro rata on the number of days occupied.</li>
+                    <li>The security deposit is invoiced on confirmation, is not subject to GST, and is refunded after the agreement ends, less any deductions for damages or unpaid dues.</li>
+                    <li t-if="o.is_wallet_eligible">Rent and meeting-room charges are subject to GST as applicable.</li>
+                    <li t-else="">Rent is subject to GST as applicable.</li>
+                </ul>
+
+                <!-- 4. Meeting rooms: only contracts with an office get free hours and room access -->
+                <div class="o_bc_section_block" name="section_meeting_rooms">
+                    <hr/>
+                    <h4 class="mb-3">4. Meeting Room Usage</h4>
+                    <t t-if="o.is_wallet_eligible">
+                        <p>
+                            The Lessee is entitled to
+                            <strong><t t-out="'%g' % o.free_hours_monthly"/> hours</strong>
+                            of meeting-room use free of charge each calendar month, shared across all
+                            offices under this agreement. Unused hours do not carry forward. Usage
+                            beyond the free allowance is charged at the hourly rates below and billed
+                            on the next monthly invoice.
+                        </p>
+                        <t t-set="rooms" t-value="o._get_meeting_room_rates()"/>
+                        <table t-if="rooms" class="table table-sm o_bc_table" name="meeting_rooms_table">
+                            <thead>
+                                <tr>
+                                    <th name="th_room">Meeting Room</th>
+                                    <th name="th_hours" class="w-25">Available</th>
+                                    <th name="th_hourly_rate" class="w-25">Rate per Hour</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr t-foreach="rooms" t-as="room">
+                                    <td name="td_room" t-out="room['name']"/>
+                                    <td name="td_hours" t-out="room['hours']"/>
+                                    <td name="td_hourly_rate" class="text-end" t-out="room['rate']" t-options="money"/>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <p t-else="" class="small text-muted">
+                            Meeting room rates are available from the centre on request.
+                        </p>
+                    </t>
+                    <p t-else="">No meeting-room hours are included in this agreement.</p>
+                </div>
+
+                <!-- 5. Terms & Conditions, exactly as entered on the contract -->
+                <t t-if="not is_html_empty(o.note)">
+                    <hr/>
+                    <h4 class="mb-3">5. Terms &amp; Conditions</h4>
+                    <div t-field="o.note" name="terms"/>
+                </t>
+
+                <!-- Signatures -->
+                <hr/>
+                <div class="row mt-4 o_bc_signatures" name="signatures">
+                    <div class="col-6">
+                        <p class="mb-5"><strong>For <span t-field="o.company_id.name"/></strong></p>
+                        <p class="mb-1">______________________________</p>
+                        <p class="mb-1">Authorised Signatory</p>
+                        <p>Date:</p>
+                    </div>
+                    <div class="col-6">
+                        <p class="mb-3"><strong>For <span t-field="o.partner_id.name"/></strong></p>
+                        <t t-if="o.agreement_state == 'signed'">
+                            <img t-if="o.signature" t-att-src="image_data_uri(o.signature)"
+                                 style="max-height: 4cm; max-width: 8cm;"/>
+                            <p class="mb-1 mt-2">Signed by <span t-field="o.signed_by"/></p>
+                            <p>Date: <span t-field="o.signed_on"/></p>
+                        </t>
+                        <t t-else="">
+                            <p class="mb-1 mt-5">______________________________</p>
+                            <p class="mb-1">Authorised Signatory</p>
+                            <p>Date:</p>
+                        </t>
+                    </div>
+                </div>
+
+                <div class="oe_structure"/>
+            </div>
+        </t>
+    </template>
+
+    <template id="report_bc_contract">
+        <t t-call="web.html_container">
+            <t t-foreach="docs" t-as="o">
+                <t t-call="business_center.report_bc_contract_document" t-lang="o.partner_id.lang"/>
+            </t>
+        </t>
+    </template>
+
+</odoo>

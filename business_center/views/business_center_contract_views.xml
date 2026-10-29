@@ -8,6 +8,17 @@
         <field name="arch" type="xml">
             <form>
                 <header>
+                    <button name="action_send_contract" type="object" string="Send Contract"
+                            class="btn-primary"
+                            invisible="state not in ('upcoming', 'active') or agreement_state != 'not_sent'"/>
+                    <button name="action_send_contract" type="object" string="Resend Contract"
+                            invisible="state not in ('upcoming', 'active') or agreement_state != 'sent'"/>
+                    <button name="action_mark_agreement_signed" type="object" string="Mark as Signed"
+                            groups="business_center.group_bc_manager"
+                            invisible="state not in ('upcoming', 'active') or agreement_state == 'signed'"/>
+                    <button name="action_mark_agreement_declined" type="object" string="Mark as Declined"
+                            groups="business_center.group_bc_manager"
+                            invisible="agreement_state != 'sent'"/>
                     <button name="action_create_invoice" type="object"
                             string="Create Invoice"
                             groups="business_center.group_bc_manager"
@@ -34,6 +45,10 @@
                     <field name="is_wallet_eligible" invisible="1"/>
                 </header>
                 <sheet>
+                    <widget name="web_ribbon" title="Awaiting Signature" bg_color="text-bg-warning"
+                            invisible="agreement_state != 'sent'"/>
+                    <widget name="web_ribbon" title="Agreement Declined" bg_color="text-bg-danger"
+                            invisible="agreement_state != 'declined'"/>
                     <!-- Smart buttons -->
                     <div class="oe_button_box" name="button_box">
                         <button name="action_view_invoices" type="object"
@@ -56,8 +71,19 @@
                         </group>
 
                         <group string="Contract Period">
+                            <field name="center_id" readonly="1"
+                               invisible="not center_id"/>
                             <field name="date_start" readonly="state != 'draft'"/>
                             <field name="date_end" readonly="state != 'draft'"/>
+                            <field name="contract_sent_date" invisible="not contract_sent_date"/>
+                            <field name="agreement_state" widget="badge"
+                                invisible="state == 'draft'"
+                                decoration-warning="agreement_state == 'sent'"
+                                decoration-success="agreement_state == 'signed'"
+                                decoration-danger="agreement_state == 'declined'"/>
+                            <field name="signed_by" invisible="agreement_state != 'signed'"/>
+                            <field name="signed_on" invisible="agreement_state != 'signed'"/>
+                            <field name="signed_attachment_id" invisible="not signed_attachment_id"/>
                         </group>
                     </group>
                     <group string="Renewal &amp; Reminders">
@@ -162,6 +188,11 @@
                        decoration-success="state == 'active'"
                        decoration-warning="state == 'cancelled'"
                        decoration-danger="state == 'expired'"/>
+                <field name="agreement_state" widget="badge" optional="show"
+                       invisible="state == 'draft'"
+                       decoration-warning="agreement_state == 'sent'"
+                       decoration-success="agreement_state == 'signed'"
+                       decoration-danger="agreement_state == 'declined'"/>
             </list>
         </field>
     </record>

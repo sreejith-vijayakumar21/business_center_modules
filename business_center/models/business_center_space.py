@@ -157,12 +157,22 @@ class BusinessCenterSpace(models.Model):
         for rec in self:
             rec.contract_ids = rec.leased_asset_ids.mapped('contract_id')
         
-    @api.depends('name', 'capacity', 'space_type')
+    @api.depends('name', 'capacity', 'space_type', 'is_coworking')
+    @api.depends_context('bc_show_capacity')
     def _compute_display_name(self):
-        """Append the seat capacity to the name for meeting rooms"""
-        
+        """Append the seat capacity, e.g. 'BC01/F0/OS0001 (4 seater)'.
+
+        Always for meeting rooms. For private offices only when the caller
+        asks for it with bc_show_capacity (picking a space on a contract),
+        so invoice lines, the agreement PDF and other screens keep the
+        plain reference.
+        """
+
+        show_office = self.env.context.get('bc_show_capacity')
         for space in self:
-            if space.capacity and space.space_type == 'meeting_room':
+            is_private_office = space.space_type == 'office' and not space.is_coworking
+            if space.capacity and (space.space_type == 'meeting_room'
+                                   or (show_office and is_private_office)):
                 space.display_name = "%s (%s seater)" % (space.name, space.capacity)
             else:
                 space.display_name = space.name

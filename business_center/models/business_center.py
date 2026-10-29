@@ -37,6 +37,8 @@ class BusinessCenter(models.Model):
     meeting_room_count = fields.Integer(string='Meeting Room Count', compute='_compute_meeting_room_count')
     occupancy_rate = fields.Float(string='Occupancy Rate', compute='_compute_occupancy_rate')
     space_sequence_next = fields.Integer(string='Next Space Number', default=1, copy=False)
+    contract_terms = fields.Html(string='Terms & Conditions',
+        help="Default terms for contracts leasing space in this centre.")
     
     company_id = fields.Many2one('res.company', string='Company', default=lambda self: self.env.company)
     state_id = fields.Many2one('res.country.state', string='State/Province')
