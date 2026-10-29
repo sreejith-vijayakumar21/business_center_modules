@@ -231,6 +231,39 @@ class BusinessCenterLeasedAsset(models.Model):
                     "All leased assets on a contract must belong to the same "
                     "business center."
                 ))
+                
+    @api.onchange('lease_asset_type', 'space_id', 'desk_id')
+    def _onchange_lease_asset_type(self):
+        """Keep only the resource of the line's own type.
+
+        The form only hides the field of the other type, so without this the
+        line keeps the old space or desk: it then shows on the list, the
+        agreement PDF and invoices, and stays claimed against other contracts.
+        Also runs when a resource is picked, so a line saved before this rule
+        existed is cleaned as soon as it is edited.
+        """
+
+        if self.lease_asset_type == 'office':
+            self.desk_id = False
+        else:
+            self.space_id = False
+
+    @api.constrains('lease_asset_type', 'space_id', 'desk_id')
+    def _check_resource_matches_type(self):
+        """A line holds exactly one resource, of its own type. Server-side
+        twin of the onchange, for imports, the API and the portal."""
+
+        for asset in self:
+            if asset.lease_asset_type == 'office' and asset.desk_id:
+                raise ValidationError(_(
+                    "%(asset)s is an office line but also holds desk %(desk)s. "
+                    "An office line can only hold a space.",
+                    asset=asset.display_name, desk=asset.desk_id.display_name))
+            if asset.lease_asset_type == 'desk' and asset.space_id:
+                raise ValidationError(_(
+                    "%(asset)s is a desk line but also holds space %(space)s. "
+                    "A desk line can only hold a desk.",
+                    asset=asset.display_name, space=asset.space_id.display_name))
             
     @api.constrains('space_id', 'desk_id', 'contract_id')
     def _check_lock_period_fits_contract(self):
