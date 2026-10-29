@@ -925,17 +925,23 @@ class BusinessCenterContract(models.Model):
         }
 
     def action_mark_agreement_declined(self):
-        """The tenant refused the agreement. Staff then reset to draft and
-        resend a revised one, or cancel the contract."""
+        """The tenant refused the agreement. A refusal always needs a decision,
+        so the wizard records the reason and either revises the contract
+        (back to draft) or cancels it; a declined contract never sits in
+        Upcoming or Running, where it would activate and be billed."""
 
         self.ensure_one()
         self._check_bc_manager()
         if self.agreement_state != 'sent':
             raise UserError(_("Only an agreement awaiting signature can be declined."))
-        self.agreement_state = 'declined'
-        self.activity_feedback(
-            ['business_center.mail_activity_type_contract_signature'],
-            feedback=_("Tenant declined the agreement."))       
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Agreement Declined'),
+            'res_model': 'business.center.contract.decline.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {'default_contract_id': self.id},
+        }     
                 
     def _create_rent_invoice(self):
         """Build one draft customer invoice for the next billing period plus any

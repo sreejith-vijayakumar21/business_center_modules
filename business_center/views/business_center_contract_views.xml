@@ -18,8 +18,7 @@
                             invisible="state not in ('upcoming', 'active') or agreement_state == 'signed'"/>
                     <button name="action_mark_agreement_declined" type="object" string="Mark as Declined"
                             groups="business_center.group_bc_manager"
-                            invisible="agreement_state != 'sent'"
-                            confirm="Record that the tenant declined this agreement?"/>
+                            invisible="agreement_state != 'sent'"/>
                     <button name="action_create_invoice" type="object"
                             string="Create Invoice"
                             groups="business_center.group_bc_manager"
