@@ -47,6 +47,11 @@
         'views/business_center_views.xml',
         'views/business_center_menus.xml'
     ],
+    'assets': {
+        'web.report_assets_common': [
+            'business_center/static/src/scss/business_center_contract_report.scss',
+        ],
+    },
     'installable': True,
     'application': True,
     'pre_init_hook': 'pre_init_hook',
