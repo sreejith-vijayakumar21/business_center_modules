@@ -4,7 +4,7 @@
 from odoo import _, api, fields, models, Command
 from odoo.exceptions import UserError, ValidationError
 from dateutil.relativedelta import relativedelta
-from odoo.tools import format_date
+from odoo.tools import format_date, is_html_empty
 
 
 import logging
@@ -33,7 +33,10 @@ class BusinessCenterContract(models.Model):
         ('expired', 'Expired'),
         ('cancelled', 'Cancelled')
     ], default='draft', tracking=True)
-    note = fields.Html(string='Terms & Conditions')
+    note = fields.Html(string='Terms & Conditions',
+        help="Loaded from the business centre's terms when the first asset is "
+             "chosen. Edit freely for this tenant; this text is printed on the "
+             "agreement.")
     invoice_count = fields.Integer(string='Invoice Count',
                                    compute='_compute_invoice_count')
     auto_renew = fields.Boolean(string='Auto Renew', default=False)
@@ -207,7 +210,11 @@ class BusinessCenterContract(models.Model):
                 vals['name'] = self.env['ir.sequence'].sudo().next_by_code(
                     'business.center.contract') or _("New")
                 
-        return super().create(vals_list)
+        records =  super().create(vals_list)
+        for rec in records:
+            if rec.center_id and is_html_empty(rec.note):
+                rec.note = rec.center_id.contract_terms
+        return records
     
     def unlink(self):
         """Release leased assets before deleting so no resource is left
@@ -358,6 +365,20 @@ class BusinessCenterContract(models.Model):
         for contract in self:
             if not contract.is_wallet_eligible and contract.free_hours_monthly:
                 contract.free_hours_monthly = 0.0
+                
+    @api.onchange('center_id')
+    def _onchange_center_terms(self):
+        """Load the business centre's terms onto the contract.
+
+        All leased assets share one centre (_check_single_center), so the
+        centre only changes when the first asset is picked or when every
+        asset is swapped for another centre's. Adding more assets from the
+        same centre leaves it unchanged, so terms edited for this tenant are
+        kept.
+        """
+
+        if self.center_id and self.state == 'draft':
+            self.note = self.center_id.contract_terms
             
     @api.onchange('date_start', 'date_end')
     def _onchange_contract_dates(self):

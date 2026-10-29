@@ -72,6 +72,8 @@
                         </group>
 
                         <group string="Contract Period">
+                            <field name="center_id" readonly="1"
+                               invisible="not center_id"/>
                             <field name="date_start" readonly="state != 'draft'"/>
                             <field name="date_end" readonly="state != 'draft'"/>
                             <field name="contract_sent_date" invisible="not contract_sent_date"/>

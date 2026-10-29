@@ -162,6 +162,10 @@
                         <page string="Internal Notes" name="internal_notes">
                             <field name="notes"/>
                         </page>
+                        <page string="Terms &amp; Conditions" name="contract_terms">
+                            <field name="contract_terms"
+                                   placeholder="Default terms and conditions printed on lease agreements for this centre..."/>
+                        </page>
                     </notebook>
                 </sheet>
             <chatter/>
