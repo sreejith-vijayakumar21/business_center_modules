@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="mail_activity_type_contract_signature" model="mail.activity.type">
+            <field name="name">Agreement Signature</field>
+            <field name="summary">Follow up on agreement signature</field>
+            <field name="res_model">business.center.contract</field>
+            <field name="icon">fa-pencil-square-o</field>
+            <field name="delay_count">7</field>
+            <field name="delay_unit">days</field>
+        </record>
+    </data>
+</odoo>
