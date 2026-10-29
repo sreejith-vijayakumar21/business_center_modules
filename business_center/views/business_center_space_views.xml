@@ -323,7 +323,7 @@
                 <searchpanel>
                     <field name="center_id" icon="fa-building" enable_counters="1"/>
                     <field name="floor_id" select="multi" icon="fa-bars" groupby="center_id"
-                           domain="[('center_id', '=', center_id)] if center_id else []"
+                           domain="[('center_id', '=' if center_id else '!=', center_id or False)]"
                            enable_counters="1"/>
                 </searchpanel>
             </search>
