@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="business_center_booking_cancel_wizard_view_form" model="ir.ui.view">
+        <field name="name">business.center.booking.cancel.wizard.view.form</field>
+        <field name="model">business.center.booking.cancel.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Cancel Started Booking">
+                <div class="alert alert-warning" role="alert">
+                    This booking has already started. Choose what the tenant is charged
+                    and record why.
+                </div>
+                <group>
+                    <group>
+                        <field name="booking_id"/>
+                        <field name="booking_date"/>
+                        <field name="booked_slot_display"/>
+                    </group>
+                    <group>
+                        <field name="outcome" widget="radio"/>
+                        <field name="used_until" widget="float_time"
+                               invisible="outcome != 'used'" required="outcome == 'used'"/>
+                        <field name="billable_hours_display"/>
+                    </group>
+                </group>
+                <field name="reason" placeholder="e.g. Client informed at 10:15 that they could not attend due to..."/>
+                <footer>
+                    <button name="action_confirm" type="object" string="Cancel Booking" class="btn-primary"/>
+                    <button string="Discard" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

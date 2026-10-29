@@ -19,3 +19,4 @@ access_bc_charge_user,bc.charge.user,model_business_center_contract_charge,group
 access_bc_booking_user,bc.booking.user,model_business_center_booking,group_bc_user,1,1,1,0
 access_bc_contract_sign_wizard,bc.contract.sign.wizard,model_business_center_contract_sign_wizard,business_center.group_bc_manager,1,1,1,0
 access_bc_contract_decline_wizard,bc.contract.decline.wizard,model_business_center_contract_decline_wizard,business_center.group_bc_manager,1,1,1,0
+access_business_center_booking_cancel_wizard_manager,business.center.booking.cancel.wizard.manager,model_business_center_booking_cancel_wizard,business_center.group_bc_manager,1,1,1,1

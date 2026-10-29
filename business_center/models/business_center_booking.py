@@ -3,8 +3,8 @@
 
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError, UserError
-from odoo.tools import format_date
-from markupsafe import escape
+from odoo.tools import float_is_zero, format_date
+from markupsafe import escape, Markup
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -46,6 +46,17 @@ class BusinessCenterBooking(models.Model):
                                      help="Which wallet period this booking drew its hours from. Used to "
                                      "decide whether a cancellation can refund them.")
     wallet_balance_after_booking = fields.Float(string='Balance After Booking', copy=False)
+    cancel_outcome = fields.Selection([
+        ('waive', 'Charges Waived'),
+        ('used', 'Time Used Charged'),
+        ('full', 'Charged in Full'),
+    ], string='Cancellation Outcome', readonly=True, copy=False, tracking=True,
+        help="Set when a manager cancels a booking after it started.")
+    cancel_reason = fields.Text(string='Cancellation Reason', readonly=True, copy=False)
+    cancelled_by_id = fields.Many2one('res.users', string='Cancelled By', readonly=True, copy=False)
+    original_end_time = fields.Float(string='Originally Booked Until', readonly=True, copy=False,
+                                     help="Booked end time before a 'time used' cancellation "
+                                          "shortened the booking.")
     overage_amount = fields.Monetary(string='Extra Charge', compute='_compute_overage_amount',
                                  currency_field='currency_id')
     slot_availability_html = fields.Html(string='Slot Availability', compute='_compute_slot_availability_html', 
@@ -198,13 +209,15 @@ class BusinessCenterBooking(models.Model):
                 % "".join(boxes)
             )
             
-    @api.depends('total_wallet_credits', 'start_time', 'end_time', 'state', 'wallet_balance_at_booking')
+    @api.depends('total_wallet_credits', 'start_time', 'end_time', 'state',
+                 'wallet_balance_at_booking', 'cancel_outcome')
     def _compute_chargeable_hours(self):
         """Compute the hours billed beyond available wallet credits: live against the
-        current wallet while draft, against the frozen snapshot once confirmed."""
-        
+        current wallet while draft, against the frozen snapshot once confirmed.
+        A cancelled booking is chargeable only if a manager kept its charges."""
+
         for rec in self:
-            if rec.state == 'cancelled':
+            if rec.state == 'cancelled' and rec.cancel_outcome not in ('used', 'full'):
                 rec.chargeable_hours = 0.0
                 continue
             used = rec.end_time - rec.start_time if rec.end_time > rec.start_time else 0.0
@@ -264,6 +277,13 @@ class BusinessCenterBooking(models.Model):
             for booking in self:
                 if booking.state != target:
                     getattr(booking, method)()
+                    if booking.state != target:
+                        # A started booking returns the cancel wizard instead of
+                        # cancelling; a bare write cannot show it, so refuse
+                        # rather than silently doing nothing.
+                        raise UserError(_(
+                            "%s has already started. Use the Cancel button on the "
+                            "booking to record the outcome.", booking.name))
             return True
 
         if not self.env.user.has_group('business_center.group_bc_manager'):
@@ -494,74 +514,56 @@ class BusinessCenterBooking(models.Model):
         self.with_context(bc_state_from_action=True).write({'state': 'confirmed'})
         
     def action_cancel(self):
-        """Cancel the booking, refunding any wallet hours it used and voiding its
-        still-pending overage charge. Hours only come back if the wallet is still
-        in the period they were drawn from."""
+        """Cancel the booking. Before it starts this refunds its wallet hours and
+        voids its overage. Once it has started only a manager can cancel it, and
+        that goes through the wizard so the outcome and reason are recorded."""
 
         self.ensure_one()
         if self.state == 'cancelled':
             raise UserError(_("This booking is already cancelled."))
 
+        is_manager = self.env.user.has_group('business_center.group_bc_manager')
         if self.state == 'confirmed':
             if self._is_in_past():
-                raise UserError(_(
-                    "%(booking)s started at %(start)s on %(date)s, so it can no "
-                    "longer be cancelled.",
-                    booking=self.name,
-                    start=self._float_to_ampm(self.start_time),
-                    date=format_date(self.env, self.booking_date),
-                ))
+                if not is_manager:
+                    raise UserError(_(
+                        "%(booking)s started at %(start)s on %(date)s. Contact the "
+                        "centre manager to cancel it.",
+                        booking=self.name,
+                        start=self._float_to_ampm(self.start_time),
+                        date=format_date(self.env, self.booking_date),
+                    ))
+                return self.action_open_cancel_wizard()
             invoiced = self.contract_id.charge_ids.filtered(
                 lambda c: c.booking_id == self and c.state == 'invoiced')
-            if invoiced and not self.env.user.has_group(
-                    'business_center.group_bc_manager'):
+            if invoiced and not is_manager:
                 raise UserError(_(
                     "The overage on %s is already on an invoice. Ask a manager "
                     "to cancel this booking.", self.name))
-            posted = invoiced.filtered(
-                lambda c: c.invoice_line_id.move_id.state == 'posted')
-            if posted:
-                raise UserError(_(
-                    "The overage on %(booking)s is on posted invoice "
-                    "%(invoice)s and cannot be cancelled. Issue a credit note "
-                    "instead.",
-                    booking=self.name,
-                    invoice=posted[0].invoice_line_id.move_id.name,
-                ))
-            # Still-draft invoice: pull the line before voiding the charge.
-            invoiced.invoice_line_id.unlink()
-            invoiced.sudo().write({'state': 'cancelled', 'invoice_line_id': False})
+        self._apply_cancellation()
 
-            contract = self.contract_id
-            if contract:
-                self.env.cr.execute(
-                    "SELECT id FROM business_center_contract WHERE id = %s FOR UPDATE",
-                    (contract.id,))
-                contract.invalidate_recordset(['wallet_balance'])
+    def action_open_cancel_wizard(self):
+        """Open the manager's wizard for cancelling a booking that has started,
+        with 'used until' defaulting to now, kept within the booked slot."""
 
-            wallet_used = self.wallet_balance_at_booking - self.wallet_balance_after_booking
-            same_period = (
-                contract
-                and wallet_used > 0
-                and self.wallet_period_date
-                and contract.last_wallet_reset_date == self.wallet_period_date
-            )
-            if same_period:
-                contract.wallet_balance = min(
-                    contract.wallet_balance + wallet_used,
-                    contract.free_hours_monthly,
-                )
-            elif wallet_used > 0:
-                _logger.info(
-                    "Booking %s cancelled after a wallet reset; %s hour(s) "
-                    "lapsed with the previous period and were not refunded.",
-                    self.name, wallet_used)
-
-            charges = self.contract_id.charge_ids.filtered(
-                lambda c: c.booking_id == self and c.state == 'pending')
-            charges.sudo().write({'state': 'cancelled'})
-
-        self.with_context(bc_state_from_action=True).write({'state': 'cancelled'})
+        self.ensure_one()
+        now = self._local_now()
+        if self.booking_date == now.date():
+            now_hours = now.hour + now.minute / 60.0
+            used_until = min(max(now_hours, self.start_time), self.end_time)
+        else:
+            used_until = self.end_time
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Cancel Started Booking'),
+            'res_model': 'business.center.booking.cancel.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_booking_id': self.id,
+                'default_used_until': used_until,
+            },
+        }
         
     def action_reset_to_draft(self):
         """Reset to draft, reversing any wallet draw and overage charge first."""
@@ -569,6 +571,14 @@ class BusinessCenterBooking(models.Model):
         self.ensure_one()
         if not self.env.user.has_group('business_center.group_bc_manager'):
             raise UserError(_("Only a Business Center Manager can reset a booking."))
+        if self.state == 'confirmed' and self._is_in_past():
+            raise UserError(_(
+                "%s has already started. Cancel it to record the outcome "
+                "instead of resetting it.", self.name))
+        if self.state == 'cancelled' and self.cancel_outcome in ('used', 'full'):
+            raise UserError(_(
+                "%s was cancelled with its charges kept, so it cannot be "
+                "reset. Create a new booking instead.", self.name))
         if self.state == 'confirmed':
             contract = self.contract_id
             wallet_used = self.wallet_balance_at_booking - self.wallet_balance_after_booking
@@ -588,12 +598,102 @@ class BusinessCenterBooking(models.Model):
         self.with_context(bc_state_from_action=True).write({
             'wallet_balance_at_booking': 0.0,
             'wallet_balance_after_booking': 0.0,
+            'cancel_outcome': False,
+            'cancel_reason': False,
+            'cancelled_by_id': False,
+            'original_end_time': 0.0,
             'state': 'draft',
         })
                 
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
+    def _apply_cancellation(self, outcome=False, reason=False, used_until=False):
+        """Cancel the booking and settle its wallet hours and overage.
+
+        outcome False / 'waive': nothing billable, everything refunded.
+        'used': bill start -> used_until, and shorten the booking to that.
+        'full': bill the whole booked slot.
+
+        The billable hours are re-split against the wallet snapshot taken at
+        confirmation: wallet hours no longer used go back to the wallet (same
+        period only), and the overage charge is replaced only if its amount
+        changed - so 'full' leaves an already-invoiced overage untouched.
+        """
+
+        self.ensure_one()
+        vals = {'state': 'cancelled'}
+        if outcome:
+            vals.update({
+                'cancel_outcome': outcome,
+                'cancel_reason': reason,
+                'cancelled_by_id': self.env.uid,
+            })
+
+        if self.state == 'confirmed':
+            contract = self.contract_id
+            if outcome == 'full':
+                billable = self._booking_hours()
+            elif outcome == 'used':
+                billable = max(min(used_until, self.end_time) - self.start_time, 0.0)
+            else:
+                billable = 0.0
+
+            self.env.cr.execute(
+                "SELECT id FROM business_center_contract WHERE id = %s FOR UPDATE",
+                (contract.id,))
+            contract.invalidate_recordset(['wallet_balance'])
+
+            # Re-split the billable hours against the wallet as it was at confirmation.
+            new_wallet_hours = min(billable, self.wallet_balance_at_booking)
+            new_overage = billable - new_wallet_hours
+
+            charges = contract.charge_ids.filtered(
+                lambda c: c.booking_id == self and c.state in ('pending', 'invoiced'))
+            old_overage = sum(charges.mapped('quantity'))
+            if not float_is_zero(new_overage - old_overage, precision_digits=4):
+                posted = charges.filtered(
+                    lambda c: c.state == 'invoiced'
+                    and c.invoice_line_id.move_id.state == 'posted')
+                if posted:
+                    raise UserError(_(
+                        "The overage on %(booking)s is on posted invoice "
+                        "%(invoice)s and cannot be changed. Issue a credit note "
+                        "instead.",
+                        booking=self.name,
+                        invoice=posted[0].invoice_line_id.move_id.name,
+                    ))
+                # Still-draft invoice: pull the line before voiding the charge.
+                charges.filtered(lambda c: c.state == 'invoiced').invoice_line_id.unlink()
+                charges.sudo().write({'state': 'cancelled', 'invoice_line_id': False})
+                if new_overage > 0:
+                    self._create_overage_charge(new_overage)
+
+            wallet_used = self.wallet_balance_at_booking - self.wallet_balance_after_booking
+            refund = wallet_used - new_wallet_hours
+            same_period = (
+                self.wallet_period_date
+                and contract.last_wallet_reset_date == self.wallet_period_date
+            )
+            if refund > 0 and same_period:
+                contract.wallet_balance = min(
+                    contract.wallet_balance + refund,
+                    contract.free_hours_monthly,
+                )
+            elif refund > 0:
+                _logger.info(
+                    "Booking %s cancelled after a wallet reset; %s hour(s) "
+                    "lapsed with the previous period and were not refunded.",
+                    self.name, refund)
+
+            if outcome == 'used':
+                vals.update({
+                    'original_end_time': self.end_time,
+                    'end_time': self.start_time + billable,
+                })
+
+        self.with_context(bc_state_from_action=True).write(vals)
+    
     def _create_overage_charge(self, overage_hours):
         """Raise a pending contract charge for the meeting-room hours over wallet credit."""
         

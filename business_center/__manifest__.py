@@ -33,6 +33,7 @@
         'data/ir_sequence_data.xml',
         'data/ir_cron_data.xml',
         
+        'wizard/business_center_booking_cancel_wizard_views.xml',
         'wizard/business_center_contract_sign_wizard_views.xml',
         'wizard/business_center_contract_decline_wizard_views.xml',
 
