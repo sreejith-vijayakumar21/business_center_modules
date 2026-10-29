@@ -194,41 +194,51 @@ class BusinessCenter(models.Model):
         self.write({'state': 'maintenance'})
     
     def action_open_available_spaces(self):
-        """Open the spaces belonging to this specific center"""
-        
+        """Open the cabin spaces, pre-selecting this center in the search panel"""
+
         self.ensure_one()
         return {
             'type': 'ir.actions.act_window',
             'name': _('Cabin Spaces'),
             'res_model': 'business.center.space',
             'view_mode': 'kanban,list,form',
-            'domain': [('space_type', '=', 'office'),('is_coworking', '=', False),
-                       ('center_id', '=', self.id)]
+            'domain': [('space_type', '=', 'office'), ('is_coworking', '=', False)],
+            'context': {
+                'searchpanel_default_center_id': self.id,
+                'default_center_id': self.id,
+                'default_space_type': 'office',
+            },
         }
-    
+
     def action_open_available_desks(self):
-        """Open the desks belonging to this specific center"""
-        
+        """Open the desks, pre-selecting this center in the search panel"""
+
         self.ensure_one()
         return {
             'type': 'ir.actions.act_window',
             'name': _('Desks'),
             'res_model': 'business.center.desk',
-            'view_mode': 'kanban,form',
-            'domain': [('center_id', '=', self.id)]
+            'view_mode': 'kanban,list,form',
+            'context': {
+                'searchpanel_default_center_id': self.id,
+            },
         }
-    
+
     def action_open_available_meeting_rooms(self):
-        """Open the meetings rooms belonging to this specific center"""
-        
+        """Open the meeting rooms, pre-selecting this center in the search panel"""
+
         self.ensure_one()
         return {
             'type': 'ir.actions.act_window',
-            'name': _('Meeting rooms'),
+            'name': _('Meeting Rooms'),
             'res_model': 'business.center.space',
             'view_mode': 'kanban,list,form',
-            'domain': [('space_type', '=', 'meeting_room'), 
-                       ('center_id', '=', self.id)]
+            'domain': [('space_type', '=', 'meeting_room')],
+            'context': {
+                'searchpanel_default_center_id': self.id,
+                'default_center_id': self.id,
+                'default_space_type': 'meeting_room',
+            },
         }
         
     def action_open_available_contracts(self):
