@@ -11,27 +11,27 @@
                 <button name="action_set_occupied" type="object"
                         string="Set Occupied" class="btn-primary"
                         groups="business_center.group_bc_manager"
-                        invisible="state == 'occupied' or not current_contract_id"/>
+                        invisible="not id or state == 'occupied' or not current_contract_id"/>
                 <button name="action_set_available" type="object"
                         string="Set Available"
                         groups="business_center.group_bc_manager"
-                        invisible="state in ('available', 'occupied')"/>
+                        invisible="not id or state in ('available', 'occupied')"/>
                 <button name="action_set_maintenance" type="object"
                         string="Maintenance"
                         groups="business_center.group_bc_manager"
-                        invisible="state in ('draft', 'maintenance')"/>
+                        invisible="not id or state in ('draft', 'maintenance')"/>
                 <button name="action_set_draft" type="object"
                         string="Reset to Draft" class="btn-secondary"
                         groups="business_center.group_bc_manager"
-                        invisible="state == 'draft'"/>
+                        invisible="not id or state == 'draft'"/>
                 <button name="action_toggle_bookable" type="object"
                         string="Withdraw from Booking"
                         groups="business_center.group_bc_manager"
-                        invisible="space_type != 'meeting_room' or not is_bookable or state == 'draft'"/>
+                        invisible="not id or space_type != 'meeting_room' or not is_bookable or state == 'draft'"/>
                 <button name="action_toggle_bookable" type="object"
                         string="Open for Booking" class="btn-primary"
                         groups="business_center.group_bc_manager"
-                        invisible="space_type != 'meeting_room' or is_bookable or state == 'draft'"/>
+                        invisible="not id or space_type != 'meeting_room' or is_bookable or state == 'draft'"/>
                 <field name="space_type" invisible="1"/>
                 <field name="state" widget="statusbar" statusbar_visible="draft,available,occupied,maintenance"/>
             </header>
