@@ -17,6 +17,7 @@ class BusinessCenterContract(models.Model):
     _name = 'business.center.contract'
     _description = 'A central registry of business center contracts'
     _inherit = ['mail.thread', 'mail.activity.mixin']
+    _order = 'name desc'
     
     # ------------------------------------------------------------------------------
     #   MARK: FIELDS
