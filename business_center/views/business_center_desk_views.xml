@@ -205,8 +205,7 @@
 
                 <searchpanel>
                     <field name="center_id" icon="fa-building" enable_counters="1"/>
-                    <field name="floor_id" select="multi" icon="fa-bars"
-                           groupby="center_id" enable_counters="1"/>
+                    <field name="floor_id" select="multi" icon="fa-bars" groupby="center_id"/>
                 </searchpanel>
             </search>
         </field>

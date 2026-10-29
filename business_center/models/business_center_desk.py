@@ -123,6 +123,16 @@ class BusinessCenterDesk(models.Model):
                 vals['name'] = '/'.join(parts)
         return super().create(vals_list)
     
+    @api.model
+    def search_panel_select_multi_range(self, field_name, **kwargs):
+        """Odoo 19 web client sends group_domain=None for a grouped many2one
+        filter with counters when no value is ticked; normalise it so the
+        domain AND does not crash."""
+
+        if kwargs.get('group_domain') is None:
+            kwargs['group_domain'] = []
+        return super().search_panel_select_multi_range(field_name, **kwargs)
+    
     @api.ondelete(at_uninstall=False)
     def _unlink_except_live_contract(self):
         """Prevent deleting a desk while it still belongs to a draft or active contract"""
