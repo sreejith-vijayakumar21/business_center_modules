@@ -14,3 +14,4 @@ from . import business_center_booking
 from . import business_center_leased_asset
 from . import res_company
 from . import res_config_settings
+from . import business_center_search_panel_mixin

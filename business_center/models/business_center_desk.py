@@ -10,7 +10,7 @@ class BusinessCenterDesk(models.Model):
     
     _name = 'business.center.desk'
     _description = 'A central registry of business center desks'
-    _inherit = ['mail.thread', 'mail.activity.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.search.panel.mixin']
     _order = 'id desc'
     
     # ------------------------------------------------------------------------------

@@ -10,7 +10,8 @@ class BusinessCenterSpace(models.Model):
     
     _name = 'business.center.space'
     _description = 'A central registry of business center spaces'
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.time.format.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.time.format.mixin', 
+                'business.center.search.panel.mixin']
     _order = 'floor_id'
     
     # ------------------------------------------------------------------------------
