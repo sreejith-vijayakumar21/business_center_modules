@@ -176,11 +176,48 @@
         </field>
     </record>
 
+    <!-- SEARCH VIEW -->
+    <record id="business_center_desk_view_search" model="ir.ui.view">
+        <field name="name">business.center.desk.view.search</field>
+        <field name="model">business.center.desk</field>
+        <field name="arch" type="xml">
+            <search string="Desks">
+                <field name="name"/>
+                <field name="occupant_id"/>
+                <field name="space_id"/>
+                <field name="center_id"/>
+                <field name="floor_id"/>
+                <field name="current_contract_id"/>
+
+                <filter name="filter_draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                <filter name="filter_available" string="Available" domain="[('state', '=', 'available')]"/>
+                <filter name="filter_occupied" string="Occupied" domain="[('state', '=', 'occupied')]"/>
+                <filter name="filter_maintenance" string="Maintenance" domain="[('state', '=', 'maintenance')]"/>
+                <separator/>
+                <filter name="filter_archived" string="Archived" domain="[('active', '=', False)]"/>
+
+                <group>
+                    <filter name="groupby_center" string="Business Center" context="{'group_by': 'center_id'}"/>
+                    <filter name="groupby_floor" string="Floor" context="{'group_by': 'floor_id'}"/>
+                    <filter name="groupby_space" string="Coworking Space" context="{'group_by': 'space_id'}"/>
+                    <filter name="groupby_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+
+                <searchpanel>
+                    <field name="center_id" icon="fa-building" enable_counters="1"/>
+                    <field name="floor_id" select="multi" icon="fa-bars"
+                           groupby="center_id" enable_counters="1"/>
+                </searchpanel>
+            </search>
+        </field>
+    </record>
+
     <!-- ACTION -->
     <record id="action_business_center_desk" model="ir.actions.act_window">
         <field name="name">Business Center Desk</field>
         <field name="res_model">business.center.desk</field>
         <field name="view_mode">kanban,list,form</field>
+        <field name="search_view_id" ref="business_center_desk_view_search"/>
     </record>
 
 </odoo>
