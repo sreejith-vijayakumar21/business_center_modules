@@ -38,3 +38,23 @@ class BusinessCenterFloor(models.Model):
         
         for rec in self:
             rec.space_count = len(rec.space_ids)
+            
+    # ------------------------------------------------------------------------------
+    #   MARK: BUTTON ACTION METHODS
+    # ------------------------------------------------------------------------------
+    def action_open_floor_spaces(self):
+        """Open the spaces on this floor, pre-filtered in the search panel"""
+
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('%(center)s / %(floor)s', center=self.center_id.name, floor=self.name),
+            'res_model': 'business.center.space',
+            'view_mode': 'kanban,list,form',
+            'context': {
+                'searchpanel_default_center_id': self.center_id.id,
+                'searchpanel_default_floor_id': [self.id],
+                'default_center_id': self.center_id.id,
+                'default_floor_id': self.id,
+            },
+        }
