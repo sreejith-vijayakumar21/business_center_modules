@@ -23,3 +23,5 @@ class ResConfigSettings(models.TransientModel):
              "compared in this timezone, including for portal users.")
     bc_renewal_increase_pct = fields.Float(
         related='company_id.bc_renewal_increase_pct', readonly=False)
+    bc_invoice_auto_send = fields.Boolean(
+        related='company_id.bc_invoice_auto_send', readonly=False)

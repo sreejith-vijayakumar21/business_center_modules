@@ -1104,6 +1104,53 @@ class BusinessCenterContract(models.Model):
             charges.write({'state': 'invoiced', 'invoice_line_id': line.id})
 
         return move
+    
+    def _invoice_due_periods(self, today):
+        """Create the draft invoices this contract owes up to ``today`` and
+        return them: every billing period that has opened (catching up after
+        an outage or late entry), then, for a finished contract, its last
+        pending meeting-room charges, which no period is left to carry."""
+
+        self.ensure_one()
+        moves = self.env['account.move']
+        for _attempt in range(24):
+            period_start, period_end = self._get_billing_period()
+            if not period_start or period_start > today:
+                break
+            has_rent = self.leased_asset_ids.filtered(lambda a: a.monthly_rent_total)
+            has_charges = self.charge_ids.filtered(
+                lambda c: c.state == 'pending' and c.booking_id.meeting_room_id)
+            if not has_rent and not has_charges:
+                self.next_invoice_date = period_end + relativedelta(days=1)
+                continue
+            moves |= self._create_rent_invoice()
+        else:
+            _logger.warning(
+                "Billing cron: %s hit the 24-period catch-up limit; it may "
+                "still owe invoices.", self.name)
+        if self.state == 'expired' and self.charge_ids.filtered(
+                lambda c: c.state == 'pending' and c.booking_id.meeting_room_id):
+            moves |= self._create_rent_invoice()
+        return moves
+
+    def _send_invoices(self, moves):
+        """Post the invoices and email them to the tenant when the company
+        bills automatically; otherwise leave them in draft for review."""
+
+        self.ensure_one()
+        if not moves or not self.company_id.bc_invoice_auto_send:
+            return
+        moves.action_post()
+        template = self.env.ref('account.email_template_edi_invoice',
+                                raise_if_not_found=False)
+        if not template or not self.partner_id.email:
+            _logger.warning(
+                "Billing cron: %s invoices posted but not emailed (no invoice "
+                "template or no tenant email).", self.name)
+            return
+        for move in moves:
+            template.send_mail(move.id)
+            move.is_move_sent = True
 
     def action_create_invoice(self):
         """Invoice this contract's next period manually and open the result.
@@ -1333,16 +1380,18 @@ class BusinessCenterContract(models.Model):
         
     @api.model
     def _cron_generate_invoices(self):
-        """Raise one draft invoice per contract whose next billing period has opened.
+        """Invoice every contract whose next billing period has opened.
 
-        Runs daily rather than monthly on purpose. A contract that goes live on
-        10 Aug is billed that same night for 10-31 Aug only, which puts its
-        next_invoice_date on 1 Sep; from then on it is picked up on the 1st along
-        with everything else. Expired contracts are swept too, so meeting-room
-        overage accrued in a final month still reaches an invoice.
+        Runs daily rather than monthly on purpose. A contract that goes live
+        on 10 Aug is billed that same night for 10-31 Aug only, which puts its
+        next_invoice_date on 1 Sep; from then on it is picked up on the 1st
+        along with everything else. Expired contracts are swept too, so
+        meeting-room overage from their final month still reaches an invoice.
 
-        Each contract bills inside its own savepoint: one missing a product or a
-        rent amount fails alone and the rest still go out.
+        Invoices are left in draft, or posted and emailed to the tenant when
+        the company has Post and Email Invoices Automatically switched on.
+        Each contract runs in its own savepoint: one that fails (missing
+        product, no rent) fails alone and the rest still go out.
         """
 
         today = fields.Date.today()
@@ -1355,31 +1404,14 @@ class BusinessCenterContract(models.Model):
             _logger.info("Billing cron: nothing due today.")
             return
 
-        billed = self.browse()
-        failed = []
+        billed, failed = self.browse(), []
         for contract in due:
             try:
                 with self.env.cr.savepoint():
-                    # Bill every period that has already opened, not just the
-                    # first. A contract entered late, or one that sat through a
-                    # server outage, catches up in a single run.
-                    for _attempt in range(24):
-                        period_start, period_end = contract._get_billing_period()
-                        if not period_start or period_start > today:
-                            break
-                        has_rent = contract.leased_asset_ids.filtered(
-                            lambda a: a.monthly_rent_total)
-                        has_charges = contract.charge_ids.filtered(
-                            lambda c: c.state == 'pending' and c.booking_id.meeting_room_id)
-                        if not has_rent and not has_charges:
-                            contract.next_invoice_date = period_end + relativedelta(days=1)
-                            continue
-                        contract._create_rent_invoice()
-                    else:
-                        _logger.warning(
-                            "Billing cron: %s hit the 24-period catch-up limit; "
-                            "it may still owe invoices.", contract.name)
-                billed |= contract
+                    moves = contract._invoice_due_periods(today)
+                    contract._send_invoices(moves)
+                if moves:
+                    billed |= contract
             except Exception:
                 failed.append(contract.name)
                 _logger.exception("Billing cron: could not invoice %s.", contract.name)
