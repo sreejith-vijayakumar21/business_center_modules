@@ -10,8 +10,10 @@ from odoo.exceptions import ValidationError
 from odoo.addons.workspace_floor_planner.tools.constants import (
     CATEGORY_RENTABLE,
     STATUS_AVAILABLE,
+    STATUS_NOT_LINKED,
     STATUS_PARTIAL,
     STATUS_UNKNOWN,
+    SUMMARY_STATUS_CODES,
     UNIT_STATUS_CODES,
     ZONE_TYPES,
 )
@@ -64,7 +66,13 @@ class WorkspaceFloorStatusService(models.AbstractModel):
         result = {}
         units = objects.filtered(lambda o: o.category == CATEGORY_RENTABLE)
         for obj in units:
-            result[obj.id] = {"status": unit_status.get(obj.id, STATUS_UNKNOWN)}
+            # A shape without a record is "not linked"; a linked one whose
+            # record cannot be resolved stays "unknown".
+            if obj.link_key:
+                status = unit_status.get(obj.id, STATUS_UNKNOWN)
+            else:
+                status = STATUS_NOT_LINKED
+            result[obj.id] = {"status": status}
         for zone in objects.filtered(lambda o: o.object_type in ZONE_TYPES):
             result[zone.id] = self._summarize_zone(zone, units, result)
 
@@ -85,7 +93,7 @@ class WorkspaceFloorStatusService(models.AbstractModel):
         override this to count the real units of the floor instead (for
         example to include units not placed on the drawing yet).
         """
-        summary = dict.fromkeys(UNIT_STATUS_CODES, 0)
+        summary = dict.fromkeys(SUMMARY_STATUS_CODES, 0)
         for unit in units:
             summary[unit_results[unit.id]["status"]] += 1
         summary["total"] = len(units)

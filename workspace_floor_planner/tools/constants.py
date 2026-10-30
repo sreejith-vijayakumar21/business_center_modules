@@ -41,7 +41,9 @@ STATUS_AVAILABLE = "available"
 STATUS_OCCUPIED = "occupied"
 STATUS_RESERVED = "reserved"
 STATUS_MAINTENANCE = "maintenance"
+STATUS_DRAFT = "draft"
 STATUS_PARTIAL = "partial"
+STATUS_NOT_LINKED = "not_linked"
 STATUS_UNKNOWN = "unknown"
 
 STATUS_SELECTION = [
@@ -49,13 +51,17 @@ STATUS_SELECTION = [
     (STATUS_OCCUPIED, "Occupied"),
     (STATUS_RESERVED, "Reserved"),
     (STATUS_MAINTENANCE, "Maintenance"),
+    (STATUS_DRAFT, "Draft"),
     (STATUS_PARTIAL, "Partially available"),
-    (STATUS_UNKNOWN, "Unknown / not linked"),
+    (STATUS_NOT_LINKED, "Not linked"),
+    (STATUS_UNKNOWN, "Unknown"),
 ]
 STATUS_CODES = frozenset(code for code, _label in STATUS_SELECTION)
-# Statuses a provider may return for a single unit. "partial" is reserved for
-# zones and is derived by the core from the units inside the zone.
-UNIT_STATUS_CODES = STATUS_CODES - {STATUS_PARTIAL}
+# Statuses a provider may return for a single unit. "partial" (zones) and
+# "not_linked" (shapes without a record) are derived by the core itself.
+UNIT_STATUS_CODES = STATUS_CODES - {STATUS_PARTIAL, STATUS_NOT_LINKED}
+# Statuses counted in the plan totals.
+SUMMARY_STATUS_CODES = STATUS_CODES - {STATUS_PARTIAL}
 
 # --- Geometry / payload limits ----------------------------------------------
 # Logical canvas units. x/y is the top-left corner of the *unrotated*

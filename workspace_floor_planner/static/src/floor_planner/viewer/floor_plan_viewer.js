@@ -63,6 +63,9 @@ export class FloorPlanViewer extends Component {
             cards.push({ key: "reserved", label: palette.reserved?.name, value: s.reserved, color: palette.reserved?.color });
         }
         cards.push({ key: "maintenance", label: palette.maintenance?.name, value: s.maintenance || 0, color: palette.maintenance?.color });
+        if (s.draft) {
+            cards.push({ key: "draft", label: palette.draft?.name, value: s.draft, color: palette.draft?.color });
+        }
         return cards;
     }
 

@@ -626,6 +626,13 @@
 
         .o_fp_stat_value { color: #A86A12 !important; }
     }
+
+    &[data-key="draft"] {
+        background: #F1F3F7;
+        border-color: transparent;
+
+        .o_fp_stat_value { color: #5E6B7E !important; }
+    }
 }
 
 .o_fp_viewer_layout {

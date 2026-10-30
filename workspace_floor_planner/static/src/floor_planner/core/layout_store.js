@@ -113,8 +113,10 @@ export class LayoutStore {
         return [...this.objects].sort((a, b) => a.z_index - b.z_index);
     }
 
+    /** Status of an object; shapes not saved or not linked yet show "not linked". */
     statusOf(obj) {
-        const info = (obj.id && this.statusByObjectId[obj.id]) || { status: "unknown" };
+        const fallback = { status: obj.link_key ? "unknown" : "not_linked" };
+        const info = (obj.id && this.statusByObjectId[obj.id]) || fallback;
         return { ...info, display: this.statusPalette[info.status] || this.statusPalette.unknown };
     }
 

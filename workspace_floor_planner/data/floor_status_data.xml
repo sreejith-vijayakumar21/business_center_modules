@@ -36,10 +36,24 @@
             <field name="color">#1565C0</field>
             <field name="sequence">50</field>
         </record>
+        <record id="status_draft" model="workspace.floor.status">
+            <field name="code">draft</field>
+            <field name="name">Draft</field>
+            <field name="description">Linked to a record that is still being set up and is not ready to rent.</field>
+            <field name="color">#D6DEE8</field>
+            <field name="sequence">45</field>
+        </record>
+        <record id="status_not_linked" model="workspace.floor.status">
+            <field name="code">not_linked</field>
+            <field name="name">Not linked</field>
+            <field name="description">Drawn on the plan, but no business record is linked to it yet.</field>
+            <field name="color">#EEF0F4</field>
+            <field name="sequence">55</field>
+        </record>
         <record id="status_unknown" model="workspace.floor.status">
             <field name="code">unknown</field>
-            <field name="name">Draft</field>
-            <field name="description">The unit is still in draft, or the shape is not linked to a record yet.</field>
+            <field name="name">Unknown</field>
+            <field name="description">The status could not be determined, e.g. the record was removed or you cannot access it.</field>
             <field name="color">#B0BEC5</field>
             <field name="sequence">60</field>
         </record>
