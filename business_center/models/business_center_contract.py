@@ -447,6 +447,15 @@ class BusinessCenterContract(models.Model):
 
         if not self.env.user.has_group('business_center.group_bc_manager'):
             raise UserError(_("Only a Business Center Manager can do this."))
+        
+    def _bc_today(self):
+        """Today's date at the business centre. Contract dates are local to
+        the building, so use the company's timezone (Settings > Business
+        Centre Timezone), then the user's; fields.Date.today() is UTC."""
+
+        company = self[:1].company_id or self.env.company
+        tz = company.partner_id.tz or self.env.user.tz or 'UTC'
+        return fields.Date.context_today(self.with_context(tz=tz))
     
     def _sync_leased_occupancy(self, exclude=None):
         """Re-derive occupancy on this contract's spaces and desks from whichever
@@ -455,7 +464,7 @@ class BusinessCenterContract(models.Model):
         resetting/cancelling one contract won't free a resource another active
         contract still occupies. `exclude` drops contracts being deleted."""
         
-        today = fields.Date.today()
+        today = self._bc_today()
         exclude = exclude or self.env['business.center.contract']
         if not self.leased_asset_ids:
             _logger.info("Occupancy sync: contract %s has no leased assets to sync.",
@@ -880,7 +889,7 @@ class BusinessCenterContract(models.Model):
                 "%(contract)s leases office space, so it needs a monthly "
                 "free-hour allowance. Set Monthly Free Hours before confirming.",
                 contract=self.name))
-        today = fields.Date.today()
+        today = self._bc_today()
         # A migrated contract that started before this month would otherwise be
         # re-invoiced for every past month by the billing cron.
         if not self.next_invoice_date and self.date_start < today.replace(day=1):
@@ -1287,7 +1296,7 @@ class BusinessCenterContract(models.Model):
         _sync_leased_occupancy, so they hold no resource.
         """
 
-        today = fields.Date.today()
+        today = self._bc_today()
         expired_contracts = self.search([
             ('state', 'in', ('active', 'upcoming')),
             ('date_end', '<', today),
@@ -1331,7 +1340,7 @@ class BusinessCenterContract(models.Model):
         the cron is re-run.
         """
 
-        today = fields.Date.today()
+        today = self._bc_today()
         if today.day != 1:
             return
 
@@ -1366,7 +1375,7 @@ class BusinessCenterContract(models.Model):
         someone else) is noted on the contract, which then expires normally.
         """
 
-        today = fields.Date.today()
+        today = self._bc_today()
         due = self.search([
             ('state', '=', 'active'),
             ('auto_renew', '=', True),
@@ -1399,7 +1408,7 @@ class BusinessCenterContract(models.Model):
         occupancy on their spaces and desks, and invoice the deposit of any
         tenant who has not signed yet."""
 
-        today = fields.Date.today()
+        today = self._bc_today()
         due = self.search([('state', '=', 'upcoming'), ('date_start', '<=', today), ('date_end', '>=', today)])
         if not due:
             _logger.info("Contract activation cron: no contracts to activate.")
@@ -1438,7 +1447,7 @@ class BusinessCenterContract(models.Model):
         product, no rent) fails alone and the rest still go out.
         """
 
-        today = fields.Date.today()
+        today = self._bc_today()
         due = self.search([
             ('state', 'in', ('active', 'expired')),
             '|', ('next_invoice_date', '<=', today),
@@ -1479,7 +1488,7 @@ class BusinessCenterContract(models.Model):
         address raises, and that must not stop the rest of the batch.
         """
 
-        today = fields.Date.today()
+        today = self._bc_today()
         due = self.search([
             ('state', '=', 'active'),
             ('send_expiry_reminder', '=', True),
