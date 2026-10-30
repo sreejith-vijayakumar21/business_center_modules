@@ -49,14 +49,13 @@ class BusinessCenterContract(models.Model):
         string='Send Expiry Reminder', default=True, tracking=True,
         help="Email the tenant before this contract ends, asking whether they "
              "want to renew.")
-    invoice_sending = fields.Selection([
-        ('company', 'Company Default'),
-        ('auto', 'Post and Email Automatically'),
-        ('manual', 'Review and Send Manually'),
-    ], string='Monthly Invoices', default='company', required=True, tracking=True,
-        help="How the monthly billing run handles this contract's invoices: "
-             "follow the company setting, always post and email them, or "
-             "leave them in draft for staff to review and send.")
+    invoice_review_manually = fields.Boolean(
+        string='Review Invoices Manually', tracking=True,
+        help="Leave this tenant's monthly invoices in draft for staff to "
+             "review and send, instead of posting and emailing them "
+             "automatically as the company setting does.")
+    company_auto_send = fields.Boolean(
+        related='company_id.bc_invoice_auto_send', string='Company Sends Automatically')
     expiry_reminder_days = fields.Integer(
         string='Reminder Lead Days',
         default=lambda self: self.env.company.bc_expiry_reminder_days,
@@ -170,7 +169,7 @@ class BusinessCenterContract(models.Model):
         'renewal_contract_id', 'renewal_increase_pct', 'deposit_invoice_id',
         'deposit_refund_id', 'contract_sent_date',
         'agreement_state', 'signed_by', 'signed_on', 'signature', 'signed_attachment_id',
-        'invoice_sending',
+        'invoice_review_manually',
     }
     
     # ------------------------------------------------------------------------------
@@ -1179,12 +1178,10 @@ class BusinessCenterContract(models.Model):
     
     def _auto_send_invoices(self):
         """Whether the billing run posts and emails this contract's invoices:
-        the contract's own choice, or the company setting by default."""
+        the company setting, unless this contract is reviewed manually."""
 
         self.ensure_one()
-        if self.invoice_sending == 'company':
-            return self.company_id.bc_invoice_auto_send
-        return self.invoice_sending == 'auto'
+        return self.company_id.bc_invoice_auto_send and not self.invoice_review_manually
 
     def _send_invoices(self, moves):
         """Post the invoices and email them to the tenant when the company

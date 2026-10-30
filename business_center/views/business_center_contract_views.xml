@@ -93,7 +93,8 @@
                             <field name="renewal_contract_id" invisible="not renewal_contract_id"/>
                             <field name="previous_contract_id" invisible="not previous_contract_id"/>
                             <field name="send_expiry_reminder"/>
-                            <field name="invoice_sending" widget="radio"/>
+                            <field name="company_auto_send" invisible="1"/>
+                            <field name="invoice_review_manually" invisible="not company_auto_send"/>
                         </group>
                         <group>
                             <field name="expiry_reminder_days"
