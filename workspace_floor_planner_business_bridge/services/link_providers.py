@@ -20,11 +20,12 @@ from odoo.addons.workspace_floor_planner.tools.geometry import center_of, point_
 
 # Business Center state -> floor planner status. Draft units are not ready to
 # rent yet, so they show as unknown.
+# Business Center state -> floor planner status.
 STATE_MAP = {
     "available": "available",
     "occupied": "occupied",
     "maintenance": "maintenance",
-    "draft": "unknown",
+    "draft": "draft",
 }
 
 OFFICE_DOMAIN = [("space_type", "=", "office"), ("is_coworking", "=", False)]
