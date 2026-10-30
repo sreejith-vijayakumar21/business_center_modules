@@ -4,7 +4,6 @@ import { registry } from "@web/core/registry";
 import { standardFieldProps } from "@web/views/fields/standard_field_props";
 
 const EPSILON = 1e-6;
-const MAX_BOOKING_HOURS = 8;
 
 /** 13.5 -> "1:30 PM", like the server's _float_to_ampm. */
 function toAmPm(value) {
@@ -89,7 +88,6 @@ export class BcTimeSelectField extends Component {
         }
         return (
             time <= start + EPSILON ||
-            time - start > MAX_BOOKING_HOURS + EPSILON ||
             this.busy.some(([s, e]) => s < time - EPSILON && e > start + EPSILON)
         );
     }
