@@ -147,19 +147,23 @@ class BusinessCenterDeskProvider(models.AbstractModel):
     # ------------------------------------------------------------------------------
     @api.model
     def _fp_get_create_context(self, plan, obj):
-        """Put the new desk in the coworking space whose zone it is drawn in;
-        the topmost linked zone wins when zones overlap.
+        """Put the new desk in the coworking space it is drawn in; a linked
+        coworking area wins over an unlinked one, the topmost over the rest.
 
         A desk always belongs to a coworking space, so creating one is
-        refused until the desk sits inside a zone linked to its space.
+        refused until the desk sits inside a coworking area whose coworking
+        space exists.
         """
 
         point = center_of(obj._read_geometry())
-        zones = plan.object_ids.filtered(lambda o: o.link_key == "bc_coworking" and o.link_res_id)
-        for zone in zones.sorted("z_index", reverse=True):
-            if point_in_rotated_rect(point, zone._read_geometry()):
-                return {"default_space_id": zone.link_res_id}
-        if zones:
+        areas = plan.object_ids.filtered(
+            lambda o: o.object_type == "coworking_zone"
+            and point_in_rotated_rect(point, o._read_geometry())
+        ).sorted("z_index", reverse=True)
+        linked = areas.filtered(lambda a: a.link_key == "bc_coworking" and a.link_res_id)[:1]
+        if linked:
+            return {"default_space_id": linked.link_res_id}
+        if areas:
             raise UserError(self.env._(
                 "Create the coworking space first, then create the desk."))
         raise UserError(self.env._(
