@@ -59,12 +59,16 @@
                         <group string="Location &amp; Setup">
                             <field name="space_type" string="Space Type" widget="radio"
                                    options="{'horizontal': True}"
-                                   readonly="is_coworking"
+                                   readonly="is_coworking or context.get('bc_from_floor_layout')"
+                                   force_save="1"
                                    help="Untick Coworking to change the space type."/>
-                            <field name="center_id" readonly="context.get('default_center_id', False)"/>
-                            <field name="floor_id"/>
+                            <field name="center_id" readonly="context.get('default_center_id', False)"
+                                   force_save="1"/>
+                            <field name="floor_id" readonly="context.get('bc_from_floor_layout')"
+                                   force_save="1"/>
                             <field name="is_coworking" invisible="space_type != 'office'"
-                                   readonly="desk_ids"
+                                   readonly="desk_ids or context.get('bc_from_floor_layout')"
+                                   force_save="1"
                                    help="Remove all desks before unticking Coworking."/>
                             <field name="company_id"/>
                         </group>
