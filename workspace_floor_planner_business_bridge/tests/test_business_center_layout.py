@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+
 from datetime import date, datetime
 
 from odoo.exceptions import UserError, ValidationError
@@ -6,8 +9,17 @@ from odoo.tests.common import TransactionCase, new_test_user, tagged
 
 @tagged("post_install", "-at_install")
 class TestBusinessCenterLayout(TransactionCase):
+    """Floor layouts generated from, linked to and coloured by Business Center records."""
+
+    # ------------------------------------------------------------------------------
+    #   MARK: SETUP
+    # ------------------------------------------------------------------------------
     @classmethod
     def setUpClass(cls):
+        """One center with two floors: F0 holds two offices (one occupied), a
+        coworking space with four desks (one occupied, one in maintenance) and
+        a meeting room; F1 holds one office."""
+
         super().setUpClass()
         env = cls.env
         env.user.tz = "UTC"
@@ -17,30 +29,48 @@ class TestBusinessCenterLayout(TransactionCase):
         })
         cls.floor = env["business.center.floor"].create({"name": "F0", "center_id": cls.center.id})
         cls.other_floor = env["business.center.floor"].create({"name": "F1", "center_id": cls.center.id})
+
         Space = env["business.center.space"]
-        common = {"center_id": cls.center.id, "floor_id": cls.floor.id, "monthly_rent": 100,
-                  "hourly_rate": 10, "min_booking_hour": 8, "max_booking_hour": 20}
+        common = {
+            "center_id": cls.center.id, "floor_id": cls.floor.id, "monthly_rent": 100,
+            "hourly_rate": 10, "min_booking_hour": 8, "max_booking_hour": 20,
+        }
         cls.office_free = Space.create({**common, "name": "Office 101", "area_sqm": 12})
         cls.office_busy = Space.create({**common, "name": "Office 102"})
         cls.coworking = Space.create({**common, "name": "Cowork A", "is_coworking": True})
-        cls.room = Space.create({**common, "name": "Board Room", "space_type": "meeting_room", "capacity": 6})
-        cls.other_office = Space.create({**common, "name": "Office 201", "floor_id": cls.other_floor.id})
-        Desk = env["business.center.desk"]
-        cls.desks = Desk.create([
+        cls.room = Space.create({
+            **common, "name": "Board Room", "space_type": "meeting_room", "capacity": 6,
+        })
+        cls.other_office = Space.create({
+            **common, "name": "Office 201", "floor_id": cls.other_floor.id,
+        })
+        cls.desks = env["business.center.desk"].create([
             {"name": f"D{i}", "space_id": cls.coworking.id} for i in range(1, 5)
         ])
+
         # Leave draft, then set operational states (only "state" may change now).
-        (cls.office_free | cls.office_busy | cls.coworking | cls.room | cls.other_office).write({"state": "available"})
+        spaces = cls.office_free | cls.office_busy | cls.coworking | cls.room | cls.other_office
+        spaces.write({"state": "available"})
         cls.office_busy.write({"state": "occupied"})
         cls.desks.write({"state": "available"})
         cls.desks[0].write({"state": "occupied"})
         cls.desks[1].write({"state": "maintenance"})
 
+    # ------------------------------------------------------------------------------
+    #   MARK: HELPER METHODS
+    # ------------------------------------------------------------------------------
     def statuses(self, plan, at=None):
+        """Return the raw status result and ``{object_id: status}``."""
+
         result = plan.fp_get_statuses(at)
         return result, {int(k): v["status"] for k, v in result["objects"].items()}
 
+    # ------------------------------------------------------------------------------
+    #   MARK: TESTS
+    # ------------------------------------------------------------------------------
     def test_floor_counts(self):
+        """Floor cards count offices, desks and meeting rooms per status."""
+
         floor = self.floor
         self.assertEqual((floor.office_count, floor.office_available_count), (2, 1))
         self.assertEqual((floor.desk_count, floor.desk_available_count), (4, 2))
@@ -48,22 +78,30 @@ class TestBusinessCenterLayout(TransactionCase):
         self.assertEqual((floor.unit_count, floor.unit_available_count), (7, 4))
 
     def test_first_open_creates_prefilled_layout_then_live_view(self):
+        """First open generates a linked layout in the designer; the next
+        open goes to the live view without creating a second layout."""
+
         action = self.floor.action_open_floor_layout()
         self.assertEqual(action["tag"], "workspace_floor_planner.editor")
         plan = self.floor.floor_plan_id
         self.assertTrue(plan)
         self.assertEqual(plan.bc_floor_id, self.floor)
-        linked = plan.object_ids.filtered("link_key")
+        linked = plan.object_ids.filtered(lambda o: o.link_key and o.link_key != "bc_coworking")
         self.assertEqual(len(linked), 7, "every office, desk and meeting room is placed once")
         self.assertEqual(len(plan.object_ids.filtered(lambda o: o.object_type == "coworking_zone")), 1)
-        self.assertFalse(linked.filtered(lambda o: o.link_res_id == self.other_office.id
-                                         and o.link_key == "bc_office"), "other floors are not included")
-        # Second open goes to the live view; no second layout is created.
+        self.assertFalse(
+            linked.filtered(lambda o: o.link_res_id == self.other_office.id and o.link_key == "bc_office"),
+            "other floors are not included",
+        )
+
         action = self.floor.action_open_floor_layout()
         self.assertEqual(action["tag"], "workspace_floor_planner.viewer")
         self.assertEqual(len(self.floor.floor_plan_ids), 1)
 
     def test_statuses_follow_business_center_state(self):
+        """Shape colours, zone summary and totals follow the records' states,
+        and a state change shows on the next refresh."""
+
         self.floor.action_open_floor_layout()
         plan = self.floor.floor_plan_id
         result, status = self.statuses(plan)
@@ -77,17 +115,18 @@ class TestBusinessCenterLayout(TransactionCase):
         self.assertEqual(result["objects"][str(zone.id)], {"status": "partial", "available": 2, "total": 4})
         summary = result["summary"]
         self.assertEqual(summary["total"], 7)
-        self.assertEqual(
-            (summary["available"], summary["occupied"], summary["maintenance"]), (4, 2, 1))
+        self.assertEqual((summary["available"], summary["occupied"], summary["maintenance"]), (4, 2, 1))
         self.assertEqual(summary["unplaced"], 0)
 
-        # A state change in Business Center shows on the next refresh.
         self.office_free.write({"state": "maintenance"})
         _result, status = self.statuses(plan)
-        obj = plan.object_ids.filtered(lambda o: o.link_res_id == self.office_free.id and o.link_key == "bc_office")
+        obj = plan.object_ids.filtered(
+            lambda o: o.link_res_id == self.office_free.id and o.link_key == "bc_office")
         self.assertEqual(status[obj.id], "maintenance")
 
     def test_unplaced_units_are_counted(self):
+        """Units removed from the drawing still count in the totals, as unplaced."""
+
         self.floor.action_open_floor_layout()
         plan = self.floor.floor_plan_id
         plan.object_ids.filtered(lambda o: o.link_key == "bc_desk")[:2].unlink()
@@ -96,6 +135,8 @@ class TestBusinessCenterLayout(TransactionCase):
         self.assertEqual(result["summary"]["unplaced"], 2)
 
     def test_link_rules(self):
+        """Links respect the provider's record type and the layout's floor."""
+
         self.floor.action_open_floor_layout()
         plan = self.floor.floor_plan_id
         office_obj = plan.object_ids.filtered(lambda o: o.link_key == "bc_office")[:1]
@@ -112,6 +153,9 @@ class TestBusinessCenterLayout(TransactionCase):
             office_obj.write({"link_key": "bc_desk", "link_res_id": self.desks[2].id})
 
     def test_meeting_room_bookings(self):
+        """A running booking makes the room occupied, a later one reserved;
+        maintenance overrides bookings."""
+
         tenant = self.env["res.partner"].create({"name": "Tenant"})
         contract = self.env["business.center.contract"].create({
             "partner_id": tenant.id, "center_id": self.center.id,
@@ -125,7 +169,10 @@ class TestBusinessCenterLayout(TransactionCase):
             })
             booking.with_context(bc_state_from_action=True).write({"state": "confirmed"})
         provider = self.env["workspace.floor.link.provider.bc_meeting_room"]
-        status_at = lambda hour: provider._fp_get_statuses(self.room, datetime(2026, 3, 10, hour))[self.room.id]
+
+        def status_at(hour):
+            return provider._fp_get_statuses(self.room, datetime(2026, 3, 10, hour))[self.room.id]
+
         self.assertEqual(status_at(10), "occupied")
         self.assertEqual(status_at(12), "reserved")
         self.assertEqual(status_at(16), "available")
@@ -133,6 +180,8 @@ class TestBusinessCenterLayout(TransactionCase):
         self.assertEqual(status_at(10), "maintenance")
 
     def test_meeting_room_time_mapping(self):
+        """UTC moments are converted to the user's local date and hour."""
+
         provider = self.env["workspace.floor.link.provider.bc_meeting_room"]
         self.env.user.tz = "Asia/Kolkata"
         day, hour = provider._local_moment(datetime(2026, 1, 1, 4, 30))
@@ -140,12 +189,16 @@ class TestBusinessCenterLayout(TransactionCase):
         self.assertTrue(provider._fp_is_time_dependent())
 
     def test_user_without_floor_planner_rights_cannot_create_layout(self):
+        """A plain internal user cannot create a floor layout."""
+
         user = new_test_user(self.env, login="bc_plain", groups="base.group_user")
         floor = self.other_floor.with_user(user)
         with self.assertRaises(Exception):
             floor.action_open_floor_layout()
 
     def test_bc_user_gets_viewer_rights(self):
+        """Business Center users can view layouts but not edit or create them."""
+
         user = new_test_user(self.env, login="bc_staff", groups="business_center.group_bc_user")
         self.assertTrue(user.has_group("workspace_floor_planner.group_floor_planner_viewer"))
         self.assertFalse(user.has_group("workspace_floor_planner.group_floor_planner_user"))
