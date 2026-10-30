@@ -14,6 +14,7 @@
 import pytz
 
 from odoo import api, fields, models
+from odoo.exceptions import UserError
 
 from odoo.addons.workspace_floor_planner.tools.geometry import center_of, point_in_rotated_rect
 
@@ -87,12 +88,16 @@ class BusinessCenterProviderMixin(models.AbstractModel):
     @api.model
     def _fp_floor_defaults(self, plan):
         """Return form defaults placing a new record on the building and
-        floor this layout draws."""
+        floor this layout draws, with the location locked in the form."""
 
         floor = plan.bc_floor_id
         if not floor:
             return {}
-        return {"default_center_id": floor.center_id.id, "default_floor_id": floor.id}
+        return {
+            "default_center_id": floor.center_id.id,
+            "default_floor_id": floor.id,
+            "bc_from_floor_layout": True,
+        }
 
 
 class BusinessCenterOfficeProvider(models.AbstractModel):
@@ -142,14 +147,23 @@ class BusinessCenterDeskProvider(models.AbstractModel):
     @api.model
     def _fp_get_create_context(self, plan, obj):
         """Put the new desk in the coworking space whose zone it is drawn in;
-        the topmost linked zone wins when zones overlap."""
+        the topmost linked zone wins when zones overlap.
+
+        A desk always belongs to a coworking space, so creating one is
+        refused until the desk sits inside a zone linked to its space.
+        """
 
         point = center_of(obj._read_geometry())
         zones = plan.object_ids.filtered(lambda o: o.link_key == "bc_coworking" and o.link_res_id)
         for zone in zones.sorted("z_index", reverse=True):
             if point_in_rotated_rect(point, zone._read_geometry()):
                 return {"default_space_id": zone.link_res_id}
-        return {}
+        raise UserError(self.env._(
+            "“%s” is not inside a coworking zone with a coworking space yet. "
+            "A desk always belongs to a coworking space: select its coworking "
+            "zone, create (or link) the coworking space, then create the desk.",
+            obj.display_name,
+        ))
 
 
 class BusinessCenterCoworkingProvider(models.AbstractModel):
