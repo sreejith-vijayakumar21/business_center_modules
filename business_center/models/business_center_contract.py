@@ -568,6 +568,13 @@ class BusinessCenterContract(models.Model):
                  center.state_id.name, center.country_id.name)
         return ', '.join(p for p in parts if p)
     
+    def _get_report_base_filename(self):
+        """File name (without extension) of the lease agreement PDF when the
+        portal serves it, matching the backend's printed report name."""
+
+        self.ensure_one()
+        return _("Lease Agreement - %s", self.name.replace('/', '-'))
+    
     def _mark_awaiting_signature(self):
         """Set the agreement to Awaiting Signature, unless already signed, with
         one follow-up activity for the current user. Called on Confirm,

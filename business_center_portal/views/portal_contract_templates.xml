@@ -84,9 +84,10 @@
         <t t-call="portal.portal_layout">
             <t t-set="additional_title"><span t-field="contract.name"/></t>
 
-            <!-- Header -->
-            <div class="row mt-4 mb-3">
-                <div class="col-12">
+            <!-- Header: title, status and downloads -->
+            <t t-set="token_param" t-value="access_token and ('access_token=%s' % access_token) or ''"/>
+            <div class="row mt-4 mb-3 align-items-center g-2">
+                <div class="col">
                     <h5 class="mb-1">
                         Contract <span t-field="contract.name"/>
                         <span t-if="contract.state == 'upcoming'"   class="badge rounded-pill text-bg-primary">Upcoming</span>
@@ -95,6 +96,26 @@
                         <span t-elif="contract.state == 'expired'" class="badge text-bg-danger">Expired</span>
                         <span t-else=""                            class="badge text-bg-secondary">Cancelled</span>
                     </h5>
+                    <div t-if="contract.agreement_state == 'signed'" class="text-muted small">
+                        <i class="fa fa-check-circle text-success me-1" role="img" aria-label="Signed"/>
+                        Signed by <span t-field="contract.signed_by"/> on <span t-field="contract.signed_on"/>
+                    </div>
+                    <div t-elif="contract.agreement_state == 'sent'" class="text-muted small">
+                        <i class="fa fa-clock-o me-1" role="img" aria-label="Pending"/>
+                        Awaiting your signature
+                    </div>
+                </div>
+                <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
+                    <a t-if="can_download_agreement" class="btn btn-secondary"
+                       t-attf-href="/my/contracts/#{contract.id}?report_type=pdf&amp;download=true#{token_param and '&amp;' + token_param or ''}"
+                       title="Download the lease agreement as PDF">
+                        <i class="fa fa-download me-1"/>Download Agreement
+                    </a>
+                    <a t-if="contract.signed_attachment_id" class="btn btn-secondary"
+                       t-attf-href="/my/contracts/#{contract.id}/signed-copy#{token_param and '?' + token_param or ''}"
+                       target="_blank" title="View the signed copy you returned">
+                        <i class="fa fa-file-pdf-o me-1"/>Signed Copy
+                    </a>
                 </div>
             </div>
 

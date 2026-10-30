@@ -8,6 +8,10 @@ from odoo.http import request
 from odoo.addons.portal.controllers.portal import CustomerPortal, pager as portal_pager
 
 
+LEASE_AGREEMENT_REPORT = 'business_center.report_bc_contract'
+CONFIRMED_STATES = ('upcoming', 'active', 'expired')
+
+
 class BusinessCenterContractPortal(CustomerPortal):
     """Everything the portal needs for showing contracts to a member."""
 
@@ -140,9 +144,12 @@ class BusinessCenterContractPortal(CustomerPortal):
 
     @http.route(['/my/contracts/<int:contract_id>'],
                 type='http', auth='user', website=True)
-    def portal_my_contract_detail(self, contract_id, access_token=None, **kw):
-        """The detail page for one contract."""
-        
+    def portal_my_contract_detail(self, contract_id, access_token=None,
+                                  report_type=None, download=False, **kw):
+        """The detail page for one contract, or its lease agreement as a PDF
+        (``report_type=pdf``, add ``download=true`` to save it), the same
+        way an invoice page serves its report."""
+
         if not access_token:
             denied = self._bc_contract_access_denied()
             if denied:
@@ -153,8 +160,41 @@ class BusinessCenterContractPortal(CustomerPortal):
         except (AccessError, MissingError):
             return request.redirect('/my')
 
+        if report_type in ('html', 'pdf', 'text'):
+            # A draft is not an agreement yet: nothing to print.
+            if contract_sudo.state not in CONFIRMED_STATES:
+                return request.redirect(f'/my/contracts/{contract_id}')
+            return self._show_report(
+                model=contract_sudo, report_type=report_type,
+                report_ref=LEASE_AGREEMENT_REPORT, download=download)
+
         values = {
             'contract': contract_sudo,
             'page_name': 'contract',
+            'access_token': access_token,
+            'can_download_agreement': contract_sudo.state in CONFIRMED_STATES,
         }
         return request.render('business_center_portal.portal_contract_page', values)
+
+    @http.route(['/my/contracts/<int:contract_id>/signed-copy'],
+                type='http', auth='user')
+    def portal_my_contract_signed_copy(self, contract_id, access_token=None, **kw):
+        """Download the signed copy recorded on the contract (Mark as
+        Signed). Same access rules as the contract page."""
+
+        if not access_token:
+            denied = self._bc_contract_access_denied()
+            if denied:
+                return denied
+        try:
+            contract_sudo = self._document_check_access(
+                'business.center.contract', contract_id, access_token)
+        except (AccessError, MissingError):
+            return request.redirect('/my')
+
+        attachment = contract_sudo.signed_attachment_id
+        if not attachment:
+            return request.redirect(f'/my/contracts/{contract_id}')
+        # Shown in the browser (a PDF or an image opens in the tab); 
+        return request.env['ir.binary']._get_stream_from(attachment).get_response(
+            as_attachment=False)
