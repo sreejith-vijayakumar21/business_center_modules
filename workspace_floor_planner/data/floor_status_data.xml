@@ -38,8 +38,8 @@
         </record>
         <record id="status_unknown" model="workspace.floor.status">
             <field name="code">unknown</field>
-            <field name="name">Not linked / unknown</field>
-            <field name="description">No business record linked, or its status cannot be determined.</field>
+            <field name="name">Draft</field>
+            <field name="description">The unit is still in draft, or the shape is not linked to a record yet.</field>
             <field name="color">#B0BEC5</field>
             <field name="sequence">60</field>
         </record>
