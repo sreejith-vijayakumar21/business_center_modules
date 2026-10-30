@@ -86,8 +86,8 @@
     }
 
     .o_bc_floor_tile_office {
-        background: #E3F5F1;
-        color: #2F7D6E;
+        background: #FFF6D6;
+        color: #8A6A0B;
     }
 
     .o_bc_floor_tile_desk {
@@ -117,13 +117,17 @@
 
     // Buttons, in the floor planner's language
     .btn-primary {
-        background: var(--bc-accent);
-        border-color: var(--bc-accent);
+        background: #FCE4EC;
+        border-color: transparent;
+        color: #B03A66;
         border-radius: 8px;
+        font-weight: 600;
 
-        &:hover {
-            background: var(--bc-accent-ink);
-            border-color: var(--bc-accent-ink);
+        &:hover,
+        &:focus-visible {
+            background: #F8D0DE;
+            border-color: transparent;
+            color: #962F55;
         }
     }
 
