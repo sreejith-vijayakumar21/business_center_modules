@@ -4,6 +4,7 @@ from collections import OrderedDict
 from odoo import _, http
 from odoo.exceptions import AccessError, MissingError
 from odoo.http import request
+from urllib.parse import quote
 
 from odoo.addons.portal.controllers.portal import CustomerPortal, pager as portal_pager
 
@@ -168,11 +169,25 @@ class BusinessCenterContractPortal(CustomerPortal):
                 model=contract_sudo, report_type=report_type,
                 report_ref=LEASE_AGREEMENT_REPORT, download=download)
 
+        token_query = f'?access_token={access_token}' if access_token else ''
+        attachment = contract_sudo.signed_attachment_id
+        signed_copy_url = (f'/my/contracts/{contract_id}/signed-copy{token_query}'
+                           if attachment else False)
         values = {
             'contract': contract_sudo,
             'page_name': 'contract',
             'access_token': access_token,
             'can_download_agreement': contract_sudo.state in CONFIRMED_STATES,
+            'signed_copy_url': signed_copy_url,
+            'signed_copy_is_pdf': attachment.mimetype == 'application/pdf',
+            'signed_copy_is_image': bool(attachment.mimetype and attachment.mimetype.startswith('image/')),
+            # Odoo's bundled PDF viewer, the same one the backend uses for PDFs.
+            'signed_copy_viewer_url': (
+                '/web/static/lib/pdfjs/web/viewer.html?file=' + quote(signed_copy_url, safe='')
+                if signed_copy_url else False),
+            'agreement_preview_url': (
+                f'/my/contracts/{contract_id}?report_type=html'
+                + (f'&access_token={access_token}' if access_token else '')),
         }
         return request.render('business_center_portal.portal_contract_page', values)
 
