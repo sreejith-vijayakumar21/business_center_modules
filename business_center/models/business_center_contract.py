@@ -912,9 +912,10 @@ class BusinessCenterContract(models.Model):
         self._cancel_draft_deposit_invoice()
         
     def action_send_contract(self):
-        """Open the email composer with the lease agreement PDF attached, the
-        way a quotation is sent. The template carries the report, so the
-        composer renders and attaches the PDF itself."""
+        """Email the lease agreement to the tenant: open the composer with the
+        agreement PDF attached, the way a quotation is sent. Optional, since
+        the agreement can also be shared outside Odoo; sending it stamps
+        Agreement Sent."""
 
         self.ensure_one()
         if self.state not in ('upcoming', 'active'):
