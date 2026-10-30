@@ -6,7 +6,7 @@
         <field name="name">business.center.space.view.form</field>
         <field name="model">business.center.space</field>
         <field name="arch" type="xml">
-            <form>
+            <form create="0">
             <header>
                 <button name="action_set_occupied" type="object"
                         string="Set Occupied" class="btn-primary"
@@ -184,7 +184,7 @@
         <field name="name">business.center.space.view.tree</field>
         <field name="model">business.center.space</field>
         <field name="arch" type="xml">
-            <list>
+            <list create="0">
                 <field name="image_1920" widget="image" class="oe_avatar" options="{'size': [40, 40]}"/>
                 <field name="name"/>
                 <field name="space_type"/>
@@ -207,7 +207,7 @@
         <field name="name">business.center.space.view.kanban</field>
         <field name="model">business.center.space</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="state">
+            <kanban default_group_by="state" create="0">
                 <field name="name"/>
                 <field name="center_id"/>
                 <field name="capacity"/>

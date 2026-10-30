@@ -6,7 +6,7 @@
         <field name="name">business.center.desk.view.form</field>
         <field name="model">business.center.desk</field>
         <field name="arch" type="xml">
-            <form>
+            <form create="0">
             <header>
                 <button name="action_set_occupied" type="object"
                         string="Set Occupied" class="btn-primary"
@@ -88,7 +88,7 @@
         <field name="name">business.center.desk.view.list</field>
         <field name="model">business.center.desk</field>
         <field name="arch" type="xml">
-            <list>
+            <list create="0">
                 <field name="name" string="Desk"/>
                 <field name="center_id" string="Center"/>
                 <field name="space_id" string="Space"/>
@@ -110,7 +110,7 @@
         <field name="name">business.center.desk.view.kanban</field>
         <field name="model">business.center.desk</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="state">
+            <kanban default_group_by="state" create="0">
                 <field name="name"/>
                 <field name="center_id"/>
                 <field name="space_id"/>
