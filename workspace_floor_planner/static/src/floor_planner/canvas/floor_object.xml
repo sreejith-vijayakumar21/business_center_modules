@@ -1,0 +1,70 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="workspace_floor_planner.FloorObject">
+        <g t-att-transform="transformOf(o)" t-att-data-key="o.key"
+           t-att-class="'o_fp_object o_fp_type_' + o.object_type + ' o_fp_cat_' + o.category
+                        + (selected ? ' o_fp_selected' : '')"
+           tabindex="0" role="button" t-att-aria-label="tooltipOf(o)"
+           t-on-keydown="onKeydown">
+            <title t-esc="tooltipOf(o)"/>
+            <rect class="o_fp_shape" x="0" y="0" t-att-width="o.width" t-att-height="o.height"
+                  t-att-fill="fillOf(o)" t-att-fill-opacity="fillOpacity(o)"
+                  t-att-stroke="o.object_type === 'label' ? 'none' : (isRentable(o) ? store.statusOf(o).display.color : o.border_color)"
+                  t-att-stroke-width="isRentable(o) ? Math.max(o.border_width, 2) : o.border_width"
+                  t-att-stroke-dasharray="isZone(o) ? '8 4' : false"
+                  t-att-rx="o.category === 'rentable' ? 3 : 0"/>
+            <!-- Door swing arc -->
+            <path t-if="o.object_type === 'door'" class="o_fp_door_arc" fill="none"
+                  t-att-stroke="o.border_color" t-att-stroke-width="Math.max(o.border_width, 1)"
+                  t-att-d="'M 0 0 L 0 ' + (-o.width) + ' A ' + o.width + ' ' + o.width + ' 0 0 1 ' + o.width + ' 0'"
+                  stroke-dasharray="3 3" pointer-events="none"/>
+            <line t-if="o.object_type === 'window'" x1="0" t-att-y1="o.height / 2"
+                  t-att-x2="o.width" t-att-y2="o.height / 2" t-att-stroke="o.border_color"
+                  t-att-stroke-width="1"/>
+            <!-- Icon -->
+            <foreignObject t-if="o.icon and o.width >= 80 and o.height >= 60"
+                           x="4" y="4" width="20" height="20" pointer-events="none">
+                <div xmlns="http://www.w3.org/1999/xhtml" class="o_fp_icon"
+                     t-att-style="'color:' + o.text_color">
+                    <i t-att-class="'fa ' + o.icon" aria-hidden="true"/>
+                </div>
+            </foreignObject>
+            <!-- Label -->
+            <text t-if="o.name and o.object_type !== 'wall'" class="o_fp_label"
+                  t-att-x="o.width / 2"
+                  t-att-y="labelY(o)"
+                  t-att-font-size="labelFontSize(o)" t-att-fill="o.text_color"
+                  text-anchor="middle" dominant-baseline="middle" pointer-events="none"
+                  t-esc="o.name"/>
+            <!-- Status text: never colour alone -->
+            <text t-if="statusText(o) and o.height >= 24" class="o_fp_status_text"
+                  t-att-x="o.width / 2"
+                  t-att-y="statusY(o)"
+                  t-att-font-size="Math.max(4, labelFontSize(o) * 0.7)"
+                  text-anchor="middle" dominant-baseline="middle" pointer-events="none"
+                  t-esc="statusText(o)"/>
+
+            <!-- Selection chrome lives in the object's rotated frame -->
+            <t t-if="selected">
+                <rect class="o_fp_selection" x="0" y="0" t-att-width="o.width"
+                      t-att-height="o.height" fill="none" t-att-stroke-width="px(1.5)"
+                      t-att-stroke-dasharray="px(4) + ' ' + px(3)" pointer-events="none"/>
+                <t t-if="!props.readonly">
+                    <line class="o_fp_rotate_stem" t-att-x1="o.width / 2" y1="0"
+                          t-att-x2="o.width / 2" t-att-y2="-px(24)" t-att-stroke-width="px(1)"/>
+                    <circle class="o_fp_handle o_fp_rotate_handle" data-handle="rotate"
+                            t-att-cx="o.width / 2" t-att-cy="-px(24)" t-att-r="px(6)"
+                            t-att-stroke-width="px(1.5)">
+                        <title>Rotate (Shift: free rotation)</title>
+                    </circle>
+                    <t t-foreach="visibleHandles(o)" t-as="h" t-key="h.name">
+                        <t t-set="hp" t-value="handlePos(o, h)"/>
+                        <rect class="o_fp_handle" t-att-data-handle="h.name"
+                              t-att-x="hp.x" t-att-y="hp.y" t-att-width="hp.size" t-att-height="hp.size"
+                              t-att-stroke-width="px(1.5)" t-att-style="'cursor:' + h.cursor"/>
+                    </t>
+                </t>
+            </t>
+        </g>
+    </t>
+</templates>

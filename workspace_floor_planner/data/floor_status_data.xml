@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="status_available" model="workspace.floor.status">
+            <field name="code">available</field>
+            <field name="name">Available</field>
+            <field name="description">No booking or contract blocks the unit.</field>
+            <field name="color">#2E7D32</field>
+            <field name="sequence">10</field>
+        </record>
+        <record id="status_occupied" model="workspace.floor.status">
+            <field name="code">occupied</field>
+            <field name="name">Occupied</field>
+            <field name="description">The unit is currently in use.</field>
+            <field name="color">#C62828</field>
+            <field name="sequence">20</field>
+        </record>
+        <record id="status_reserved" model="workspace.floor.status">
+            <field name="code">reserved</field>
+            <field name="name">Reserved</field>
+            <field name="description">A confirmed booking or contract blocks the unit.</field>
+            <field name="color">#8E24AA</field>
+            <field name="sequence">30</field>
+        </record>
+        <record id="status_maintenance" model="workspace.floor.status">
+            <field name="code">maintenance</field>
+            <field name="name">Maintenance</field>
+            <field name="description">Temporarily out of service.</field>
+            <field name="color">#F9A825</field>
+            <field name="sequence">40</field>
+        </record>
+        <record id="status_partial" model="workspace.floor.status">
+            <field name="code">partial</field>
+            <field name="name">Partially available</field>
+            <field name="description">A zone whose units have mixed statuses.</field>
+            <field name="color">#1565C0</field>
+            <field name="sequence">50</field>
+        </record>
+        <record id="status_unknown" model="workspace.floor.status">
+            <field name="code">unknown</field>
+            <field name="name">Not linked / unknown</field>
+            <field name="description">No business record linked, or its status cannot be determined.</field>
+            <field name="color">#B0BEC5</field>
+            <field name="sequence">60</field>
+        </record>
+    </data>
+</odoo>

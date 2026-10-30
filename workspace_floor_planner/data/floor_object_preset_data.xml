@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="preset_private_office" model="workspace.floor.object.preset">
+            <field name="name">Private Office</field>
+            <field name="sequence">10</field>
+            <field name="object_type">private_office</field>
+            <field name="width">200</field>
+            <field name="height">150</field>
+            <field name="fill_color">#FFFFFF</field>
+            <field name="border_color">#37474F</field>
+            <field name="border_width">2</field>
+            <field name="icon">fa-briefcase</field>
+        </record>
+        <record id="preset_dedicated_desk" model="workspace.floor.object.preset">
+            <field name="name">Dedicated Desk</field>
+            <field name="sequence">20</field>
+            <field name="object_type">dedicated_desk</field>
+            <field name="width">60</field>
+            <field name="height">40</field>
+            <field name="fill_color">#FFFFFF</field>
+            <field name="border_color">#37474F</field>
+            <field name="border_width">2</field>
+            <field name="icon">fa-desktop</field>
+        </record>
+        <record id="preset_hot_desk" model="workspace.floor.object.preset">
+            <field name="name">Hot Desk</field>
+            <field name="sequence">30</field>
+            <field name="object_type">hot_desk</field>
+            <field name="width">50</field>
+            <field name="height">40</field>
+            <field name="fill_color">#FFFFFF</field>
+            <field name="border_color">#37474F</field>
+            <field name="border_width">2</field>
+            <field name="icon">fa-laptop</field>
+        </record>
+        <record id="preset_meeting_room" model="workspace.floor.object.preset">
+            <field name="name">Meeting Room</field>
+            <field name="sequence">40</field>
+            <field name="object_type">meeting_room</field>
+            <field name="width">180</field>
+            <field name="height">140</field>
+            <field name="fill_color">#FFFFFF</field>
+            <field name="border_color">#37474F</field>
+            <field name="border_width">2</field>
+            <field name="icon">fa-users</field>
+        </record>
+        <record id="preset_coworking_zone" model="workspace.floor.object.preset">
+            <field name="name">Coworking Zone</field>
+            <field name="sequence">50</field>
+            <field name="object_type">coworking_zone</field>
+            <field name="width">400</field>
+            <field name="height">260</field>
+            <field name="fill_color">#E3F2FD</field>
+            <field name="border_color">#1E88E5</field>
+            <field name="border_width">2</field>
+        </record>
+        <record id="preset_wall" model="workspace.floor.object.preset">
+            <field name="name">Wall</field>
+            <field name="sequence">60</field>
+            <field name="object_type">wall</field>
+            <field name="width">200</field>
+            <field name="height">8</field>
+            <field name="fill_color">#455A64</field>
+            <field name="border_color">#263238</field>
+            <field name="border_width">0</field>
+        </record>
+        <record id="preset_door" model="workspace.floor.object.preset">
+            <field name="name">Door</field>
+            <field name="sequence">70</field>
+            <field name="object_type">door</field>
+            <field name="width">40</field>
+            <field name="height">10</field>
+            <field name="fill_color">#A1887F</field>
+            <field name="border_color">#5D4037</field>
+            <field name="border_width">1</field>
+        </record>
+        <record id="preset_window" model="workspace.floor.object.preset">
+            <field name="name">Window</field>
+            <field name="sequence">80</field>
+            <field name="object_type">window</field>
+            <field name="width">80</field>
+            <field name="height">6</field>
+            <field name="fill_color">#B3E5FC</field>
+            <field name="border_color">#0288D1</field>
+            <field name="border_width">1</field>
+        </record>
+        <record id="preset_column" model="workspace.floor.object.preset">
+            <field name="name">Column</field>
+            <field name="sequence">90</field>
+            <field name="object_type">column</field>
+            <field name="width">20</field>
+            <field name="height">20</field>
+            <field name="fill_color">#90A4AE</field>
+            <field name="border_color">#455A64</field>
+            <field name="border_width">1</field>
+        </record>
+        <record id="preset_reception" model="workspace.floor.object.preset">
+            <field name="name">Reception</field>
+            <field name="sequence">100</field>
+            <field name="object_type">facility</field>
+            <field name="width">160</field>
+            <field name="height">80</field>
+            <field name="fill_color">#FFF8E1</field>
+            <field name="border_color">#F9A825</field>
+            <field name="border_width">2</field>
+            <field name="icon">fa-bell</field>
+        </record>
+        <record id="preset_canteen" model="workspace.floor.object.preset">
+            <field name="name">Canteen</field>
+            <field name="sequence">110</field>
+            <field name="object_type">facility</field>
+            <field name="width">220</field>
+            <field name="height">160</field>
+            <field name="fill_color">#FBE9E7</field>
+            <field name="border_color">#D84315</field>
+            <field name="border_width">2</field>
+            <field name="icon">fa-cutlery</field>
+        </record>
+        <record id="preset_pantry" model="workspace.floor.object.preset">
+            <field name="name">Pantry</field>
+            <field name="sequence">120</field>
+            <field name="object_type">facility</field>
+            <field name="width">120</field>
+            <field name="height">90</field>
+            <field name="fill_color">#FFF3E0</field>
+            <field name="border_color">#EF6C00</field>
+            <field name="border_width">2</field>
+            <field name="icon">fa-coffee</field>
+        </record>
+        <record id="preset_restroom" model="workspace.floor.object.preset">
+            <field name="name">Restroom</field>
+            <field name="sequence">130</field>
+            <field name="object_type">facility</field>
+            <field name="width">100</field>
+            <field name="height">80</field>
+            <field name="fill_color">#E0F2F1</field>
+            <field name="border_color">#00897B</field>
+            <field name="border_width">2</field>
+            <field name="icon">fa-male</field>
+        </record>
+        <record id="preset_lounge" model="workspace.floor.object.preset">
+            <field name="name">Lounge</field>
+            <field name="sequence">140</field>
+            <field name="object_type">facility</field>
+            <field name="width">200</field>
+            <field name="height">140</field>
+            <field name="fill_color">#F3E5F5</field>
+            <field name="border_color">#8E24AA</field>
+            <field name="border_width">2</field>
+            <field name="icon">fa-television</field>
+        </record>
+        <record id="preset_print" model="workspace.floor.object.preset">
+            <field name="name">Print Station</field>
+            <field name="sequence">150</field>
+            <field name="object_type">facility</field>
+            <field name="width">60</field>
+            <field name="height">50</field>
+            <field name="fill_color">#ECEFF1</field>
+            <field name="border_color">#546E7A</field>
+            <field name="border_width">2</field>
+            <field name="icon">fa-print</field>
+        </record>
+        <record id="preset_stairs" model="workspace.floor.object.preset">
+            <field name="name">Stairs</field>
+            <field name="sequence">160</field>
+            <field name="object_type">facility</field>
+            <field name="width">100</field>
+            <field name="height">120</field>
+            <field name="fill_color">#EEEEEE</field>
+            <field name="border_color">#616161</field>
+            <field name="border_width">2</field>
+            <field name="icon">fa-level-up</field>
+        </record>
+        <record id="preset_lift" model="workspace.floor.object.preset">
+            <field name="name">Lift</field>
+            <field name="sequence">170</field>
+            <field name="object_type">facility</field>
+            <field name="width">80</field>
+            <field name="height">80</field>
+            <field name="fill_color">#EEEEEE</field>
+            <field name="border_color">#616161</field>
+            <field name="border_width">2</field>
+            <field name="icon">fa-arrows-v</field>
+        </record>
+        <record id="preset_label" model="workspace.floor.object.preset">
+            <field name="name">Text Label</field>
+            <field name="sequence">180</field>
+            <field name="object_type">label</field>
+            <field name="width">160</field>
+            <field name="height">30</field>
+            <field name="fill_color">#FFFFFF</field>
+            <field name="border_color">#FFFFFF</field>
+            <field name="border_width">0</field>
+            <field name="font_size">18</field>
+        </record>
+    </data>
+</odoo>

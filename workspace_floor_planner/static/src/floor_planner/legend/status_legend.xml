@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="workspace_floor_planner.StatusLegend">
+        <div class="o_fp_legend" role="region" aria-label="Status legend">
+            <span class="o_fp_legend_title">
+                <t t-if="props.store.statusMeta.timeDependent">Status at</t>
+                <t t-else="">Current status</t>
+            </span>
+            <input t-if="props.store.statusMeta.timeDependent" type="datetime-local"
+                   class="form-control form-control-sm o_fp_legend_at" aria-label="Show status at"
+                   t-on-change="onAtChange"/>
+            <span t-foreach="props.store.statusList" t-as="status" t-key="status.code"
+                  class="o_fp_legend_item" t-att-title="status.description">
+                <span class="o_fp_legend_swatch" t-att-style="'background:' + status.color"/>
+                <span t-esc="status.name"/>
+                <span t-if="counts[status.code]" class="badge text-bg-light" t-esc="counts[status.code]"/>
+            </span>
+            <button type="button" class="btn btn-sm btn-link o_fp_refresh" t-on-click="() => props.onRefresh()"
+                    t-att-disabled="props.loading" title="Refresh statuses from the business system">
+                <i t-att-class="'fa fa-refresh' + (props.loading ? ' fa-spin' : '')"/> Refresh
+            </button>
+            <span t-if="computedAt" class="text-muted small">Updated <t t-esc="computedAt"/></span>
+        </div>
+    </t>
+</templates>
