@@ -10,7 +10,7 @@
                     <i class="fa fa-info-circle me-1"/>
                     Save this business center to design floor layouts.
                 </div>
-                <field name="floor_ids" mode="kanban"
+                <field name="floor_ids" mode="kanban" readonly="not id"
                        context="{'kanban_view_ref': 'workspace_floor_planner_business_bridge.business_center_floor_view_kanban_layout',
                                  'form_view_ref': 'workspace_floor_planner_business_bridge.business_center_floor_view_form_layout'}"/>
             </xpath>

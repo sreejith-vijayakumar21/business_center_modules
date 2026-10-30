@@ -28,6 +28,13 @@
                 <field name="unit_count"/>
                 <field name="unit_available_count"/>
                 <templates>
+                    <!-- Card menu (⋮): delete a floor; refused while it has spaces -->
+                    <t t-name="menu">
+                        <a role="menuitem" type="delete" class="dropdown-item"
+                           groups="business_center.group_bc_manager">
+                            <i class="fa fa-trash-o me-1"/>Delete
+                        </a>
+                    </t>
                     <t t-name="card" class="o_bc_floor_card">
                         <!-- Header: floor name, remark and layout badge -->
                         <div class="d-flex align-items-start justify-content-between mb-2">
