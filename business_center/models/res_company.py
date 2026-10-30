@@ -21,4 +21,4 @@ class ResCompany(models.Model):
     bc_invoice_auto_send = fields.Boolean(
         string='Post and Email Invoices Automatically', default=False,
         help="When the monthly billing run creates a contract invoice, confirm "
-             "it and email it to the tenant. Leave off to review drafts first.")
+             "it and email it to the tenant."))

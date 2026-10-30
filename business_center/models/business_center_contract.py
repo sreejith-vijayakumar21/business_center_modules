@@ -49,6 +49,14 @@ class BusinessCenterContract(models.Model):
         string='Send Expiry Reminder', default=True, tracking=True,
         help="Email the tenant before this contract ends, asking whether they "
              "want to renew.")
+    invoice_sending = fields.Selection([
+        ('company', 'Company Default'),
+        ('auto', 'Post and Email Automatically'),
+        ('manual', 'Review and Send Manually'),
+    ], string='Monthly Invoices', default='company', required=True, tracking=True,
+        help="How the monthly billing run handles this contract's invoices: "
+             "follow the company setting, always post and email them, or "
+             "leave them in draft for staff to review and send.")
     expiry_reminder_days = fields.Integer(
         string='Reminder Lead Days',
         default=lambda self: self.env.company.bc_expiry_reminder_days,
@@ -162,6 +170,7 @@ class BusinessCenterContract(models.Model):
         'renewal_contract_id', 'renewal_increase_pct', 'deposit_invoice_id',
         'deposit_refund_id', 'contract_sent_date',
         'agreement_state', 'signed_by', 'signed_on', 'signature', 'signed_attachment_id',
+        'invoice_sending',
     }
     
     # ------------------------------------------------------------------------------
@@ -1158,13 +1167,22 @@ class BusinessCenterContract(models.Model):
                 lambda c: c.state == 'pending' and c.booking_id.meeting_room_id):
             moves |= self._create_rent_invoice()
         return moves
+    
+    def _auto_send_invoices(self):
+        """Whether the billing run posts and emails this contract's invoices:
+        the contract's own choice, or the company setting by default."""
+
+        self.ensure_one()
+        if self.invoice_sending == 'company':
+            return self.company_id.bc_invoice_auto_send
+        return self.invoice_sending == 'auto'
 
     def _send_invoices(self, moves):
         """Post the invoices and email them to the tenant when the company
         bills automatically; otherwise leave them in draft for review."""
 
         self.ensure_one()
-        if not moves or not self.company_id.bc_invoice_auto_send:
+        if not moves or not self._auto_send_invoices():
             return
         moves.action_post()
         template = self.env.ref('account.email_template_edi_invoice',
