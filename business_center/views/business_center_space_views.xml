@@ -134,7 +134,8 @@
                             </group>
                         </page>
 
-                        <page string="Amenities" invisible="is_coworking">
+                        <page string="Amenities" name="amenities"
+                              invisible="space_type == 'meeting_room' and not amenity_ids">
                             <field name="amenity_ids" mode="kanban">
                                 <kanban>
                                     <templates>

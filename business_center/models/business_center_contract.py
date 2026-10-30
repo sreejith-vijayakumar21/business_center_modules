@@ -568,6 +568,25 @@ class BusinessCenterContract(models.Model):
                  center.state_id.name, center.country_id.name)
         return ', '.join(p for p in parts if p)
     
+    def _get_leased_amenities(self):
+        """Amenities included with each leased asset, for the agreement PDF.
+
+        An office brings its own amenities; a desk brings those of the
+        coworking space it sits in. Assets without amenities are left out.
+        Sudo so the report renders for any user, portal included.
+        """
+
+        self.ensure_one()
+        rows = []
+        for asset in self.sudo().leased_asset_ids:
+            amenities = asset.space_id.amenity_ids or asset.desk_id.space_id.amenity_ids
+            if amenities:
+                rows.append({
+                    'resource': (asset.space_id or asset.desk_id).display_name,
+                    'amenities': ', '.join(amenities.sorted('name').mapped('name')),
+                })
+        return rows
+    
     def _get_report_base_filename(self):
         """File name (without extension) of the lease agreement PDF when the
         portal serves it, matching the backend's printed report name."""
