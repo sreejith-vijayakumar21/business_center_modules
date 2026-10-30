@@ -116,13 +116,13 @@
                                 </group>
                                 <group string="Booking Rules" invisible="space_type != 'meeting_room'">
                                     <field name="is_bookable"/>
-                                    <field name="min_booking_hour" widget="float_time"
-                                            placeholder="e.g. 14:30"
-                                            help="Enter in 24-hour format, HH:MM. E.g. 2:30 PM = 14:30."/>
-                                    <field name="max_booking_hour" widget="float_time"
-                                            placeholder="e.g. 16:00"
-                                            help="Enter in 24-hour format, HH:MM. E.g. 4:00 PM = 16:00."/>
-                                    <field name="operating_hours_display"/>
+                                    <field name="min_booking_hour" widget="bc_time_select"
+                                           options="{'role': 'start', 'end_field': 'max_booking_hour'}"
+                                           help="When the room opens for bookings."/>
+                                    <field name="max_booking_hour" widget="bc_time_select"
+                                           options="{'role': 'end', 'start_field': 'min_booking_hour'}"
+                                           help="When the room closes; bookings must end by then."/>
+                                    <field name="operating_hours_display" invisible="1"/>
                                 </group>
                             </group>
                         </page>
