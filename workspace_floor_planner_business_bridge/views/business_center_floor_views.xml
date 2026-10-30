@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Small form used when adding/editing a floor from the Floors tab. -->
+    <record id="business_center_floor_view_form_layout" model="ir.ui.view">
+        <field name="name">business.center.floor.form.layout</field>
+        <field name="model">business.center.floor</field>
+        <field name="arch" type="xml">
+            <form string="Floor">
+                <sheet>
+                    <group>
+                        <field name="name" placeholder="Eg: F0"/>
+                        <field name="note"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Floor cards: availability per unit type + layout entry point. -->
+    <record id="business_center_floor_view_kanban_layout" model="ir.ui.view">
+        <field name="name">business.center.floor.kanban.layout</field>
+        <field name="model">business.center.floor</field>
+        <field name="arch" type="xml">
+            <kanban class="o_bc_floor_kanban" create="1">
+                <field name="id"/>
+                <field name="has_layout"/>
+                <field name="unit_count"/>
+                <field name="unit_available_count"/>
+                <templates>
+                    <t t-name="card" class="p-3">
+                        <div class="d-flex align-items-start justify-content-between mb-1">
+                            <div>
+                                <i class="fa fa-building-o me-1 text-muted" title="Floor"/>
+                                <field name="name" class="fw-bold fs-5"/>
+                                <div class="text-muted small"><field name="note"/></div>
+                            </div>
+                            <span t-if="record.has_layout.raw_value" class="badge rounded-pill text-bg-success">
+                                <i class="fa fa-map-o"/> Layout ready
+                            </span>
+                            <span t-else="" class="badge rounded-pill text-bg-light">No layout yet</span>
+                        </div>
+                        <div class="row g-2 my-2 text-center">
+                            <div class="col-4">
+                                <div class="rounded bg-light py-2">
+                                    <div class="small text-muted">Offices</div>
+                                    <div class="fw-bold fs-5">
+                                        <span class="text-success"><field name="office_available_count"/></span>
+                                        <span class="text-muted small"> / <field name="office_count"/></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="rounded bg-light py-2">
+                                    <div class="small text-muted">Desks</div>
+                                    <div class="fw-bold fs-5">
+                                        <span class="text-success"><field name="desk_available_count"/></span>
+                                        <span class="text-muted small"> / <field name="desk_count"/></span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="rounded bg-light py-2">
+                                    <div class="small text-muted">Meeting rooms</div>
+                                    <div class="fw-bold fs-5">
+                                        <span class="text-success"><field name="meeting_room_available_count"/></span>
+                                        <span class="text-muted small"> / <field name="meeting_room_count"/></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="small text-muted mb-2">
+                            <field name="unit_available_count"/> of <field name="unit_count"/> units available
+                        </div>
+                        <footer class="d-flex gap-2 pt-1">
+                            <t t-if="record.id.raw_value">
+                                <button name="action_open_floor_layout" type="object" class="btn btn-primary btn-sm">
+                                    <t t-if="record.has_layout.raw_value"><i class="fa fa-map-o"/> View layout</t>
+                                    <t t-else=""><i class="fa fa-pencil-square-o"/> Create layout</t>
+                                </button>
+                                <button t-if="record.has_layout.raw_value" name="action_edit_floor_layout" type="object"
+                                        class="btn btn-secondary btn-sm"
+                                        groups="workspace_floor_planner.group_floor_planner_user">
+                                    <i class="fa fa-pencil"/> Edit layout
+                                </button>
+                            </t>
+                            <span t-else="" class="text-muted small">
+                                <i class="fa fa-info-circle me-1"/>Save the business center to design this floor
+                            </span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+</odoo>

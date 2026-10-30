@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="business_center_view_form_floor_layout" model="ir.ui.view">
+        <field name="name">business.center.form.floor.layout</field>
+        <field name="model">business.center</field>
+        <field name="inherit_id" ref="business_center.business_center_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//field[@name='floor_ids']" position="replace">
+                <div class="alert alert-info" role="alert" invisible="id">
+                    <i class="fa fa-info-circle me-1"/>
+                    Save this business center to design floor layouts.
+                </div>
+                <field name="floor_ids" mode="kanban"
+                       context="{'kanban_view_ref': 'workspace_floor_planner_business_bridge.business_center_floor_view_kanban_layout',
+                                 'form_view_ref': 'workspace_floor_planner_business_bridge.business_center_floor_view_form_layout'}"/>
+            </xpath>
+        </field>
+    </record>
+</odoo>

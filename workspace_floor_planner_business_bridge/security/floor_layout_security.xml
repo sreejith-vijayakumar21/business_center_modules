@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Business Center staff can see floor layouts; managers can design them. -->
+    <record id="business_center.group_bc_user" model="res.groups">
+        <field name="implied_ids" eval="[Command.link(ref('workspace_floor_planner.group_floor_planner_viewer'))]"/>
+    </record>
+    <record id="business_center.group_bc_manager" model="res.groups">
+        <field name="implied_ids" eval="[Command.link(ref('workspace_floor_planner.group_floor_planner_manager'))]"/>
+    </record>
+</odoo>
