@@ -116,13 +116,14 @@ class BusinessCenterFloor(models.Model):
     # ------------------------------------------------------------------------------
     @api.model
     def bc_get_picker_sites(self, link_key, res_ids):
-        """Return the business centers, with their floors that have a layout,
-        on which the given records can be picked from a floor plan.
+        """Return every business center holding one of the given records,
+        with all its floors, for picking one of them on a floor plan.
 
         ``res_ids`` are exactly the records the caller may pick (a leased
         asset line's own options), so a contract already tied to one center
-        only sees that center. Each floor carries how many of those records
-        are drawn on it; each center notes how many are not drawn anywhere.
+        only sees that center. Each floor carries its layout (if any) and how
+        many of those records are drawn on it, so staff see which floors have
+        vacancies; each center notes the records not drawn on any layout.
         """
 
         provider = self.env["workspace.floor.link.registry"]._get_provider(link_key)
@@ -138,24 +139,30 @@ class BusinessCenterFloor(models.Model):
         pickable_by_plan = Counter(obj.plan_id.id for obj in placed)
         placed_ids = set(placed.mapped("link_res_id"))
 
-        floors = self.search([
-            ("center_id", "in", records.mapped("center_id").ids),
-            ("floor_plan_ids", "!=", False),
-        ])
+        centers = records.mapped("center_id").sorted("name")
+        floors = self.search([("center_id", "in", centers.ids)])
         sites = []
-        for center in floors.mapped("center_id").sorted("name"):
+        for center in centers:
+            center_floors = floors.filtered(lambda f: f.center_id == center)
             unplaced = len(records.filtered(
                 lambda r: r.center_id == center and r.id not in placed_ids))
+            if not center_floors.floor_plan_ids:
+                note = self.env._("No floor of this center has a layout yet; pick from the dropdown.")
+            elif unplaced:
+                note = self.env._(
+                    "%s available unit(s) are not drawn on a floor plan; pick them "
+                    "from the dropdown.", unplaced)
+            else:
+                note = False
             sites.append({
                 "id": center.id,
                 "name": center.display_name,
-                "note": self.env._(
-                    "%s available unit(s) are not drawn on a floor plan; pick them "
-                    "from the dropdown.", unplaced) if unplaced else False,
+                "note": note,
                 "plans": [{
-                    "id": floor.floor_plan_id.id,
+                    "key": floor.id,
+                    "id": floor.floor_plan_id.id or False,
                     "name": floor.name,
                     "pickable": pickable_by_plan.get(floor.floor_plan_id.id, 0),
-                } for floor in floors.filtered(lambda f: f.center_id == center)],
+                } for floor in center_floors],
             })
         return sites
