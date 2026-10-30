@@ -14,6 +14,10 @@
                                 help="Days before a contract ends that the renewal reminder is sent. Individual contracts can override this.">
                             <field name="bc_expiry_reminder_days"/>
                         </setting>
+                        <setting string="Post and Email Invoices Automatically"
+                                help="Confirm each monthly contract invoice and email it to the tenant.">
+                            <field name="bc_invoice_auto_send"/>
+                        </setting>
                         <setting string="Default Renewal Rent Increase (%)"
                                 help="Applied to the rent when a contract renews. Each contract can override it; use 0 to renew at the same rent.">
                             <field name="bc_renewal_increase_pct"/>

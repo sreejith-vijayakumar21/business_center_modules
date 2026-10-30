@@ -1,0 +1,10 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_floor_plan_viewer,floor.plan viewer,model_workspace_floor_plan,group_floor_planner_viewer,1,0,0,0
+access_floor_plan_user,floor.plan designer,model_workspace_floor_plan,group_floor_planner_user,1,1,0,0
+access_floor_plan_manager,floor.plan manager,model_workspace_floor_plan,group_floor_planner_manager,1,1,1,1
+access_floor_object_viewer,floor.plan.object viewer,model_workspace_floor_plan_object,group_floor_planner_viewer,1,0,0,0
+access_floor_object_user,floor.plan.object designer,model_workspace_floor_plan_object,group_floor_planner_user,1,1,1,1
+access_floor_status_viewer,floor.status viewer,model_workspace_floor_status,group_floor_planner_viewer,1,0,0,0
+access_floor_status_manager,floor.status manager,model_workspace_floor_status,group_floor_planner_manager,1,1,0,0
+access_floor_preset_viewer,floor.preset viewer,model_workspace_floor_object_preset,group_floor_planner_viewer,1,0,0,0
+access_floor_preset_manager,floor.preset manager,model_workspace_floor_object_preset,group_floor_planner_manager,1,1,1,1

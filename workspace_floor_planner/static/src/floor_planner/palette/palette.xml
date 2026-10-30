@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="workspace_floor_planner.Palette">
+        <aside class="o_fp_palette" aria-label="Object palette">
+            <input type="search" class="form-control form-control-sm mb-2" placeholder="Search items..."
+                   t-model="state.filter" aria-label="Search palette"/>
+            <div t-if="props.disabled" class="text-muted small mb-2">Read-only: you cannot add objects.</div>
+            <t t-foreach="groups" t-as="group" t-key="group.category">
+                <div class="o_fp_palette_group">
+                    <div class="o_fp_palette_title" t-esc="group.label"/>
+                    <button t-foreach="group.presets" t-as="preset" t-key="preset.id" type="button"
+                            class="o_fp_palette_item btn btn-light btn-sm" t-att-disabled="props.disabled"
+                            t-att-title="'Add ' + preset.name" t-on-click="() => props.onAdd(preset)">
+                        <span class="o_fp_swatch" t-att-style="swatchStyle(preset)">
+                            <i t-if="preset.icon" t-att-class="'fa ' + preset.icon"/>
+                        </span>
+                        <span t-esc="preset.name"/>
+                    </button>
+                </div>
+            </t>
+        </aside>
+    </t>
+</templates>

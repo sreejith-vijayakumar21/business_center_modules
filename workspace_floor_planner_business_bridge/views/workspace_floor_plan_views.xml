@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="workspace_floor_plan_view_form_bc" model="ir.ui.view">
+        <field name="name">workspace.floor.plan.form.bc</field>
+        <field name="model">workspace.floor.plan</field>
+        <field name="inherit_id" ref="workspace_floor_planner.workspace_floor_plan_view_form"/>
+        <field name="arch" type="xml">
+            <field name="site" position="before">
+                <field name="bc_floor_id" options="{'no_create': True}"/>
+            </field>
+        </field>
+    </record>
+</odoo>

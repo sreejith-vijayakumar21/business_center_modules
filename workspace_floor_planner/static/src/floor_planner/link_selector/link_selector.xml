@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="workspace_floor_planner.LinkSelector">
+        <div class="o_fp_link">
+            <div t-if="props.object.link_key" class="o_fp_link_current mb-2">
+                <i class="fa fa-link me-1"/>
+                <span t-att-class="props.object.link_restricted ? 'text-muted fst-italic' : 'fw-bold'"
+                      t-esc="props.object.link_name"/>
+                <div class="mt-1 d-flex gap-1">
+                    <button type="button" class="btn btn-sm btn-secondary"
+                            t-att-disabled="!isLinkSaved" t-on-click="() => props.onOpen()"
+                            t-att-title="isLinkSaved ? 'Open the business record' : 'Save the layout first'">
+                        <i class="fa fa-external-link"/> Open
+                    </button>
+                    <button t-if="!props.readonly" type="button" class="btn btn-sm btn-outline-danger"
+                            t-on-click="() => props.onLink(null, null)">
+                        <i class="fa fa-chain-broken"/> Unlink
+                    </button>
+                </div>
+            </div>
+            <t t-if="!props.readonly">
+                <select t-if="props.providers.length > 1" class="form-select form-select-sm mb-1"
+                        t-on-change="onProviderChange" aria-label="Record type">
+                    <option t-foreach="props.providers" t-as="p" t-key="p.key" t-att-value="p.key"
+                            t-att-selected="p.key === state.providerKey" t-esc="p.label"/>
+                </select>
+                <div class="position-relative">
+                    <input type="search" class="form-control form-control-sm"
+                           t-att-placeholder="'Search ' + (provider ? provider.label : '') + '...'"
+                           t-att-value="state.query" t-on-input="onQueryInput" t-on-focus="() => this.search()"
+                           aria-label="Search business records to link"/>
+                    <ul t-if="state.open" class="o_fp_link_results list-group">
+                        <li t-if="!state.results.length" class="list-group-item small text-muted">No matching records you can access.</li>
+                        <li t-foreach="state.results" t-as="rec" t-key="rec.id" class="list-group-item p-0">
+                            <button type="button" class="btn btn-sm w-100 text-start"
+                                    t-att-disabled="rec.already_placed and rec.id !== props.object.link_res_id"
+                                    t-on-click="() => this.pick(rec)">
+                                <t t-esc="rec.display_name"/>
+                                <span t-if="rec.already_placed" class="badge text-bg-secondary ms-1">on plan</span>
+                            </button>
+                        </li>
+                    </ul>
+                </div>
+                <button t-if="canCreate" type="button" class="btn btn-sm btn-primary w-100 mt-2"
+                        t-att-disabled="!props.object.id"
+                        t-att-title="props.object.id ? '' : 'Save the layout first'"
+                        t-on-click="() => props.onCreate(provider)">
+                    <i class="fa fa-plus"/> Create <t t-esc="provider.label"/>
+                </button>
+            </t>
+        </div>
+    </t>
+</templates>

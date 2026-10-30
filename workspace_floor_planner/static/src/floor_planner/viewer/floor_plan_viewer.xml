@@ -1,0 +1,65 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="workspace_floor_planner.Viewer">
+        <div class="o_action o_fp_viewer">
+            <Layout display="{ controlPanel: {} }">
+                <div class="o_fp_viewer_body">
+                    <div class="o_fp_viewer_head">
+                        <i class="fa fa-building-o fa-2x text-muted"/>
+                        <div class="flex-grow-1">
+                            <h3 class="mb-0" t-esc="plan.site or plan.name"/>
+                            <div class="text-muted">Floor &amp; Space Management</div>
+                        </div>
+                        <span class="o_fp_floor_badge" t-esc="plan.code or plan.name"/>
+                    </div>
+
+                    <div class="o_fp_stat_cards">
+                        <div t-foreach="cards" t-as="card" t-key="card.key" class="o_fp_stat_card"
+                             t-att-data-key="card.key">
+                            <div class="text-muted" t-esc="card.label"/>
+                            <div class="o_fp_stat_value" t-att-style="card.color ? 'color:' + card.color : ''"
+                                 t-esc="card.value"/>
+                        </div>
+                    </div>
+                    <div t-if="store.summary.unplaced" class="small text-muted mb-2">
+                        <i class="fa fa-info-circle"/>
+                        <t t-esc="store.summary.unplaced"/> unit(s) of this floor are not placed on the layout yet.
+                    </div>
+
+                    <div class="o_fp_viewer_layout">
+                        <div class="o_fp_viewer_bar">
+                            <h4 class="mb-0 me-auto">Floor layout</h4>
+                            <div t-if="selected" class="o_fp_viewer_selected">
+                                <span class="fw-bold" t-esc="selected.name"/>
+                                <t t-if="selected.category === 'rentable'">
+                                    · <t t-esc="statusName(selected)"/>
+                                </t>
+                                <button t-if="selected.link_key and !selected.link_restricted" type="button"
+                                        class="btn btn-sm btn-link" t-on-click="openSelected">
+                                    <i class="fa fa-external-link"/> Open <t t-esc="selected.link_name"/>
+                                </button>
+                                <button t-foreach="createProviders" t-as="provider" t-key="provider.key"
+                                        type="button" class="btn btn-sm btn-link" t-on-click="() => this.createFor(provider)">
+                                    <i class="fa fa-plus"/> Create <t t-esc="provider.label"/>
+                                </button>
+                            </div>
+                            <button type="button" class="btn btn-light btn-sm" title="Zoom out"
+                                    t-on-click="() => this.zoom(1 / 1.2)"><i class="fa fa-search-minus"/></button>
+                            <button type="button" class="btn btn-light btn-sm" title="Zoom in"
+                                    t-on-click="() => this.zoom(1.2)"><i class="fa fa-search-plus"/></button>
+                            <button type="button" class="btn btn-light btn-sm" title="Fit to screen"
+                                    t-on-click="fit"><i class="fa fa-expand"/></button>
+                            <button t-if="plan.can_edit" type="button" class="btn btn-primary btn-sm o_fp_edit_layout"
+                                    t-on-click="editLayout"><i class="fa fa-pencil"/> Edit layout</button>
+                        </div>
+                        <div class="o_fp_viewer_canvas">
+                            <FloorCanvas store="store" readonly="true" onReady.bind="onCanvasReady"/>
+                        </div>
+                        <StatusLegend store="store" loading="state.statusLoading"
+                                      onRefresh.bind="refreshStatuses" onChangeAt.bind="changeStatusAt"/>
+                    </div>
+                </div>
+            </Layout>
+        </div>
+    </t>
+</templates>

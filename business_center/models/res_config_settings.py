@@ -19,7 +19,10 @@ class ResConfigSettings(models.TransientModel):
     bc_timezone = fields.Selection(
         related='company_id.partner_id.tz', readonly=False,
         string='Business Centre Timezone',
-        help="Booking dates and times are local to the building and are "
-             "compared in this timezone, including for portal users.")
+        help="Local time of the buildings. Contract start and end dates, the "
+             "nightly contract and billing runs, and booking dates and times "
+             "are all decided in this timezone, including for portal users.")
     bc_renewal_increase_pct = fields.Float(
         related='company_id.bc_renewal_increase_pct', readonly=False)
+    bc_invoice_auto_send = fields.Boolean(
+        related='company_id.bc_invoice_auto_send', readonly=False)

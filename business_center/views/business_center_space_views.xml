@@ -6,7 +6,7 @@
         <field name="name">business.center.space.view.form</field>
         <field name="model">business.center.space</field>
         <field name="arch" type="xml">
-            <form>
+            <form create="0">
             <header>
                 <button name="action_set_occupied" type="object"
                         string="Set Occupied" class="btn-primary"
@@ -59,12 +59,17 @@
                         <group string="Location &amp; Setup">
                             <field name="space_type" string="Space Type" widget="radio"
                                    options="{'horizontal': True}"
-                                   readonly="is_coworking"
+                                   readonly="is_coworking or context.get('bc_from_floor_layout')"
+                                   force_save="1"
                                    help="Untick Coworking to change the space type."/>
-                            <field name="center_id" readonly="context.get('default_center_id', False)"/>
-                            <field name="floor_id"/>
-                            <field name="is_coworking" invisible="space_type != 'office'"
+                            <field name="center_id" readonly="context.get('default_center_id', False)"
+                                   force_save="1"/>
+                            <field name="floor_id" readonly="context.get('bc_from_floor_layout')"
+                                   force_save="1"/>
+                            <field name="is_coworking"
+                                   invisible="space_type != 'office' or context.get('bc_from_floor_layout')"
                                    readonly="desk_ids"
+                                   force_save="1"
                                    help="Remove all desks before unticking Coworking."/>
                             <field name="company_id"/>
                         </group>
@@ -111,13 +116,13 @@
                                 </group>
                                 <group string="Booking Rules" invisible="space_type != 'meeting_room'">
                                     <field name="is_bookable"/>
-                                    <field name="min_booking_hour" widget="float_time"
-                                            placeholder="e.g. 14:30"
-                                            help="Enter in 24-hour format, HH:MM. E.g. 2:30 PM = 14:30."/>
-                                    <field name="max_booking_hour" widget="float_time"
-                                            placeholder="e.g. 16:00"
-                                            help="Enter in 24-hour format, HH:MM. E.g. 4:00 PM = 16:00."/>
-                                    <field name="operating_hours_display"/>
+                                    <field name="min_booking_hour" widget="bc_time_select"
+                                           options="{'role': 'start', 'end_field': 'max_booking_hour'}"
+                                           help="When the room opens for bookings."/>
+                                    <field name="max_booking_hour" widget="bc_time_select"
+                                           options="{'role': 'end', 'start_field': 'min_booking_hour'}"
+                                           help="When the room closes; bookings must end by then."/>
+                                    <field name="operating_hours_display" invisible="1"/>
                                 </group>
                             </group>
                         </page>
@@ -130,7 +135,8 @@
                             </group>
                         </page>
 
-                        <page string="Amenities" invisible="is_coworking">
+                        <page string="Amenities" name="amenities"
+                              invisible="space_type == 'meeting_room' and not amenity_ids">
                             <field name="amenity_ids" mode="kanban">
                                 <kanban>
                                     <templates>
@@ -178,7 +184,7 @@
         <field name="name">business.center.space.view.tree</field>
         <field name="model">business.center.space</field>
         <field name="arch" type="xml">
-            <list>
+            <list create="0">
                 <field name="image_1920" widget="image" class="oe_avatar" options="{'size': [40, 40]}"/>
                 <field name="name"/>
                 <field name="space_type"/>
@@ -201,7 +207,7 @@
         <field name="name">business.center.space.view.kanban</field>
         <field name="model">business.center.space</field>
         <field name="arch" type="xml">
-            <kanban default_group_by="state">
+            <kanban default_group_by="state" create="0">
                 <field name="name"/>
                 <field name="center_id"/>
                 <field name="capacity"/>
@@ -220,10 +226,13 @@
                             <aside class="me-3">
                                 <t t-set="is_office" t-value="record.space_type.raw_value == 'office'"/>
                                 <t t-set="is_cowork" t-value="record.is_coworking.raw_value"/>
-                                <div class="d-flex align-items-center justify-content-center rounded-3 text-white fw-bold"
-                                    t-att-style="'width:52px; height:52px; font-size:18px; background-color:#' + (
-                                        is_office and is_cowork ? '9C27B0' :
-                                        is_office ? '017E84' : 'D9822B') + ';'">
+                                <t t-set="badge_style" t-value="
+                                    is_office and is_cowork ? 'background-color:#F1E4F7; color:#7B2A93;' :
+                                    is_office ? 'background-color:#DDF3F2; color:#0F6E73;' :
+                                    'background-color:#FFEBDA; color:#A8561A;'"/>
+                                <div class="d-flex align-items-center justify-content-center rounded-3 fw-bold"
+                                     t-att-style="'width:52px; height:52px; font-size:18px; ' + badge_style"
+                                     t-att-title="is_office and is_cowork ? 'Coworking space' : is_office ? 'Private office' : 'Meeting room'">
                                     <t t-if="is_office and is_cowork">CO</t>
                                     <t t-elif="is_office">O</t>
                                     <t t-else="">M</t>
@@ -316,7 +325,7 @@
                 <group>
                     <filter name="groupby_center" string="Business Center" context="{'group_by': 'center_id'}"/>
                     <filter name="groupby_floor" string="Floor" context="{'group_by': 'floor_id'}"/>
-                    <filter name="groupby_type" string="Space Type" context="{'group_by': 'space_type'}"/>
+                    <filter name="groupby_category" string="Space Category" context="{'group_by': 'space_category'}"/>
                     <filter name="groupby_state" string="Status" context="{'group_by': 'state'}"/>
                 </group>
 

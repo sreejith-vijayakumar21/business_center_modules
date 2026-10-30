@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="workspace_floor_planner_business_bridge.FloorPickerButton">
+        <button type="button" class="btn btn-link btn-sm px-0 o_bc_floor_picker_btn"
+                t-att-disabled="disabled" t-on-click="open">
+            <i class="fa fa-map-o me-1"/>Pick from floor plan
+        </button>
+    </t>
+
+</templates>

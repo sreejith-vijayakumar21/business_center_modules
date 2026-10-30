@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="workspace_floor_planner.FloorCanvas">
+        <div class="o_fp_canvas_wrap" t-ref="wrap">
+            <svg t-ref="svg" class="o_fp_canvas" xmlns="http://www.w3.org/2000/svg"
+                 t-att-viewBox="viewBox" role="application"
+                 aria-label="Floor plan canvas"
+                 t-att-class="{ 'o_fp_readonly': props.readonly }"
+                 t-on-pointerdown="onPointerDown" t-on-pointermove="onPointerMove"
+                 t-on-pointerup="onPointerUp" t-on-pointercancel="onPointerUp"
+                 t-on-wheel="onWheel">
+                <defs>
+                    <pattern id="o_fp_grid_pattern" patternUnits="userSpaceOnUse"
+                             t-att-width="plan.grid_size" t-att-height="plan.grid_size">
+                        <path t-att-d="gridPath" fill="none" class="o_fp_grid_line"
+                              t-att-stroke-width="px(1)"/>
+                    </pattern>
+                </defs>
+
+                <!-- Canvas sheet -->
+                <rect class="o_fp_sheet" x="0" y="0" t-att-width="plan.canvas_width"
+                      t-att-height="plan.canvas_height" t-att-stroke-width="px(1)"/>
+                <rect t-if="plan.show_grid" x="0" y="0" t-att-width="plan.canvas_width"
+                      t-att-height="plan.canvas_height" fill="url(#o_fp_grid_pattern)"
+                      pointer-events="none"/>
+
+                <!-- Objects -->
+                <t t-foreach="store.sortedObjects" t-as="o" t-key="o.key">
+                    <FloorObject obj="o" store="store" readonly="props.readonly"/>
+                </t>
+            </svg>
+            <div t-if="!store.objects.length" class="o_fp_empty_hint">
+                <i class="fa fa-hand-pointer-o fa-2x mb-2"/>
+                <div>Blank floor. Pick an item from the palette on the left to start drawing.</div>
+            </div>
+        </div>
+    </t>
+</templates>

@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="workspace_floor_plan_view_list" model="ir.ui.view">
+        <field name="name">workspace.floor.plan.list</field>
+        <field name="model">workspace.floor.plan</field>
+        <field name="arch" type="xml">
+            <list string="Floor Plans">
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="site"/>
+                <field name="code"/>
+                <field name="floor_level" optional="hide"/>
+                <field name="rentable_count"/>
+                <field name="linked_count" optional="show"/>
+                <field name="company_id" groups="base.group_multi_company" optional="show"/>
+                <button name="action_open_designer" type="object" string="Open Designer"
+                        icon="fa-pencil-square-o" class="btn-link"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="workspace_floor_plan_view_form" model="ir.ui.view">
+        <field name="name">workspace.floor.plan.form</field>
+        <field name="model">workspace.floor.plan</field>
+        <field name="arch" type="xml">
+            <form string="Floor Plan">
+                <header>
+                    <button name="action_open_designer" type="object" string="Open Designer"
+                            class="btn-primary" invisible="not id"/>
+                    <button name="action_open_viewer" type="object" string="Live View"
+                            invisible="not id"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <field name="active" invisible="1"/>
+                    <div class="oe_title">
+                        <label for="name"/>
+                        <h1><field name="name" placeholder="e.g. Level 2 – East Wing"/></h1>
+                    </div>
+                    <group>
+                        <group string="Location">
+                            <field name="site"/>
+                            <field name="code"/>
+                            <field name="floor_level"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                        </group>
+                        <group string="Canvas">
+                            <field name="canvas_width"/>
+                            <field name="canvas_height"/>
+                            <field name="units_per_meter"/>
+                            <field name="grid_size"/>
+                            <field name="show_grid"/>
+                            <field name="snap_to_grid"/>
+                            <field name="status_refresh_interval"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Objects" name="objects">
+                            <field name="object_ids" readonly="1">
+                                <list>
+                                    <field name="name"/>
+                                    <field name="object_type"/>
+                                    <field name="x"/>
+                                    <field name="y"/>
+                                    <field name="width"/>
+                                    <field name="height"/>
+                                    <field name="rotation"/>
+                                    <field name="link_key" optional="hide"/>
+                                </list>
+                            </field>
+                        </page>
+                        <page string="Notes" name="notes">
+                            <field name="notes" placeholder="Internal notes about this floor..."/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <record id="workspace_floor_plan_view_search" model="ir.ui.view">
+        <field name="name">workspace.floor.plan.search</field>
+        <field name="model">workspace.floor.plan</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="name"/>
+                <field name="site"/>
+                <field name="code"/>
+                <filter name="archived" string="Archived" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="group_site" string="Site" context="{'group_by': 'site'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <record id="action_workspace_floor_plan" model="ir.actions.act_window">
+        <field name="name">Floor Plans</field>
+        <field name="res_model">workspace.floor.plan</field>
+        <field name="view_mode">list,form</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Create your first floor plan</p>
+            <p>Give the floor a name and canvas size, then open the designer to draw
+               offices, desks, meeting rooms and amenities.</p>
+        </field>
+    </record>
+</odoo>

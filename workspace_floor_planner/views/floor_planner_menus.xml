@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <menuitem id="menu_floor_planner_root" name="Floor Planner"
+              web_icon="workspace_floor_planner,static/description/icon.png"
+              groups="group_floor_planner_viewer" sequence="60"/>
+    <menuitem id="menu_floor_plans" name="Floor Plans" parent="menu_floor_planner_root"
+              action="action_workspace_floor_plan" sequence="10"/>
+    <menuitem id="menu_floor_planner_config" name="Configuration" parent="menu_floor_planner_root"
+              groups="group_floor_planner_manager" sequence="90"/>
+    <menuitem id="menu_floor_presets" name="Palette Presets" parent="menu_floor_planner_config"
+              action="action_workspace_floor_object_preset" sequence="10"/>
+    <menuitem id="menu_floor_statuses" name="Status Colours" parent="menu_floor_planner_config"
+              action="action_workspace_floor_status" sequence="20"/>
+</odoo>

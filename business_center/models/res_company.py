@@ -18,3 +18,8 @@ class ResCompany(models.Model):
         string='Default Renewal Rent Increase (%)', default=0.0,
         help="Rent increase applied when a contract renews, unless the contract "
              "sets its own. Use 0 to renew at the same rent.")
+    bc_invoice_auto_send = fields.Boolean(
+        string='Post and Email Invoices Automatically', default=False,
+                help="When the monthly billing run creates a contract invoice, confirm "
+             "it and email it to the tenant. Leave off to review drafts first. "
+             "A contract can opt out with Review Invoices Manually.")

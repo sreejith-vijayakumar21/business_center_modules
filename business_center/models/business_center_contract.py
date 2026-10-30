@@ -49,6 +49,13 @@ class BusinessCenterContract(models.Model):
         string='Send Expiry Reminder', default=True, tracking=True,
         help="Email the tenant before this contract ends, asking whether they "
              "want to renew.")
+    invoice_review_manually = fields.Boolean(
+        string='Review Invoices Manually', tracking=True,
+        help="Leave this tenant's monthly invoices in draft for staff to "
+             "review and send, instead of posting and emailing them "
+             "automatically as the company setting does.")
+    company_auto_send = fields.Boolean(
+        related='company_id.bc_invoice_auto_send', string='Company Sends Automatically')
     expiry_reminder_days = fields.Integer(
         string='Reminder Lead Days',
         default=lambda self: self.env.company.bc_expiry_reminder_days,
@@ -101,8 +108,9 @@ class BusinessCenterContract(models.Model):
                                            help="Meeting-room overage and manual charges accrued but not yet invoiced.")
     deposit_amount = fields.Monetary(string='Security Deposit', currency_field='currency_id', tracking=True,
         help="Refundable deposit agreed for the whole contract. Enter it while "
-             "the contract is draft; it is invoiced on confirmation and locked "
-             "afterwards.")
+             "the contract is draft; it is invoiced when the tenant signs the "
+             "agreement, or on the start date if they have not signed by then, "
+             "and locked once confirmed.")
     
     signed_attachment_id = fields.Many2one('ir.attachment', string='Signed Copy',
                                            readonly=True, copy=False)
@@ -161,6 +169,7 @@ class BusinessCenterContract(models.Model):
         'renewal_contract_id', 'renewal_increase_pct', 'deposit_invoice_id',
         'deposit_refund_id', 'contract_sent_date',
         'agreement_state', 'signed_by', 'signed_on', 'signature', 'signed_attachment_id',
+        'invoice_review_manually',
     }
     
     # ------------------------------------------------------------------------------
@@ -437,6 +446,15 @@ class BusinessCenterContract(models.Model):
 
         if not self.env.user.has_group('business_center.group_bc_manager'):
             raise UserError(_("Only a Business Center Manager can do this."))
+        
+    def _bc_today(self):
+        """Today's date at the business centre. Contract dates are local to
+        the building, so use the company's timezone (Settings > Business
+        Centre Timezone), then the user's; fields.Date.today() is UTC."""
+
+        company = self[:1].company_id or self.env.company
+        tz = company.partner_id.tz or self.env.user.tz or 'UTC'
+        return fields.Date.context_today(self.with_context(tz=tz))
     
     def _sync_leased_occupancy(self, exclude=None):
         """Re-derive occupancy on this contract's spaces and desks from whichever
@@ -445,7 +463,7 @@ class BusinessCenterContract(models.Model):
         resetting/cancelling one contract won't free a resource another active
         contract still occupies. `exclude` drops contracts being deleted."""
         
-        today = fields.Date.today()
+        today = self._bc_today()
         exclude = exclude or self.env['business.center.contract']
         if not self.leased_asset_ids:
             _logger.info("Occupancy sync: contract %s has no leased assets to sync.",
@@ -567,21 +585,55 @@ class BusinessCenterContract(models.Model):
                  center.state_id.name, center.country_id.name)
         return ', '.join(p for p in parts if p)
     
-    def _mark_agreement_sent(self):
-        """Stamp the send date and, unless already signed, set the agreement to
-        Awaiting Signature with one follow-up activity for the sender."""
+    def _get_leased_amenities(self):
+        """Amenities included with each leased asset, for the agreement PDF.
 
-        today = fields.Date.context_today(self)
+        An office brings its own amenities; a desk brings those of the
+        coworking space it sits in. Assets without amenities are left out.
+        Sudo so the report renders for any user, portal included.
+        """
+
+        self.ensure_one()
+        rows = []
+        for asset in self.sudo().leased_asset_ids:
+            amenities = asset.space_id.amenity_ids or asset.desk_id.space_id.amenity_ids
+            if amenities:
+                rows.append({
+                    'resource': (asset.space_id or asset.desk_id).display_name,
+                    'amenities': ', '.join(amenities.sorted('name').mapped('name')),
+                })
+        return rows
+    
+    def _get_report_base_filename(self):
+        """File name (without extension) of the lease agreement PDF when the
+        portal serves it, matching the backend's printed report name."""
+
+        self.ensure_one()
+        return _("Lease Agreement - %s", self.name.replace('/', '-'))
+    
+    def _mark_awaiting_signature(self):
+        """Set the agreement to Awaiting Signature, unless already signed, with
+        one follow-up activity for the current user. Called on Confirm,
+        whatever channel the agreement is shared through (email, WhatsApp,
+        in person)."""
+
         for contract in self:
-            vals = {'contract_sent_date': today}
-            if contract.agreement_state != 'signed':
-                vals['agreement_state'] = 'sent'
-            contract.with_context(tracking_disable=True).write(vals)
-            if contract.agreement_state == 'sent':
-                contract.activity_unlink(['business_center.mail_activity_type_contract_signature'])
-                contract.activity_schedule(
-                    'business_center.mail_activity_type_contract_signature',
-                    user_id=self.env.user.id)
+            if contract.agreement_state == 'signed':
+                continue
+            contract.write({'agreement_state': 'sent'})
+            contract.activity_unlink(['business_center.mail_activity_type_contract_signature'])
+            contract.activity_schedule(
+                'business_center.mail_activity_type_contract_signature',
+                user_id=self.env.user.id)
+
+    def _mark_agreement_sent(self):
+        """Stamp the date the agreement was emailed from Send by Email; the
+        agreement is (still) awaiting signature."""
+
+        self.with_context(tracking_disable=True).write({
+            'contract_sent_date': fields.Date.context_today(self),
+        })
+        self._mark_awaiting_signature()
 
     def _mark_agreement_signed(self, signed_by, signed_on=None, attachment=None, signature=None):
         """Record the signature. Shared by the backend wizard (signed paper
@@ -599,6 +651,10 @@ class BusinessCenterContract(models.Model):
         if signature:
             vals['signature'] = signature
         self.write(vals)
+        # The tenant has accepted, so the deposit can be invoiced now; sudo
+        # because the portal signs as the tenant, who has no accounting rights.
+        if self.state in ('upcoming', 'active'):
+            self.sudo()._create_deposit_invoice()
         self.activity_feedback(
             ['business_center.mail_activity_type_contract_signature'],
             feedback=_("Agreement signed by %s", signed_by))
@@ -628,9 +684,11 @@ class BusinessCenterContract(models.Model):
     def _create_deposit_invoice(self):
         """Raise a draft invoice for the security deposit, separate from rent.
 
-        A deposit is held for the tenant and refunded later, not earned, so it
-        is billed on its own tax-free line. A renewal keeps the deposit already
-        held and only invoices the increase, if there is one.
+        Called when the tenant signs, or on the start date if they have not
+        signed by then. A deposit is held for the tenant and refunded later,
+        not earned, so it is billed on its own tax-free line. A renewal keeps
+        the deposit already held and only invoices the increase, if there is
+        one.
         """
 
         self.ensure_one()
@@ -664,6 +722,17 @@ class BusinessCenterContract(models.Model):
         })
         self.deposit_invoice_id = move
         return move
+    
+    def _cancel_draft_deposit_invoice(self):
+        """Cancel a deposit invoice that is still draft and unlink it, so the
+        next one is raised with the revised amount. A posted deposit invoice
+        is left alone; it is settled through a credit note."""
+
+        self.ensure_one()
+        invoice = self.sudo().deposit_invoice_id
+        if invoice and invoice.state == 'draft':
+            invoice.button_cancel()
+            self.sudo().deposit_invoice_id = False
     
     def _deposit_received(self):
         """Deposit the tenant has actually paid, across this contract and the
@@ -819,7 +888,7 @@ class BusinessCenterContract(models.Model):
                 "%(contract)s leases office space, so it needs a monthly "
                 "free-hour allowance. Set Monthly Free Hours before confirming.",
                 contract=self.name))
-        today = fields.Date.today()
+        today = self._bc_today()
         # A migrated contract that started before this month would otherwise be
         # re-invoiced for every past month by the billing cron.
         if not self.next_invoice_date and self.date_start < today.replace(day=1):
@@ -835,8 +904,14 @@ class BusinessCenterContract(models.Model):
             vals['next_invoice_date'] = self.date_start
         self.write(vals)
         self._sync_leased_occupancy()
-        self._create_deposit_invoice()
-        return self.action_send_contract()
+        # The deposit waits for the tenant's signature. A contract that is
+        # already running cannot wait any longer, so its deposit is raised
+        # now; an upcoming one is raised by the activation cron on its start
+        # date if the tenant has not signed by then.
+        if self.state == 'active':
+            self._create_deposit_invoice()
+        self._mark_awaiting_signature()
+        return True
 
     def action_set_cancel(self):
         """Cancel the contract and mark its leased assets as available"""
@@ -875,11 +950,15 @@ class BusinessCenterContract(models.Model):
         self.wallet_seeded = False
         self._sync_leased_occupancy()
         self._reset_agreement()
+        # The contract is being revised (e.g. a different deposit), so an
+        # unposted deposit invoice no longer matches it.
+        self._cancel_draft_deposit_invoice()
         
     def action_send_contract(self):
-        """Open the email composer with the lease agreement PDF attached, the
-        way a quotation is sent. The template carries the report, so the
-        composer renders and attaches the PDF itself."""
+        """Email the lease agreement to the tenant: open the composer with the
+        agreement PDF attached, the way a quotation is sent. Optional, since
+        the agreement can also be shared outside Odoo; sending it stamps
+        Agreement Sent."""
 
         self.ensure_one()
         if self.state not in ('upcoming', 'active'):
@@ -1068,6 +1147,60 @@ class BusinessCenterContract(models.Model):
             charges.write({'state': 'invoiced', 'invoice_line_id': line.id})
 
         return move
+    
+    def _invoice_due_periods(self, today):
+        """Create the draft invoices this contract owes up to ``today`` and
+        return them: every billing period that has opened (catching up after
+        an outage or late entry), then, for a finished contract, its last
+        pending meeting-room charges, which no period is left to carry."""
+
+        self.ensure_one()
+        moves = self.env['account.move']
+        for _attempt in range(24):
+            period_start, period_end = self._get_billing_period()
+            if not period_start or period_start > today:
+                break
+            has_rent = self.leased_asset_ids.filtered(lambda a: a.monthly_rent_total)
+            has_charges = self.charge_ids.filtered(
+                lambda c: c.state == 'pending' and c.booking_id.meeting_room_id)
+            if not has_rent and not has_charges:
+                self.next_invoice_date = period_end + relativedelta(days=1)
+                continue
+            moves |= self._create_rent_invoice()
+        else:
+            _logger.warning(
+                "Billing cron: %s hit the 24-period catch-up limit; it may "
+                "still owe invoices.", self.name)
+        if self.state == 'expired' and self.charge_ids.filtered(
+                lambda c: c.state == 'pending' and c.booking_id.meeting_room_id):
+            moves |= self._create_rent_invoice()
+        return moves
+    
+    def _auto_send_invoices(self):
+        """Whether the billing run posts and emails this contract's invoices:
+        the company setting, unless this contract is reviewed manually."""
+
+        self.ensure_one()
+        return self.company_id.bc_invoice_auto_send and not self.invoice_review_manually
+
+    def _send_invoices(self, moves):
+        """Post the invoices and email them to the tenant when the company
+        bills automatically; otherwise leave them in draft for review."""
+
+        self.ensure_one()
+        if not moves or not self._auto_send_invoices():
+            return
+        moves.action_post()
+        template = self.env.ref('account.email_template_edi_invoice',
+                                raise_if_not_found=False)
+        if not template or not self.partner_id.email:
+            _logger.warning(
+                "Billing cron: %s invoices posted but not emailed (no invoice "
+                "template or no tenant email).", self.name)
+            return
+        for move in moves:
+            template.send_mail(move.id)
+            move.is_move_sent = True
 
     def action_create_invoice(self):
         """Invoice this contract's next period manually and open the result.
@@ -1160,7 +1293,7 @@ class BusinessCenterContract(models.Model):
         _sync_leased_occupancy, so they hold no resource.
         """
 
-        today = fields.Date.today()
+        today = self._bc_today()
         expired_contracts = self.search([
             ('state', 'in', ('active', 'upcoming')),
             ('date_end', '<', today),
@@ -1204,7 +1337,7 @@ class BusinessCenterContract(models.Model):
         the cron is re-run.
         """
 
-        today = fields.Date.today()
+        today = self._bc_today()
         if today.day != 1:
             return
 
@@ -1239,7 +1372,7 @@ class BusinessCenterContract(models.Model):
         someone else) is noted on the contract, which then expires normally.
         """
 
-        today = fields.Date.today()
+        today = self._bc_today()
         due = self.search([
             ('state', '=', 'active'),
             ('auto_renew', '=', True),
@@ -1268,10 +1401,11 @@ class BusinessCenterContract(models.Model):
         
     @api.model
     def _cron_activate_upcoming_contracts(self):
-        """Promote upcoming contracts whose start date has arrived, and claim
-        occupancy on their spaces and desks."""
+        """Promote upcoming contracts whose start date has arrived, claim
+        occupancy on their spaces and desks, and invoice the deposit of any
+        tenant who has not signed yet."""
 
-        today = fields.Date.today()
+        today = self._bc_today()
         due = self.search([('state', '=', 'upcoming'), ('date_start', '<=', today), ('date_end', '>=', today)])
         if not due:
             _logger.info("Contract activation cron: no contracts to activate.")
@@ -1280,25 +1414,37 @@ class BusinessCenterContract(models.Model):
         due.write({'state': 'active'})
         for contract in due:
             contract._sync_leased_occupancy()
+            # Start date reached: the deposit is invoiced whether or not the
+            # tenant has signed (no-op if signing already invoiced it). One
+            # failure must not stop the other activations.
+            try:
+                with self.env.cr.savepoint():
+                    contract._create_deposit_invoice()
+            except Exception:
+                _logger.exception(
+                    "Contract activation cron: could not invoice the deposit "
+                    "of %s.", contract.name)
 
         _logger.info("Contract activation cron: activated %s contract(s): %s",
                      len(due), ", ".join(due.mapped('name')))
         
     @api.model
     def _cron_generate_invoices(self):
-        """Raise one draft invoice per contract whose next billing period has opened.
+        """Invoice every contract whose next billing period has opened.
 
-        Runs daily rather than monthly on purpose. A contract that goes live on
-        10 Aug is billed that same night for 10-31 Aug only, which puts its
-        next_invoice_date on 1 Sep; from then on it is picked up on the 1st along
-        with everything else. Expired contracts are swept too, so meeting-room
-        overage accrued in a final month still reaches an invoice.
+        Runs daily rather than monthly on purpose. A contract that goes live
+        on 10 Aug is billed that same night for 10-31 Aug only, which puts its
+        next_invoice_date on 1 Sep; from then on it is picked up on the 1st
+        along with everything else. Expired contracts are swept too, so
+        meeting-room overage from their final month still reaches an invoice.
 
-        Each contract bills inside its own savepoint: one missing a product or a
-        rent amount fails alone and the rest still go out.
+        Invoices are left in draft, or posted and emailed to the tenant when
+        the company has Post and Email Invoices Automatically switched on.
+        Each contract runs in its own savepoint: one that fails (missing
+        product, no rent) fails alone and the rest still go out.
         """
 
-        today = fields.Date.today()
+        today = self._bc_today()
         due = self.search([
             ('state', 'in', ('active', 'expired')),
             '|', ('next_invoice_date', '<=', today),
@@ -1308,31 +1454,14 @@ class BusinessCenterContract(models.Model):
             _logger.info("Billing cron: nothing due today.")
             return
 
-        billed = self.browse()
-        failed = []
+        billed, failed = self.browse(), []
         for contract in due:
             try:
                 with self.env.cr.savepoint():
-                    # Bill every period that has already opened, not just the
-                    # first. A contract entered late, or one that sat through a
-                    # server outage, catches up in a single run.
-                    for _attempt in range(24):
-                        period_start, period_end = contract._get_billing_period()
-                        if not period_start or period_start > today:
-                            break
-                        has_rent = contract.leased_asset_ids.filtered(
-                            lambda a: a.monthly_rent_total)
-                        has_charges = contract.charge_ids.filtered(
-                            lambda c: c.state == 'pending' and c.booking_id.meeting_room_id)
-                        if not has_rent and not has_charges:
-                            contract.next_invoice_date = period_end + relativedelta(days=1)
-                            continue
-                        contract._create_rent_invoice()
-                    else:
-                        _logger.warning(
-                            "Billing cron: %s hit the 24-period catch-up limit; "
-                            "it may still owe invoices.", contract.name)
-                billed |= contract
+                    moves = contract._invoice_due_periods(today)
+                    contract._send_invoices(moves)
+                if moves:
+                    billed |= contract
             except Exception:
                 failed.append(contract.name)
                 _logger.exception("Billing cron: could not invoice %s.", contract.name)
@@ -1356,7 +1485,7 @@ class BusinessCenterContract(models.Model):
         address raises, and that must not stop the rest of the batch.
         """
 
-        today = fields.Date.today()
+        today = self._bc_today()
         due = self.search([
             ('state', '=', 'active'),
             ('send_expiry_reminder', '=', True),

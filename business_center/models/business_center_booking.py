@@ -38,6 +38,13 @@ class BusinessCenterBooking(models.Model):
     selected_slot_display = fields.Char(string='Selected Slot', compute='_compute_selected_slot_display', 
                                          store=True)
     operating_time = fields.Char(related='meeting_room_id.operating_hours_display', string='Available Time')
+    room_open_hour = fields.Float(related='meeting_room_id.min_booking_hour',
+                                  string='Room Opens')
+    room_close_hour = fields.Float(related='meeting_room_id.max_booking_hour',
+                                   string='Room Closes')
+    booked_ranges = fields.Json(string='Booked Slots', compute='_compute_booked_ranges',
+                                help="[start, end] hours of the room's other confirmed "
+                                     "bookings that day, for the time pickers.")
     booking_date = fields.Date(string='Date', required=True)
     charge_per_hr = fields.Monetary(string='Hourly Rate', related='meeting_room_id.hourly_rate')
     chargeable_hours = fields.Float(string='Chargeable Hours', compute='_compute_chargeable_hours', store=True)
@@ -209,6 +216,24 @@ class BusinessCenterBooking(models.Model):
                 % "".join(boxes)
             )
             
+    @api.depends('meeting_room_id', 'booking_date')
+    def _compute_booked_ranges(self):
+        """List the room's other confirmed bookings that day as [start, end]
+        hour pairs, so the time pickers can grey out times already taken."""
+
+        for rec in self:
+            if not (rec.meeting_room_id and rec.booking_date):
+                rec.booked_ranges = []
+                continue
+            domain = [
+                ('meeting_room_id', '=', rec.meeting_room_id.id),
+                ('state', '=', 'confirmed'),
+                ('booking_date', '=', rec.booking_date),
+            ]
+            if rec._origin.id:
+                domain.append(('id', '!=', rec._origin.id))
+            rec.booked_ranges = [[b.start_time, b.end_time] for b in self.search(domain)]
+            
     @api.depends('total_wallet_credits', 'start_time', 'end_time', 'state',
                  'wallet_balance_at_booking', 'cancel_outcome')
     def _compute_chargeable_hours(self):
@@ -329,18 +354,19 @@ class BusinessCenterBooking(models.Model):
                     room=rec.meeting_room_id.display_name,
                     contract=rec.contract_id.name,
                     center=center.display_name,
-                ))         
+                ))    
+                     
     @api.constrains('start_time', 'end_time')
     def _check_booking_times(self):
-        """Reject bookings that end before they start or run longer than 8 hours."""
-        
+        """Reject bookings that end before they start. How long a booking
+        may run is bounded by the room's opening hours
+        (_check_within_operating_hours), not by a fixed limit."""
+
         for rec in self:
             if not rec.start_time and not rec.end_time:
                 continue
             if rec.end_time <= rec.start_time:
                 raise ValidationError(_('End time must be after start time.'))
-            if (rec.end_time - rec.start_time) > 8:
-                raise ValidationError(_('Cannot book more than 8 hours.'))
             
     @api.constrains('meeting_room_id')
     def _check_employee_meeting_room_only(self):

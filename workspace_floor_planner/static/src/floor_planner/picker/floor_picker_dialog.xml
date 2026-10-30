@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="workspace_floor_planner.FloorPickerDialog">
+        <Dialog title="props.title" size="'xl'" contentClass="'o_fp_picker'">
+            <div class="o_fp_picker_body">
+
+                <!-- Sidebar: site, then every floor with its vacancies -->
+                <aside class="o_fp_picker_side">
+                    <label t-if="props.sites.length > 1" class="o_fp_picker_side_label" for="o_fp_picker_site">
+                        Site
+                    </label>
+                    <select t-if="props.sites.length > 1" id="o_fp_picker_site" class="form-select"
+                            t-on-change="onSiteChange">
+                        <option t-foreach="props.sites" t-as="site" t-key="site.id"
+                                t-att-value="site.id" t-att-selected="site.id === state.siteId"
+                                t-esc="site.name"/>
+                    </select>
+                    <div t-elif="site" class="o_fp_picker_site" t-esc="site.name"/>
+
+                    <div class="o_fp_picker_side_label">Floors</div>
+                    <div class="o_fp_picker_floor_list" role="tablist">
+                        <button t-foreach="plans" t-as="plan" t-key="plan.key" type="button" role="tab"
+                                class="o_fp_picker_floor"
+                                t-att-class="{
+                                    'active': plan.id and plan.id === state.planId,
+                                    'o_fp_picker_floor_vacant': plan.pickable,
+                                }"
+                                t-att-aria-selected="plan.id and plan.id === state.planId"
+                                t-att-disabled="!plan.id"
+                                t-on-click="() => this.onPlanClick(plan.id)">
+                            <span class="o_fp_picker_floor_name" t-esc="plan.name"/>
+                            <span t-if="!plan.id" class="o_fp_picker_floor_info">No layout</span>
+                            <span t-elif="plan.pickable" class="o_fp_picker_floor_count">
+                                <t t-esc="plan.pickable"/> available
+                            </span>
+                            <span t-else="" class="o_fp_picker_floor_info">No vacancy</span>
+                        </button>
+                    </div>
+
+                    <p t-if="site and site.note" class="o_fp_picker_note">
+                        <i class="fa fa-info-circle me-1"/><t t-esc="site.note"/>
+                    </p>
+                </aside>
+
+                <!-- Floor plan of the selected floor -->
+                <div class="o_fp_picker_canvas" t-ref="canvasArea">
+                    <!-- Zoom controls -->
+                    <div t-if="state.store" class="o_fp_picker_zoom" role="group" aria-label="Zoom">
+                        <button type="button" class="btn btn-light btn-sm" title="Zoom out"
+                                t-on-click="zoomOut">
+                            <i class="fa fa-search-minus"/>
+                        </button>
+                        <span class="o_fp_picker_zoom_value"><t t-esc="zoomPercent"/>%</span>
+                        <button type="button" class="btn btn-light btn-sm" title="Zoom in"
+                                t-on-click="zoomIn">
+                            <i class="fa fa-search-plus"/>
+                        </button>
+                        <button type="button" class="btn btn-light btn-sm" title="Fit the whole floor"
+                                t-on-click="fit">
+                            <i class="fa fa-expand"/>
+                        </button>
+                    </div>
+                    <FloorCanvas t-if="state.store" t-key="state.planId" store="state.store"
+                                 readonly="true" onReady.bind="onCanvasReady"/>
+                    <div t-elif="!state.loading" class="o_fp_picker_empty">
+                        No floor of this site has a layout yet. Use the dropdown instead.
+                    </div>
+                </div>
+            </div>
+
+            <t t-set-slot="footer">
+                <div class="o_fp_picker_selection me-auto">
+                    <t t-if="selected">
+                        <span class="fw-bold" t-esc="selected.link_name or selected.name"/>
+                        <span t-if="isChosen(selected)" class="text-muted">
+                            · already on this contract
+                        </span>
+                        <span t-elif="!selectedPickable" class="text-muted">
+                            · not available for this record
+                        </span>
+                    </t>
+                    <span t-else="" class="text-muted">Click a green unit on the plan.</span>
+                </div>
+                <button type="button" class="btn btn-primary" t-att-disabled="!selectedPickable"
+                        t-on-click="confirm">
+                    Select
+                </button>
+                <button type="button" class="btn btn-secondary" t-on-click="props.close">Cancel</button>
+            </t>
+        </Dialog>
+    </t>
+
+</templates>

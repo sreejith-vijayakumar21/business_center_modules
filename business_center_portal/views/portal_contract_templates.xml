@@ -84,9 +84,10 @@
         <t t-call="portal.portal_layout">
             <t t-set="additional_title"><span t-field="contract.name"/></t>
 
-            <!-- Header -->
-            <div class="row mt-4 mb-3">
-                <div class="col-12">
+            <!-- Header: title, status and downloads -->
+            <t t-set="token_param" t-value="access_token and ('access_token=%s' % access_token) or ''"/>
+            <div class="row mt-4 mb-3 align-items-center g-2">
+                <div class="col">
                     <h5 class="mb-1">
                         Contract <span t-field="contract.name"/>
                         <span t-if="contract.state == 'upcoming'"   class="badge rounded-pill text-bg-primary">Upcoming</span>
@@ -95,6 +96,21 @@
                         <span t-elif="contract.state == 'expired'" class="badge text-bg-danger">Expired</span>
                         <span t-else=""                            class="badge text-bg-secondary">Cancelled</span>
                     </h5>
+                    <div t-if="contract.agreement_state == 'signed'" class="text-muted small">
+                        <i class="fa fa-check-circle text-success me-1" role="img" aria-label="Signed"/>
+                        Signed by <span t-field="contract.signed_by"/> on <span t-field="contract.signed_on"/>
+                    </div>
+                    <div t-elif="contract.agreement_state == 'sent'" class="text-muted small">
+                        <i class="fa fa-clock-o me-1" role="img" aria-label="Pending"/>
+                        Awaiting your signature
+                    </div>
+                </div>
+                <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
+                    <a t-if="contract.signed_attachment_id" class="btn btn-secondary"
+                       t-attf-href="/my/contracts/#{contract.id}/signed-agreement#{token_param and '?' + token_param or ''}"
+                       title="View the signed copy you returned">
+                        <i class="fa fa-file-pdf-o me-1"/>Signed Copy
+                    </a>
                 </div>
             </div>
 
@@ -186,6 +202,47 @@
                 <h6 class="mt-3 text-muted text-uppercase small">Terms &amp; Conditions</h6>
                 <div class="border rounded p-3 bg-light" t-out="contract.note"/>
             </t>
+        </t>
+    </template>
+
+    <!-- SIGNED COPY: shown like an invoice, details left, document right -->
+    <template id="portal_contract_signed_page" name="Contract Signed Copy">
+        <t t-call="portal.portal_layout">
+            <t t-set="additional_title">Signed Agreement</t>
+
+            <div class="row mt-4">
+                <!-- Details and actions -->
+                <div class="col-lg-3 mb-4">
+                    <div class="text-center mb-3">
+                        <h5 class="mb-1">Contract <span t-field="contract.name"/></h5>
+                        <div class="text-muted small">
+                            <i class="fa fa-check-circle text-success me-1" role="img" aria-label="Signed"/>
+                            Signed by <span t-field="contract.signed_by"/>
+                            on <span t-field="contract.signed_on"/>
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <a class="btn btn-primary" t-att-href="download_url">
+                            <i class="fa fa-download me-1"/>Download
+                        </a>
+                        <a class="btn btn-light" t-att-href="contract_url">
+                            <i class="fa fa-arrow-left me-1"/>Back to Contract
+                        </a>
+                    </div>
+                </div>
+
+                <!-- The signed document -->
+                <div class="col-lg-9">
+                    <iframe t-if="is_pdf" t-att-src="viewer_url"
+                            class="w-100 border rounded shadow-sm" style="height: 85vh;"
+                            title="Signed agreement"/>
+                    <img t-elif="is_image" t-att-src="file_url"
+                         class="img-fluid border rounded shadow-sm" alt="Signed agreement"/>
+                    <div t-else="" class="alert alert-info">
+                        This file cannot be previewed here. Use Download to open it.
+                    </div>
+                </div>
+            </div>
         </t>
     </template>
 

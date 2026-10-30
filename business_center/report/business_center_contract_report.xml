@@ -161,7 +161,7 @@
                 </table>
                 <ul class="small">
                     <li>Rent is invoiced monthly per calendar month. A partial first or last month is charged pro rata on the number of days occupied.</li>
-                    <li>The security deposit is invoiced on confirmation, is not subject to GST, and is refunded after the agreement ends, less any deductions for damages or unpaid dues.</li>
+                    <li>The security deposit is invoiced once this agreement is signed, or on the start date if it has not been signed by then. It is not subject to GST and is refunded after the agreement ends, less any deductions for damages or unpaid dues.</li>
                     <li t-if="o.is_wallet_eligible">Rent and meeting-room charges are subject to GST as applicable.</li>
                     <li t-else="">Rent is subject to GST as applicable.</li>
                 </ul>
@@ -203,10 +203,33 @@
                     <p t-else="">No meeting-room hours are included in this agreement.</p>
                 </div>
 
-                <!-- 5. Terms & Conditions, exactly as entered on the contract -->
+                <!-- 5. Amenities included with the leased offices and desks -->
+                <t t-set="amenity_rows" t-value="o._get_leased_amenities()"/>
+                <div t-if="amenity_rows" class="o_bc_section_block" name="section_amenities">
+                    <hr/>
+                    <h4 class="mb-3">5. Amenities</h4>
+                    <p class="mb-2">The leased premises include the following amenities:</p>
+                    <table class="table table-sm o_bc_table" name="amenities_table">
+                        <thead>
+                            <tr>
+                                <th name="th_amenity_resource" class="w-25">Space / Desk</th>
+                                <th name="th_amenity_list">Amenities</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="amenity_rows" t-as="row">
+                                <td name="td_amenity_resource" t-out="row['resource']"/>
+                                <td name="td_amenity_list" t-out="row['amenities']"/>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Terms & Conditions, exactly as entered on the contract;
+                     numbered after Amenities when that section is shown -->
                 <t t-if="not is_html_empty(o.note)">
                     <hr/>
-                    <h4 class="mb-3">5. Terms &amp; Conditions</h4>
+                    <h4 class="mb-3"><t t-out="6 if amenity_rows else 5"/>. Terms &amp; Conditions</h4>
                     <div t-field="o.note" name="terms"/>
                 </t>
 

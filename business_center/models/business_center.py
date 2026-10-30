@@ -121,6 +121,15 @@ class BusinessCenter(models.Model):
                     'business.center') or _("New")
         return super().create(vals_list)
     
+    def write(self, vals):
+        """Refuse deactivating a centre that still has tenants. Guarded here
+        rather than on the button so the clickable status bar, imports and
+        the API are covered too."""
+
+        if vals.get('state') == 'no_active':
+            self._check_no_live_contracts()
+        return super().write(vals)
+    
     @api.ondelete(at_uninstall=False)
     def _unlink_except_occupied_children(self):
         """Refuse deletion while any space or desk in this center is occupied.
@@ -174,6 +183,31 @@ class BusinessCenter(models.Model):
             (number + 1, self.id))
         self.invalidate_recordset(['space_sequence_next'])
         return number
+    
+    def _check_no_live_contracts(self):
+        """Raise if any of these centres has a running or upcoming contract.
+
+        A deactivated centre drops out of every asset picker, so its tenants'
+        contracts would point at a centre that no longer exists for the
+        staff. Searched with sudo so the check never depends on who asks.
+        """
+
+        live = self.env['business.center.contract'].sudo().search([
+            ('center_id', 'in', self.ids),
+            ('state', 'in', ('upcoming', 'active')),
+        ], order='date_end desc')
+        if not live:
+            return
+        names = live[:5].mapped('name')
+        if len(live) > 5:
+            names.append(_("and %s more", len(live) - 5))
+        raise UserError(_(
+            "%(center)s still has running or upcoming contracts (%(contracts)s), "
+            "so it cannot be deactivated. Let them end or cancel them first; "
+            "use Maintenance for temporary works.",
+            center=live[0].center_id.display_name,
+            contracts=", ".join(names),
+        ))
     
     # ------------------------------------------------------------------------------
     #   MARK: BUTTON ACTION METHODS

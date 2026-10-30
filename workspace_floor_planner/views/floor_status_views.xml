@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="workspace_floor_status_view_list" model="ir.ui.view">
+        <field name="name">workspace.floor.status.list</field>
+        <field name="model">workspace.floor.status</field>
+        <field name="arch" type="xml">
+            <list string="Status Colours" editable="bottom" create="0" delete="0">
+                <field name="sequence" widget="handle"/>
+                <field name="code"/>
+                <field name="name"/>
+                <field name="description"/>
+                <field name="color" widget="color"/>
+            </list>
+        </field>
+    </record>
+
+    <record id="action_workspace_floor_status" model="ir.actions.act_window">
+        <field name="name">Status Colours</field>
+        <field name="res_model">workspace.floor.status</field>
+        <field name="view_mode">list</field>
+    </record>
+</odoo>

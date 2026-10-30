@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Leased asset line: pick the space or desk on its floor plan. -->
+    <record id="business_center_leased_asset_view_form_floor_picker" model="ir.ui.view">
+        <field name="name">business.center.leased.asset.view.form.floor.picker</field>
+        <field name="model">business.center.leased.asset</field>
+        <field name="inherit_id" ref="business_center.business_center_leased_asset_view_form"/>
+        <field name="arch" type="xml">
+            <!-- The picker reads the line's own options and state. -->
+            <field name="renewal_of_contract_id" position="after">
+                <field name="contract_state" invisible="1"/>
+                <field name="available_space_ids" invisible="1"/>
+                <field name="available_desk_ids" invisible="1"/>
+                <field name="contract_space_ids" invisible="1"/>
+                <field name="contract_desk_ids" invisible="1"/>
+            </field>
+            <!-- Right under the Space / Desk field; hidden where the asset
+                 cannot change (renewals, confirmed contracts). -->
+            <xpath expr="//field[@name='desk_id']/.." position="after">
+                <div class="mb-3"
+                     invisible="not lease_asset_type or renewal_of_contract_id or contract_state not in (False, 'draft')">
+                    <widget name="bc_floor_picker"/>
+                </div>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

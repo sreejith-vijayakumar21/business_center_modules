@@ -24,6 +24,13 @@ class BusinessCenterSpace(models.Model):
         ('meeting_room', 'Meeting Room')
     ], required=True, default='office', tracking=True)
     is_coworking = fields.Boolean(default=False, tracking=True)
+    space_category = fields.Selection([
+        ('private_office', 'Private Office'),
+        ('coworking', 'Coworking Space'),
+        ('meeting_room', 'Meeting Room'),
+    ], string='Category', compute='_compute_space_category', store=True,
+        help="Space type with coworking spaces told apart from private offices, "
+             "for grouping and filtering.")
     desk_count = fields.Integer(string='Desk Count', compute='_compute_desk_count')
     occupied_desk_count = fields.Integer(string='Occupied Desks', compute='_compute_occupied_desk_count')
     state = fields.Selection([
@@ -136,6 +143,19 @@ class BusinessCenterSpace(models.Model):
             else:
                 rec.is_bookable = False
                 
+    @api.depends('space_type', 'is_coworking')
+    def _compute_space_category(self):
+        """Split offices into private offices and coworking spaces, so the
+        three kinds of space can be grouped separately."""
+
+        for rec in self:
+            if rec.space_type == 'meeting_room':
+                rec.space_category = 'meeting_room'
+            elif rec.is_coworking:
+                rec.space_category = 'coworking'
+            else:
+                rec.space_category = 'private_office'
+                
     @api.depends('contract_start_date', 'contract_end_date')
     def _compute_contract_period_display(self):
         """Build a readable 'start - end' label from the contract dates"""
@@ -218,16 +238,6 @@ class BusinessCenterSpace(models.Model):
                 parts = [part for part in (center.code, floor.name, sequence) if part]
                 vals['name'] = '/'.join(parts)
         return super().create(vals_list)
-    
-    @api.model
-    def search_panel_select_multi_range(self, field_name, **kwargs):
-        """Odoo 19 web client sends group_domain=None for a grouped many2one
-        filter with counters when no value is ticked; normalise it so the
-        domain AND does not crash."""
-
-        if kwargs.get('group_domain') is None:
-            kwargs['group_domain'] = []
-        return super().search_panel_select_multi_range(field_name, **kwargs)
                 
     @api.ondelete(at_uninstall=False)
     def _unlink_except_live_contract(self):

@@ -1,0 +1,108 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Small form used when adding/editing a floor from the Floors tab. -->
+    <record id="business_center_floor_view_form_layout" model="ir.ui.view">
+        <field name="name">business.center.floor.form.layout</field>
+        <field name="model">business.center.floor</field>
+        <field name="arch" type="xml">
+            <form string="Floor">
+                <sheet>
+                    <group>
+                        <field name="name" placeholder="Eg: F0"/>
+                        <field name="note"/>
+                    </group>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Floor cards: availability per unit type + layout entry point. -->
+    <record id="business_center_floor_view_kanban_layout" model="ir.ui.view">
+        <field name="name">business.center.floor.kanban.layout</field>
+        <field name="model">business.center.floor</field>
+        <field name="arch" type="xml">
+            <kanban class="o_bc_floor_kanban" create="1">
+                <field name="id"/>
+                <field name="note"/>
+                <field name="has_layout"/>
+                <field name="unit_count"/>
+                <field name="unit_available_count"/>
+                <templates>
+                    <t t-name="card" class="o_bc_floor_card">
+                        <!-- Header: floor name, remark and layout badge -->
+                        <div class="d-flex align-items-start justify-content-between mb-2">
+                            <div>
+                                <div class="o_bc_floor_name">
+                                    <i class="fa fa-building-o me-1" title="Floor"/>
+                                    <field name="name"/>
+                                </div>
+                                <div t-if="record.note.raw_value" class="o_bc_floor_note">
+                                    <field name="note"/>
+                                </div>
+                            </div>
+                            <span t-if="record.has_layout.raw_value" class="o_bc_floor_badge o_bc_floor_badge_ready">
+                                <i class="fa fa-map-o me-1"/>Layout ready
+                            </span>
+                            <span t-else="" class="o_bc_floor_badge">No layout yet</span>
+                        </div>
+
+                        <!-- Available / total per unit type -->
+                        <div class="o_bc_floor_tiles">
+                            <div class="o_bc_floor_tile o_bc_floor_tile_office">
+                                <div class="o_bc_floor_tile_label">Offices</div>
+                                <div class="o_bc_floor_tile_value">
+                                    <field name="office_available_count"/>
+                                    <span class="o_bc_floor_tile_total"> / <field name="office_count"/></span>
+                                </div>
+                            </div>
+                            <div class="o_bc_floor_tile o_bc_floor_tile_desk">
+                                <div class="o_bc_floor_tile_label">Desks</div>
+                                <div class="o_bc_floor_tile_value">
+                                    <field name="desk_available_count"/>
+                                    <span class="o_bc_floor_tile_total"> / <field name="desk_count"/></span>
+                                </div>
+                            </div>
+                            <div class="o_bc_floor_tile o_bc_floor_tile_room">
+                                <div class="o_bc_floor_tile_label">Meeting rooms</div>
+                                <div class="o_bc_floor_tile_value">
+                                    <field name="meeting_room_available_count"/>
+                                    <span class="o_bc_floor_tile_total"> / <field name="meeting_room_count"/></span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Overall availability -->
+                        <t t-set="unit_total" t-value="record.unit_count.raw_value"/>
+                        <t t-set="unit_free" t-value="record.unit_available_count.raw_value"/>
+                        <div class="o_bc_floor_progress" role="progressbar"
+                             t-att-aria-valuenow="unit_free" aria-valuemin="0" t-att-aria-valuemax="unit_total">
+                            <div class="o_bc_floor_progress_bar"
+                                 t-att-style="'width:' + (unit_total ? Math.round(unit_free * 100 / unit_total) : 0) + '%'"/>
+                        </div>
+                        <div class="o_bc_floor_summary">
+                            <field name="unit_available_count"/> of <field name="unit_count"/> units available
+                        </div>
+
+                        <!-- Layout actions (only once the floor is saved) -->
+                        <footer class="d-flex align-items-center justify-content-between gap-2 pt-2 w-100">
+                            <t t-if="record.id.raw_value">
+                                <button name="action_open_floor_layout" type="object" class="btn btn-primary btn-sm">
+                                    <t t-if="record.has_layout.raw_value"><i class="fa fa-map-o"/> View layout</t>
+                                    <t t-else=""><i class="fa fa-pencil-square-o"/> Create layout</t>
+                                </button>
+                                <button t-if="record.has_layout.raw_value" name="action_edit_floor_layout" type="object"
+                                        class="btn btn-secondary btn-sm ms-auto"
+                                        groups="workspace_floor_planner.group_floor_planner_user">
+                                    <i class="fa fa-pencil"/> Edit layout
+                                </button>
+                            </t>
+                            <span t-else="" class="o_bc_floor_note">
+                                <i class="fa fa-info-circle me-1"/>Save the business center to design this floor
+                            </span>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+</odoo>

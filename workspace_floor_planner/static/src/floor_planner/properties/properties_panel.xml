@@ -1,0 +1,107 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="workspace_floor_planner.PropertiesPanel">
+        <aside class="o_fp_properties" aria-label="Properties">
+            <t t-if="obj">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <span class="badge text-bg-primary" t-esc="typeLabel"/>
+                    <div t-if="!props.readonly" class="btn-group btn-group-sm">
+                        <button type="button" class="btn btn-light" title="Duplicate (Ctrl+D)"
+                                t-on-click="() => props.onDuplicate()"><i class="fa fa-clone"/></button>
+                        <button type="button" class="btn btn-light" title="Bring to front"
+                                t-on-click="() => store.reorder(obj.key, 'front')"><i class="fa fa-arrow-up"/></button>
+                        <button type="button" class="btn btn-light" title="Send to back"
+                                t-on-click="() => store.reorder(obj.key, 'back')"><i class="fa fa-arrow-down"/></button>
+                        <button type="button" class="btn btn-light text-danger" title="Delete (Del)"
+                                t-on-click="() => props.onDelete()"><i class="fa fa-trash"/></button>
+                    </div>
+                </div>
+
+                <label class="form-label small mb-0" for="o_fp_name">Label</label>
+                <input id="o_fp_name" class="form-control form-control-sm mb-2" maxlength="120"
+                       t-att-value="obj.name" t-att-readonly="props.readonly"
+                       t-on-change="(ev) => this.setText('name', ev)"/>
+
+                <fieldset class="o_fp_grid2 mb-2" t-att-disabled="props.readonly">
+                    <legend class="small fw-bold mb-1">Position &amp; size</legend>
+                    <label>X <input type="number" step="1" class="form-control form-control-sm"
+                                    t-att-value="obj.x" t-on-change="(ev) => this.setNumber('x', ev)"/></label>
+                    <label>Y <input type="number" step="1" class="form-control form-control-sm"
+                                    t-att-value="obj.y" t-on-change="(ev) => this.setNumber('y', ev)"/></label>
+                    <label>Width <input type="number" min="2" step="1" class="form-control form-control-sm"
+                                        t-att-value="obj.width" t-on-change="(ev) => this.setNumber('width', ev)"/>
+                        <small class="text-muted" t-esc="metres(obj.width)"/></label>
+                    <label>Height <input type="number" min="2" step="1" class="form-control form-control-sm"
+                                         t-att-value="obj.height" t-on-change="(ev) => this.setNumber('height', ev)"/>
+                        <small class="text-muted" t-esc="metres(obj.height)"/></label>
+                    <label>Rotation° <input type="number" step="1" class="form-control form-control-sm"
+                                            t-att-value="obj.rotation" t-on-change="(ev) => this.setNumber('rotation', ev)"/></label>
+                    <label>Font <input type="number" min="6" max="200" step="1" class="form-control form-control-sm"
+                                       t-att-value="obj.font_size" t-on-change="(ev) => this.setNumber('font_size', ev, { integer: true })"/></label>
+                </fieldset>
+
+                <fieldset class="mb-2" t-att-disabled="props.readonly">
+                    <legend class="small fw-bold mb-1">Style</legend>
+                    <div class="o_fp_colors">
+                        <label t-if="!isRentable">Fill <input type="color" t-att-value="obj.fill_color"
+                                                              t-on-change="(ev) => this.setText('fill_color', ev)"/></label>
+                        <label t-if="!isRentable">Border <input type="color" t-att-value="obj.border_color"
+                                                                t-on-change="(ev) => this.setText('border_color', ev)"/></label>
+                        <label>Text <input type="color" t-att-value="obj.text_color"
+                                           t-on-change="(ev) => this.setText('text_color', ev)"/></label>
+                        <label>Border px <input type="number" min="0" max="50" step="0.5" class="form-control form-control-sm"
+                                                t-att-value="obj.border_width" t-on-change="(ev) => this.setNumber('border_width', ev)"/></label>
+                    </div>
+                    <div t-if="isRentable" class="small text-muted mt-1">
+                        <i class="fa fa-info-circle"/> Rentable spaces are coloured by their live status, not by hand.
+                    </div>
+                </fieldset>
+
+                <div t-if="isRentable" class="mb-2">
+                    <div class="small fw-bold mb-1">Status</div>
+                    <span class="o_fp_status_chip" t-att-style="'border-color:' + status.display.color">
+                        <span class="o_fp_legend_swatch" t-att-style="'background:' + status.display.color"/>
+                        <t t-esc="status.display.name"/>
+                    </span>
+                    <div t-if="!obj.id" class="small text-muted mt-1">Save to see the status of new objects.</div>
+                </div>
+
+                <div t-if="isRentable or providers.length" class="mb-2">
+                    <div class="small fw-bold mb-1">Business record</div>
+                    <LinkSelector t-if="providers.length" object="obj" providers="providers" api="props.api"
+                                  readonly="props.readonly" onLink.bind="onLink" onOpen="props.onOpenLink"
+                                  onCreate="props.onCreateLink"/>
+                    <div t-else="" class="small text-muted">
+                        No business integration is installed, so this space cannot be linked yet.
+                        Layout editing works normally.
+                    </div>
+                </div>
+            </t>
+            <t t-else="">
+                <div class="fw-bold" t-esc="store.plan.name"/>
+                <div t-if="planSubtitle" class="small text-muted" t-esc="planSubtitle"/>
+                <div class="small text-muted mb-2">
+                    Canvas <t t-esc="store.plan.canvas_width"/> × <t t-esc="store.plan.canvas_height"/> units
+                    <t t-if="store.plan.units_per_meter > 0">
+                        (<t t-esc="metres(store.plan.canvas_width)"/> × <t t-esc="metres(store.plan.canvas_height)"/>)
+                    </t>
+                </div>
+                <fieldset t-att-disabled="props.readonly">
+                    <label class="form-label small mb-0" for="o_fp_grid">Grid size</label>
+                    <input id="o_fp_grid" type="number" min="2" max="500" class="form-control form-control-sm mb-2"
+                           t-att-value="store.plan.grid_size" t-on-change="(ev) => this.setPlanNumber('grid_size', ev)"/>
+                </fieldset>
+                <div class="small text-muted o_fp_help">
+                    <div class="fw-bold mb-1">Tips</div>
+                    <ul class="ps-3 mb-0">
+                        <li>Click an item in the palette to add it.</li>
+                        <li>Drag to move; use the square handles to resize and the round handle to rotate.</li>
+                        <li>Hold Shift to ignore the grid / rotate freely.</li>
+                        <li>Drag the empty floor to pan; Ctrl + wheel to zoom.</li>
+                        <li>Arrows nudge, Del deletes, Ctrl+D duplicates, Ctrl+Z / Ctrl+Y undo/redo, Ctrl+S saves.</li>
+                    </ul>
+                </div>
+            </t>
+        </aside>
+    </t>
+</templates>

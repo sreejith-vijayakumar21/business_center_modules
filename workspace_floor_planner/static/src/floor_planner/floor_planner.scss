@@ -1,0 +1,675 @@
+// =============================================================================
+//  Workspace Floor Planner — "drafting table" look
+//  Look only: same selectors and layout rules as before, no template changes.
+//  The canvas is a sheet of drafting paper lying on a soft lilac table; the
+//  panels around it stay quiet so the floor itself is the thing you see.
+// =============================================================================
+
+.o_fp_editor,
+.o_fp_viewer {
+    --fp-table: #EEF0F7;          // the surface the sheet lies on
+    --fp-table-dot: #D9DCEA;
+    --fp-surface: #FFFFFF;
+    --fp-panel: #FAFAFD;
+    --fp-border: #E6E8F1;
+    --fp-ink: #2E3142;
+    --fp-muted: #858AA0;
+    --fp-accent: #6C7BF0;         // periwinkle: selection, primary actions
+    --fp-accent-ink: #4B58C9;
+    --fp-accent-soft: #ECEEFF;
+    --fp-grid: #E9ECF6;
+    --fp-shadow: 0 1px 2px rgba(46, 49, 66, .06), 0 8px 24px rgba(76, 84, 160, .08);
+    color: var(--fp-ink);
+}
+
+// -----------------------------------------------------------------------------
+//  Frame
+// -----------------------------------------------------------------------------
+.o_fp_editor {
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    outline: none;
+
+    .o_content {
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+    }
+}
+
+.o_fp_body {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    min-height: 0;
+    height: 100%;
+}
+
+.o_fp_main {
+    display: flex;
+    flex: 1 1 auto;
+    min-height: 0;
+}
+
+// Shared button language inside the planner: quiet ghost buttons that tint
+// on hover, a filled periwinkle for the one primary action.
+.o_fp_editor,
+.o_fp_viewer {
+    .btn-light {
+        background: transparent;
+        border-color: transparent;
+        color: var(--fp-ink);
+        border-radius: 8px;
+
+        &:hover:not(:disabled),
+        &:focus-visible {
+            background: var(--fp-accent-soft);
+            color: var(--fp-accent-ink);
+        }
+
+        &:disabled,
+        &.disabled {
+            background: transparent;
+            color: var(--fp-muted);
+        }
+    }
+
+    .btn-secondary {
+        background: var(--fp-accent-soft);
+        border-color: transparent;
+        color: var(--fp-accent-ink);
+        border-radius: 8px;
+        font-weight: 600;
+
+        &:hover:not(:disabled) {
+            background: darken(#ECEEFF, 3%);
+            color: var(--fp-accent-ink);
+        }
+    }
+
+    .btn-primary {
+        background: var(--fp-accent);
+        border-color: var(--fp-accent);
+        border-radius: 8px;
+        box-shadow: 0 2px 6px rgba(108, 123, 240, .35);
+
+        &:hover:not(:disabled) {
+            background: var(--fp-accent-ink);
+            border-color: var(--fp-accent-ink);
+        }
+
+        &:disabled {
+            background: #C9CEF7;
+            border-color: #C9CEF7;
+            box-shadow: none;
+        }
+    }
+
+    .btn-link {
+        color: var(--fp-accent-ink);
+        text-decoration: none;
+
+        &:hover {
+            color: var(--fp-accent);
+        }
+    }
+
+    .form-control,
+    .form-select {
+        border-color: var(--fp-border);
+        border-radius: 8px;
+        background-color: var(--fp-surface);
+
+        &:focus {
+            border-color: var(--fp-accent);
+            box-shadow: 0 0 0 3px rgba(108, 123, 240, .18);
+        }
+    }
+
+    .btn:focus-visible {
+        outline: 2px solid var(--fp-accent);
+        outline-offset: 2px;
+        box-shadow: none;
+    }
+}
+
+// -----------------------------------------------------------------------------
+//  Toolbar
+// -----------------------------------------------------------------------------
+.o_fp_toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .6rem;
+    align-items: center;
+    padding: .5rem .9rem;
+    background: var(--fp-surface);
+    border-bottom: 1px solid var(--fp-border);
+    position: relative;
+    z-index: 1;
+
+    // Each button group sits in its own soft tray (segmented control).
+    .btn-group {
+        background: #F3F4FA;
+        border-radius: 10px;
+        padding: 2px;
+        gap: 2px;
+
+        > .btn {
+            border-radius: 8px !important;
+            margin-left: 0 !important;
+        }
+    }
+
+    .o_fp_zoom {
+        min-width: 4rem;
+        opacity: 1;
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        color: var(--fp-ink) !important;
+    }
+
+    .o_fp_save_state {
+        color: var(--fp-muted);
+    }
+}
+
+// -----------------------------------------------------------------------------
+//  Side panels
+// -----------------------------------------------------------------------------
+.o_fp_palette,
+.o_fp_properties {
+    flex: 0 0 auto;
+    overflow-y: auto;
+    padding: .9rem;
+    background: var(--fp-panel);
+    scrollbar-width: thin;
+    scrollbar-color: #D6D9E8 transparent;
+}
+
+.o_fp_palette {
+    width: 212px;
+    border-right: 1px solid var(--fp-border);
+
+    input[type="search"] {
+        border-radius: 999px;
+        padding-left: .85rem;
+    }
+}
+
+.o_fp_properties {
+    width: 290px;
+    border-left: 1px solid var(--fp-border);
+
+    label,
+    .form-label {
+        font-size: .78rem;
+        color: var(--fp-muted);
+    }
+
+    fieldset,
+    .o_fp_grid2,
+    .o_fp_colors {
+        padding: .65rem;
+        margin-bottom: .75rem;
+        background: var(--fp-surface);
+        border: 1px solid var(--fp-border);
+        border-radius: 10px;
+    }
+
+    legend {
+        float: none;
+        width: auto;
+        font-size: .8rem;
+        font-weight: 600;
+        color: var(--fp-ink);
+        margin-bottom: .25rem;
+    }
+}
+
+.o_fp_palette_group {
+    margin-bottom: 1rem;
+}
+
+.o_fp_palette_title {
+    font-size: .8rem;
+    font-weight: 600;
+    color: var(--fp-muted);
+    margin: 0 0 .35rem .25rem;
+}
+
+.o_fp_palette_item {
+    display: flex;
+    align-items: center;
+    gap: .6rem;
+    width: 100%;
+    text-align: left;
+    margin-bottom: 2px;
+    padding: .38rem .5rem;
+    font-weight: 500;
+}
+
+.o_fp_swatch {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 18px;
+    border: 1.5px solid;
+    border-radius: 5px;
+    font-size: 9px;
+    flex: 0 0 auto;
+}
+
+// -----------------------------------------------------------------------------
+//  Canvas: the drafting sheet is the hero
+// -----------------------------------------------------------------------------
+.o_fp_center {
+    flex: 1 1 auto;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.o_fp_canvas_wrap {
+    position: relative;
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: hidden;
+    background-color: var(--fp-table);
+    background-image: radial-gradient(var(--fp-table-dot) 1px, transparent 1.2px);
+    background-size: 18px 18px;
+}
+
+.o_fp_canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none; // no page scroll / browser zoom while dragging
+    user-select: none;
+    cursor: grab;
+
+    &:active {
+        cursor: grabbing;
+    }
+}
+
+.o_fp_sheet {
+    fill: #FFFFFF;
+    stroke: #DCE0EC;
+    rx: 14px;
+    ry: 14px;
+    filter: drop-shadow(0 10px 28px rgba(76, 84, 160, .12)) drop-shadow(0 1px 2px rgba(46, 49, 66, .08));
+}
+
+.o_fp_grid_line {
+    stroke: var(--fp-grid);
+}
+
+.o_fp_object {
+    cursor: move;
+    outline: none;
+
+    .o_fp_shape {
+        rx: 5px;
+        ry: 5px;
+        transition: filter .12s ease;
+    }
+
+    &:hover .o_fp_shape {
+        filter: drop-shadow(0 3px 6px rgba(76, 84, 160, .18));
+    }
+
+    &:focus-visible .o_fp_shape {
+        stroke: var(--fp-accent);
+        stroke-width: 3px;
+    }
+}
+
+.o_fp_readonly .o_fp_object {
+    cursor: pointer;
+}
+
+.o_fp_label {
+    font-family: $font-family-sans-serif;
+    font-weight: 600;
+    letter-spacing: .01em;
+}
+
+.o_fp_status_text {
+    font-family: $font-family-sans-serif;
+    fill: #3A3F55;
+    font-weight: 500;
+}
+
+.o_fp_selection {
+    stroke: var(--fp-accent);
+    stroke-dasharray: 6 4;
+}
+
+.o_fp_handle {
+    fill: #FFFFFF;
+    stroke: var(--fp-accent);
+    rx: 3px;
+    ry: 3px;
+    filter: drop-shadow(0 1px 2px rgba(76, 84, 160, .3));
+}
+
+.o_fp_rotate_handle {
+    cursor: grab;
+}
+
+.o_fp_rotate_stem {
+    stroke: var(--fp-accent);
+}
+
+.o_fp_icon {
+    font-size: 14px;
+    line-height: 20px;
+    text-align: center;
+}
+
+.o_fp_empty_hint {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: var(--fp-muted);
+    pointer-events: none;
+    max-width: 320px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 1.25rem 1.5rem;
+    background: rgba(255, 255, 255, .8);
+    border-radius: 14px;
+    backdrop-filter: blur(4px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .o_fp_object .o_fp_shape {
+        transition: none;
+    }
+}
+
+// -----------------------------------------------------------------------------
+//  Status legend (bottom bar)
+// -----------------------------------------------------------------------------
+.o_fp_legend {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .4rem .5rem;
+    padding: .55rem .9rem;
+    background: var(--fp-surface);
+    border-top: 1px solid var(--fp-border);
+    font-size: .85rem;
+
+    .o_fp_legend_title {
+        font-weight: 600;
+        margin-right: .25rem;
+    }
+
+    .o_fp_legend_at {
+        width: auto;
+        border-radius: 999px;
+        padding-inline: .75rem;
+    }
+
+    .badge {
+        background: var(--fp-surface) !important;
+        color: var(--fp-ink) !important;
+        border-radius: 999px;
+        font-weight: 600;
+    }
+}
+
+// Each status reads as a soft pill: colour dot + name (+ count).
+.o_fp_legend_item {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .15rem .65rem .15rem .45rem;
+    background: #F4F5FA;
+    border-radius: 999px;
+}
+
+.o_fp_legend_swatch {
+    display: inline-block;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 0;
+    box-shadow: inset 0 0 0 1px rgba(46, 49, 66, .12);
+}
+
+.o_fp_status_chip {
+    display: inline-flex;
+    align-items: center;
+    gap: .4rem;
+    padding: .15rem .65rem;
+    border: 1.5px solid;
+    border-radius: 999px;
+    font-size: .85rem;
+    font-weight: 500;
+    background: var(--fp-surface);
+}
+
+// -----------------------------------------------------------------------------
+//  Properties panel internals
+// -----------------------------------------------------------------------------
+.o_fp_grid2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .35rem .5rem;
+
+    legend {
+        grid-column: 1 / -1;
+    }
+}
+
+.o_fp_colors {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: .35rem .5rem;
+
+    input[type="color"] {
+        display: block;
+        width: 100%;
+        height: 30px;
+        padding: 2px;
+        border: 1px solid var(--fp-border);
+        border-radius: 8px;
+        background: var(--fp-surface);
+        cursor: pointer;
+
+        &::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+
+        &::-webkit-color-swatch {
+            border: 0;
+            border-radius: 6px;
+        }
+    }
+}
+
+.o_fp_link_results {
+    position: absolute;
+    z-index: 10;
+    width: 100%;
+    max-height: 240px;
+    overflow-y: auto;
+    margin-top: 4px;
+    background: var(--fp-surface);
+    border: 1px solid var(--fp-border);
+    border-radius: 10px;
+    box-shadow: var(--fp-shadow);
+
+    .list-group-item,
+    button {
+        border: 0;
+        border-radius: 6px;
+    }
+}
+
+// -----------------------------------------------------------------------------
+//  Read-only overview (viewer)
+// -----------------------------------------------------------------------------
+.o_fp_viewer {
+    height: 100%;
+
+    .o_content {
+        overflow: auto;
+    }
+}
+
+.o_fp_viewer_body {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    padding: 1.25rem;
+    min-height: 100%;
+    background: var(--fp-panel);
+}
+
+.o_fp_viewer_head {
+    display: flex;
+    align-items: center;
+    gap: .9rem;
+
+    > .fa {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 52px;
+        height: 52px;
+        border-radius: 14px;
+        background: var(--fp-accent-soft);
+        color: var(--fp-accent) !important;
+        font-size: 1.5rem;
+    }
+
+    h3 {
+        font-weight: 700;
+        color: var(--fp-ink);
+    }
+}
+
+.o_fp_floor_badge {
+    padding: .35rem 1rem;
+    border-radius: 999px;
+    background: var(--fp-accent-soft);
+    color: var(--fp-accent-ink);
+    font-weight: 600;
+}
+
+.o_fp_stat_cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: .75rem;
+}
+
+// Each total sits on its status tint, with a darker ink of the same hue for
+// the number so it stays readable on pastel (the inline status colour is
+// meant for fills, not text).
+.o_fp_stat_card {
+    padding: .85rem 1.1rem;
+    border-radius: 14px;
+    background: var(--fp-surface);
+    border: 1px solid var(--fp-border);
+
+    .text-muted {
+        font-size: .85rem;
+        font-weight: 500;
+    }
+
+    .o_fp_stat_value {
+        font-size: 2rem;
+        font-weight: 700;
+        line-height: 1.15;
+        font-variant-numeric: tabular-nums;
+    }
+
+    &[data-key="total"] {
+        background: var(--fp-accent-soft);
+        border-color: transparent;
+
+        .o_fp_stat_value { color: var(--fp-accent-ink) !important; }
+    }
+
+    &[data-key="available"] {
+        background: #E7F7EE;
+        border-color: transparent;
+
+        .o_fp_stat_value { color: #2F8A5B !important; }
+    }
+
+    &[data-key="occupied"] {
+        background: #FDECEE;
+        border-color: transparent;
+
+        .o_fp_stat_value { color: #B54A5A !important; }
+    }
+
+    &[data-key="reserved"] {
+        background: #F1ECFD;
+        border-color: transparent;
+
+        .o_fp_stat_value { color: #6F55C2 !important; }
+    }
+
+    &[data-key="maintenance"] {
+        background: #FFF4E2;
+        border-color: transparent;
+
+        .o_fp_stat_value { color: #A86A12 !important; }
+    }
+
+    &[data-key="draft"] {
+        background: #F1F3F7;
+        border-color: transparent;
+
+        .o_fp_stat_value { color: #5E6B7E !important; }
+    }
+}
+
+.o_fp_viewer_layout {
+    display: flex;
+    flex-direction: column;
+    flex: 1 1 auto;
+    background: var(--fp-surface);
+    border: 1px solid var(--fp-border);
+    border-radius: 16px;
+    overflow: hidden;
+    box-shadow: var(--fp-shadow);
+}
+
+.o_fp_viewer_bar {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: .4rem;
+    padding: .65rem .9rem;
+    border-bottom: 1px solid var(--fp-border);
+
+    h4 {
+        font-size: 1rem;
+        font-weight: 600;
+    }
+}
+
+.o_fp_viewer_selected {
+    margin-right: .5rem;
+    padding: .2rem .75rem;
+    font-size: .9rem;
+    background: var(--fp-accent-soft);
+    border-radius: 999px;
+}
+
+.o_fp_viewer_canvas {
+    display: flex;
+    height: 60vh;
+    min-height: 360px;
+}

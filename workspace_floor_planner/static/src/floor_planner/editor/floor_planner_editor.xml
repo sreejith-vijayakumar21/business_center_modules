@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="workspace_floor_planner.Editor">
+        <div class="o_action o_fp_editor">
+            <Layout display="{ controlPanel: {} }">
+                <div class="o_fp_body">
+                    <Toolbar store="store" readonly="readonly" onSave.bind="save"
+                             onZoom.bind="zoom" onFit.bind="fit"/>
+                    <div class="o_fp_main">
+                        <Palette presets="store.presets" disabled="readonly" onAdd.bind="addPreset"/>
+                        <div class="o_fp_center">
+                            <FloorCanvas store="store" readonly="readonly" onReady.bind="onCanvasReady"/>
+                            <StatusLegend store="store" loading="state.statusLoading"
+                                          onRefresh.bind="refreshStatuses" onChangeAt.bind="changeStatusAt"/>
+                        </div>
+                        <PropertiesPanel store="store" api="api" readonly="readonly"
+                                         onDelete.bind="deleteSelected" onDuplicate.bind="duplicateSelected"
+                                         onOpenLink.bind="openLinkedRecord" onCreateLink.bind="createLinkedRecord"/>
+                    </div>
+                </div>
+            </Layout>
+        </div>
+    </t>
+</templates>

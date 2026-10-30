@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="business_center.TimeSelectField">
+        <span t-if="props.readonly" t-esc="displayValue"/>
+        <select t-else="" class="o_input o_bc_time_select" t-att-id="props.id" t-on-change="onChange">
+            <option t-if="!hasSelection" value="" selected="selected">Select a time</option>
+            <option t-foreach="options" t-as="option" t-key="option.value"
+                    t-att-value="option.value" t-att-selected="isSelected(option)"
+                    t-att-disabled="option.disabled" t-esc="option.label"/>
+        </select>
+    </t>
+
+</templates>

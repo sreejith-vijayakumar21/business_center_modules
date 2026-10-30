@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+    <t t-name="workspace_floor_planner.Toolbar">
+        <div class="o_fp_toolbar" role="toolbar" aria-label="Editor toolbar">
+            <div class="btn-group btn-group-sm" t-if="!props.readonly">
+                <button type="button" class="btn btn-light" title="Undo (Ctrl+Z)"
+                        t-att-disabled="!props.store.undoStack.length" t-on-click="() => props.store.undo()">
+                    <i class="fa fa-undo"/>
+                </button>
+                <button type="button" class="btn btn-light" title="Redo (Ctrl+Y)"
+                        t-att-disabled="!props.store.redoStack.length" t-on-click="() => props.store.redo()">
+                    <i class="fa fa-repeat"/>
+                </button>
+            </div>
+            <div class="btn-group btn-group-sm">
+                <button type="button" class="btn btn-light" title="Zoom out" t-on-click="() => props.onZoom(1 / 1.2)">
+                    <i class="fa fa-search-minus"/>
+                </button>
+                <span class="btn btn-light disabled o_fp_zoom" aria-live="polite"><t t-esc="zoomPercent"/>%</span>
+                <button type="button" class="btn btn-light" title="Zoom in" t-on-click="() => props.onZoom(1.2)">
+                    <i class="fa fa-search-plus"/>
+                </button>
+                <button type="button" class="btn btn-light" title="Fit to screen" t-on-click="() => props.onFit()">
+                    <i class="fa fa-arrows-alt"/> Fit
+                </button>
+            </div>
+            <div class="btn-group btn-group-sm">
+                <button type="button" t-att-class="'btn ' + (props.store.plan.show_grid ? 'btn-secondary' : 'btn-light')"
+                        t-att-aria-pressed="props.store.plan.show_grid ? 'true' : 'false'"
+                        t-att-disabled="props.readonly" t-on-click="() => this.toggle('show_grid')">
+                    <i class="fa fa-th"/> Grid
+                </button>
+                <button type="button" t-att-class="'btn ' + (props.store.plan.snap_to_grid ? 'btn-secondary' : 'btn-light')"
+                        t-att-aria-pressed="props.store.plan.snap_to_grid ? 'true' : 'false'"
+                        t-att-disabled="props.readonly" t-on-click="() => this.toggle('snap_to_grid')">
+                    <i class="fa fa-magnet"/> Snap
+                </button>
+            </div>
+            <div class="ms-auto d-flex align-items-center gap-2">
+                <span class="o_fp_save_state small" aria-live="polite">
+                    <t t-if="props.readonly"><i class="fa fa-eye"/> Read-only</t>
+                    <t t-elif="props.store.saving"><i class="fa fa-spinner fa-spin"/> Saving…</t>
+                    <t t-elif="props.store.dirty"><i class="fa fa-circle text-warning"/> Unsaved changes</t>
+                    <t t-else=""><i class="fa fa-check text-success"/> All changes saved</t>
+                </span>
+                <button t-if="!props.readonly" type="button" class="btn btn-primary btn-sm o_fp_save"
+                        t-att-disabled="!props.store.dirty or props.store.saving" t-on-click="() => props.onSave()">
+                    <i class="fa fa-save"/> Save
+                </button>
+            </div>
+        </div>
+    </t>
+</templates>
