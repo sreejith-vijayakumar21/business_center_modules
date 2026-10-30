@@ -44,6 +44,14 @@ class BusinessCenterLeasedAsset(models.Model):
         related='contract_id.previous_contract_id', string='Renewal Of')
     available_space_ids = fields.Many2many('business.center.space', compute='_compute_available_resources')
     available_desk_ids = fields.Many2many('business.center.desk', compute='_compute_available_resources')
+    contract_space_ids = fields.Many2many(
+        'business.center.space', string='Spaces on this Contract',
+        compute='_compute_available_resources',
+        help="Spaces picked on the other lines of this contract, saved or not.")
+    contract_desk_ids = fields.Many2many(
+        'business.center.desk', string='Desks on this Contract',
+        compute='_compute_available_resources',
+        help="Desks picked on the other lines of this contract, saved or not.")
     space_id = fields.Many2one('business.center.space', string='Space',
                             domain="[('id', 'in', available_space_ids), ('center_id.state', '=', 'active')]")
     desk_id = fields.Many2one('business.center.desk', string='Desk',
@@ -125,6 +133,8 @@ class BusinessCenterLeasedAsset(models.Model):
             lines = rec.contract_id.leased_asset_ids
             taken_space_ids = (lines.space_id - rec.space_id).ids
             taken_desk_ids = (lines.desk_id - rec.desk_id).ids
+            rec.contract_space_ids = lines.space_id - rec.space_id
+            rec.contract_desk_ids = lines.desk_id - rec.desk_id
 
             base_space_domain = [
                 ('space_type', '=', 'office'),
