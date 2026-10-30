@@ -159,12 +159,12 @@ class BusinessCenterDeskProvider(models.AbstractModel):
         for zone in zones.sorted("z_index", reverse=True):
             if point_in_rotated_rect(point, zone._read_geometry()):
                 return {"default_space_id": zone.link_res_id}
+        if zones:
+            raise UserError(self.env._(
+                "Create the coworking space first, then create the desk."))
         raise UserError(self.env._(
-            "“%s” is not inside a coworking zone with a coworking space yet. "
-            "A desk always belongs to a coworking space: select its coworking "
-            "zone, create (or link) the coworking space, then create the desk.",
-            obj.display_name,
-        ))
+            "Place the desk inside a coworking space on the layout first, "
+            "then create the desk."))
 
 
 class BusinessCenterCoworkingProvider(models.AbstractModel):
