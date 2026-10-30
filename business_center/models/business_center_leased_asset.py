@@ -49,6 +49,10 @@ class BusinessCenterLeasedAsset(models.Model):
     desk_id = fields.Many2one('business.center.desk', string='Desk',
                             domain="[('id', 'in', available_desk_ids),('space_id.center_id.state', '=', 'active')]")
     _CLAIMING_STATES = ('upcoming', 'active')
+    # Unit states that may be offered on a contract. Occupied stays in: a unit
+    # rented today can be leased for later dates, and the date-overlap check
+    # below decides whether it is free for this contract's period.
+    _LEASABLE_STATES = ('available', 'occupied')
     
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
@@ -107,8 +111,9 @@ class BusinessCenterLeasedAsset(models.Model):
             base_space_domain = [
                 ('space_type', '=', 'office'),
                 ('is_coworking', '=', False),
+                ('state', 'in', self._LEASABLE_STATES),
             ]
-            base_desk_domain = []
+            base_desk_domain = [('state', 'in', self._LEASABLE_STATES)]
             if locked_center:
                 base_space_domain.append(('center_id', '=', locked_center.id))
                 base_desk_domain.append(('space_id.center_id', '=', locked_center.id))
