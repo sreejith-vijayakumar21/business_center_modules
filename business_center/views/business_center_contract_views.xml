@@ -11,8 +11,8 @@
                     <button name="action_send_contract" type="object" string="Send Contract"
                             class="btn-primary"
                             invisible="state not in ('upcoming', 'active') or agreement_state != 'not_sent'"/>
-                    <button name="action_send_contract" type="object" string="Resend Contract"
-                            invisible="state not in ('upcoming', 'active') or agreement_state != 'sent'"/>
+                    <button name="action_send_contract" type="object" string="Send by Email"
+                            invisible="state not in ('upcoming', 'active')"/>
                     <button name="action_mark_agreement_signed" type="object" string="Mark as Signed"
                             groups="business_center.group_bc_manager"
                             invisible="state not in ('upcoming', 'active') or agreement_state == 'signed'"/>

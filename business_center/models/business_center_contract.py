@@ -568,21 +568,29 @@ class BusinessCenterContract(models.Model):
                  center.state_id.name, center.country_id.name)
         return ', '.join(p for p in parts if p)
     
-    def _mark_agreement_sent(self):
-        """Stamp the send date and, unless already signed, set the agreement to
-        Awaiting Signature with one follow-up activity for the sender."""
+    def _mark_awaiting_signature(self):
+        """Set the agreement to Awaiting Signature, unless already signed, with
+        one follow-up activity for the current user. Called on Confirm,
+        whatever channel the agreement is shared through (email, WhatsApp,
+        in person)."""
 
-        today = fields.Date.context_today(self)
         for contract in self:
-            vals = {'contract_sent_date': today}
-            if contract.agreement_state != 'signed':
-                vals['agreement_state'] = 'sent'
-            contract.with_context(tracking_disable=True).write(vals)
-            if contract.agreement_state == 'sent':
-                contract.activity_unlink(['business_center.mail_activity_type_contract_signature'])
-                contract.activity_schedule(
-                    'business_center.mail_activity_type_contract_signature',
-                    user_id=self.env.user.id)
+            if contract.agreement_state == 'signed':
+                continue
+            contract.write({'agreement_state': 'sent'})
+            contract.activity_unlink(['business_center.mail_activity_type_contract_signature'])
+            contract.activity_schedule(
+                'business_center.mail_activity_type_contract_signature',
+                user_id=self.env.user.id)
+
+    def _mark_agreement_sent(self):
+        """Stamp the date the agreement was emailed from Send by Email; the
+        agreement is (still) awaiting signature."""
+
+        self.with_context(tracking_disable=True).write({
+            'contract_sent_date': fields.Date.context_today(self),
+        })
+        self._mark_awaiting_signature()
 
     def _mark_agreement_signed(self, signed_by, signed_on=None, attachment=None, signature=None):
         """Record the signature. Shared by the backend wizard (signed paper
@@ -859,7 +867,8 @@ class BusinessCenterContract(models.Model):
         # date if the tenant has not signed by then.
         if self.state == 'active':
             self._create_deposit_invoice()
-        return self.action_send_contract()
+        self._mark_awaiting_signature()
+        return True
 
     def action_set_cancel(self):
         """Cancel the contract and mark its leased assets as available"""
