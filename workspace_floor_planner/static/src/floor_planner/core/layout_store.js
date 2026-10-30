@@ -47,7 +47,7 @@ export class LayoutStore {
     }
 
     // ------------------------------------------------------------------
-    // Loading / saving
+    // MARK: LOADING / SAVING
     // ------------------------------------------------------------------
     load(data) {
         this.plan = { ...data.plan };
@@ -103,7 +103,7 @@ export class LayoutStore {
     }
 
     // ------------------------------------------------------------------
-    // Queries
+    // MARK: QUERIES
     // ------------------------------------------------------------------
     get selected() {
         return this.objects.find((o) => o.key === this.selectedKey) || null;
@@ -123,7 +123,7 @@ export class LayoutStore {
     }
 
     // ------------------------------------------------------------------
-    // History
+    // MARK: HISTORY
     // ------------------------------------------------------------------
     _snapshot() {
         return JSON.stringify({ objects: this.objects, plan: this.plan });
@@ -164,7 +164,7 @@ export class LayoutStore {
     }
 
     // ------------------------------------------------------------------
-    // Edits
+    // MARK: EDITS
     // ------------------------------------------------------------------
     select(key) {
         this.selectedKey = key;
@@ -290,13 +290,18 @@ export class LayoutStore {
         }
     }
 
+    /** Link (or unlink) an object; a linked shape takes the record's name as its label. */
     setLink(key, provider, record) {
-        this.update(key, {
+        const patch = {
             link_key: provider ? provider.key : false,
             link_res_id: record ? record.id : false,
             link_name: record ? record.display_name : false,
             link_restricted: false,
-        });
+        };
+        if (record) {
+            patch.name = record.display_name.slice(0, 120);
+        }
+        this.update(key, patch);
     }
 
     setPlanOption(field, value) {

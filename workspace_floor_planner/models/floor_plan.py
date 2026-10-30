@@ -7,6 +7,7 @@ from odoo.tools import SQL
 
 from odoo.addons.workspace_floor_planner.tools.constants import (
     MAX_CANVAS_SIZE,
+    MAX_LABEL_LENGTH,
     MIN_CANVAS_SIZE,
     RENTABLE_TYPES,
 )
@@ -220,7 +221,8 @@ class WorkspaceFloorPlan(models.Model):
         }
 
     def fp_link_created_record(self, object_id, link_key, res_id):
-        """Link an object to the record just created from it.
+        """Link an object to the record just created from it and label the
+        shape with the record's own reference, e.g. BC01/F4/MS0007.
 
         The link is validated like any other (provider, type, access,
         company), and the layout version moves on so an open editor reloads
@@ -234,6 +236,9 @@ class WorkspaceFloorPlan(models.Model):
         self.invalidate_recordset(["layout_version"])
         obj = self._fp_own_object(object_id)
         obj.write({"link_key": link_key, "link_res_id": int(res_id)})
+        name = self.env["workspace.floor.link.registry"]._resolve_names(self, obj).get(obj.id)
+        if name:
+            obj.name = name[:MAX_LABEL_LENGTH]
         self.write({"layout_version": self.layout_version + 1})
         return True
 
