@@ -22,13 +22,14 @@ Connects Workspace Floor Planner to the Business Center app:
     'data': [
         "security/floor_layout_security.xml",
         
+        "views/business_center_leased_asset_views.xml",
         "views/business_center_floor_views.xml",
         "views/business_center_views.xml",
         "views/workspace_floor_plan_views.xml",
     ],
     'assets': {
         "web.assets_backend": [
-            "workspace_floor_planner_business_bridge/static/src/scss/floor_kanban.scss",
+            "workspace_floor_planner_business_bridge/static/src/**/*",
         ],
     },
     'installable': True,

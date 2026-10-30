@@ -1,5 +1,10 @@
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+
+
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+from collections import Counter
 
 
 class BusinessCenterFloor(models.Model):
@@ -105,3 +110,52 @@ class BusinessCenterFloor(models.Model):
         })
         self.env["workspace.floor.bc.layout.generator"]._generate(plan)
         return plan
+    
+    # ------------------------------------------------------------------------------
+    #   MARK: RPC ENTRY POINTS
+    # ------------------------------------------------------------------------------
+    @api.model
+    def bc_get_picker_sites(self, link_key, res_ids):
+        """Return the business centers, with their floors that have a layout,
+        on which the given records can be picked from a floor plan.
+
+        ``res_ids`` are exactly the records the caller may pick (a leased
+        asset line's own options), so a contract already tied to one center
+        only sees that center. Each floor carries how many of those records
+        are drawn on it; each center notes how many are not drawn anywhere.
+        """
+
+        provider = self.env["workspace.floor.link.registry"]._get_provider(link_key)
+        records = self.env[provider._fp_target_model].browse(res_ids).exists()._filtered_access("read")
+        if not records:
+            return []
+
+        placed = self.env["workspace.floor.plan.object"].search([
+            ("link_key", "=", link_key),
+            ("link_res_id", "in", records.ids),
+            ("plan_id.bc_floor_id", "!=", False),
+        ])
+        pickable_by_plan = Counter(obj.plan_id.id for obj in placed)
+        placed_ids = set(placed.mapped("link_res_id"))
+
+        floors = self.search([
+            ("center_id", "in", records.mapped("center_id").ids),
+            ("floor_plan_ids", "!=", False),
+        ])
+        sites = []
+        for center in floors.mapped("center_id").sorted("name"):
+            unplaced = len(records.filtered(
+                lambda r: r.center_id == center and r.id not in placed_ids))
+            sites.append({
+                "id": center.id,
+                "name": center.display_name,
+                "note": self.env._(
+                    "%s available unit(s) are not drawn on a floor plan; pick them "
+                    "from the dropdown.", unplaced) if unplaced else False,
+                "plans": [{
+                    "id": floor.floor_plan_id.id,
+                    "name": floor.name,
+                    "pickable": pickable_by_plan.get(floor.floor_plan_id.id, 0),
+                } for floor in floors.filtered(lambda f: f.center_id == center)],
+            })
+        return sites
