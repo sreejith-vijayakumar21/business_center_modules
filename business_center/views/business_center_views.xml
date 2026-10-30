@@ -119,6 +119,9 @@
                                     <field name="name" placeholder="Eg: F0"/>
                                     <field name="note"/>
                                     <field name="space_count"/>
+                                    <button name="action_open_floor_spaces" type="object"
+                                            icon="fa-th-large" title="Open Spaces"
+                                            invisible="not id"/>
                                 </list>
                             </field>
                         </page>

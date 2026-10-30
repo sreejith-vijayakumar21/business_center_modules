@@ -2,6 +2,7 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from . import business_center_time_format_mixin
+from . import business_center_search_panel_mixin
 from . import business_center
 from . import business_center_floor
 from . import business_center_space

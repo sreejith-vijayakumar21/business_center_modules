@@ -52,6 +52,17 @@
                             <field name="currency_id" invisible="1"/>
                         </group>
                     </group>
+                    <group string="Cancellation" invisible="state != 'cancelled' or not cancel_outcome">
+                        <group>
+                            <field name="cancel_outcome"/>
+                            <field name="cancelled_by_id"/>
+                            <field name="original_end_time" widget="float_time"
+                                   invisible="cancel_outcome != 'used'"/>
+                        </group>
+                        <group>
+                            <field name="cancel_reason" nolabel="1" colspan="2"/>
+                        </group>
+                    </group>
                 </sheet>
                 <chatter/>
             </form>
