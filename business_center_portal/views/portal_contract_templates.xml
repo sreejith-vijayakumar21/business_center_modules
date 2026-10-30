@@ -106,14 +106,9 @@
                     </div>
                 </div>
                 <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
-                    <a t-if="can_download_agreement" class="btn btn-secondary"
-                       t-attf-href="/my/contracts/#{contract.id}?report_type=pdf&amp;download=true#{token_param and '&amp;' + token_param or ''}"
-                       title="Download the lease agreement as PDF">
-                        <i class="fa fa-download me-1"/>Download Agreement
-                    </a>
                     <a t-if="contract.signed_attachment_id" class="btn btn-secondary"
-                       t-attf-href="/my/contracts/#{contract.id}/signed-copy#{token_param and '?' + token_param or ''}"
-                       target="_blank" title="View the signed copy you returned">
+                       t-attf-href="/my/contracts/#{contract.id}/signed-agreement#{token_param and '?' + token_param or ''}"
+                       title="View the signed copy you returned">
                         <i class="fa fa-file-pdf-o me-1"/>Signed Copy
                     </a>
                 </div>
@@ -202,34 +197,52 @@
                 </table>
             </t>
 
-            <!-- The document itself, shown in the page like an invoice:
-                 the signed copy once returned, else the agreement to read. -->
-            <div t-if="signed_copy_url or can_download_agreement" id="bc_contract_document" class="mt-4">
-                <t t-if="signed_copy_url">
-                    <h6 class="text-muted text-uppercase small">Signed Agreement</h6>
-                    <iframe t-if="signed_copy_is_pdf" t-att-src="signed_copy_viewer_url"
-                            class="w-100 border rounded" style="height: 80vh;"
-                            title="Signed agreement"/>
-                    <img t-elif="signed_copy_is_image" t-att-src="signed_copy_url"
-                         class="img-fluid border rounded" alt="Signed agreement"/>
-                    <p t-else="" class="text-muted">
-                        This signed copy cannot be previewed here.
-                        <a t-att-href="signed_copy_url" target="_blank">Open it</a>.
-                    </p>
-                </t>
-                <t t-else="">
-                    <h6 class="text-muted text-uppercase small">Lease Agreement</h6>
-                    <iframe t-att-src="agreement_preview_url"
-                            class="w-100 border rounded bg-white" style="height: 80vh;"
-                            title="Lease agreement"/>
-                </t>
-            </div>
-
             <!-- Terms & Conditions -->
             <t t-if="contract.note">
                 <h6 class="mt-3 text-muted text-uppercase small">Terms &amp; Conditions</h6>
                 <div class="border rounded p-3 bg-light" t-out="contract.note"/>
             </t>
+        </t>
+    </template>
+
+    <!-- SIGNED COPY: shown like an invoice, details left, document right -->
+    <template id="portal_contract_signed_page" name="Contract Signed Copy">
+        <t t-call="portal.portal_layout">
+            <t t-set="additional_title">Signed Agreement</t>
+
+            <div class="row mt-4">
+                <!-- Details and actions -->
+                <div class="col-lg-3 mb-4">
+                    <div class="text-center mb-3">
+                        <h5 class="mb-1">Contract <span t-field="contract.name"/></h5>
+                        <div class="text-muted small">
+                            <i class="fa fa-check-circle text-success me-1" role="img" aria-label="Signed"/>
+                            Signed by <span t-field="contract.signed_by"/>
+                            on <span t-field="contract.signed_on"/>
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2">
+                        <a class="btn btn-primary" t-att-href="download_url">
+                            <i class="fa fa-download me-1"/>Download
+                        </a>
+                        <a class="btn btn-light" t-att-href="contract_url">
+                            <i class="fa fa-arrow-left me-1"/>Back to Contract
+                        </a>
+                    </div>
+                </div>
+
+                <!-- The signed document -->
+                <div class="col-lg-9">
+                    <iframe t-if="is_pdf" t-att-src="viewer_url"
+                            class="w-100 border rounded shadow-sm" style="height: 85vh;"
+                            title="Signed agreement"/>
+                    <img t-elif="is_image" t-att-src="file_url"
+                         class="img-fluid border rounded shadow-sm" alt="Signed agreement"/>
+                    <div t-else="" class="alert alert-info">
+                        This file cannot be previewed here. Use Download to open it.
+                    </div>
+                </div>
+            </div>
         </t>
     </template>
 
