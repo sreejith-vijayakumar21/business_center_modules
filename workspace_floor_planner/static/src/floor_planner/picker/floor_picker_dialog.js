@@ -1,4 +1,4 @@
-import { Component, onWillStart, useState } from "@odoo/owl";
+import { Component, onWillStart, useExternalListener, useState } from "@odoo/owl";
 import { Dialog } from "@web/core/dialog/dialog";
 import { _t } from "@web/core/l10n/translation";
 import { useService } from "@web/core/utils/hooks";
@@ -8,6 +8,7 @@ import { centerOf, fitView, rotateVector } from "../core/geometry";
 import { LayoutStore } from "../core/layout_store";
 
 const PICKABLE = "pickable";
+const ZOOM_STEP = 1.25;
 const UNPICKABLE = "unpickable";
 
 /** True when ``point`` lies inside ``rect`` once the rect is rotated around its centre. */
@@ -51,7 +52,10 @@ export class FloorPickerDialog extends Component {
             store: null,
             loading: false,
         });
+        this.canvas = null;
         onWillStart(() => this.loadPlan());
+        // Keep the whole floor in view when the window (and the dialog) resizes.
+        useExternalListener(window, "resize", () => this.fit());
     }
 
     // ------------------------------------------------------------------
@@ -138,10 +142,36 @@ export class FloorPickerDialog extends Component {
     // ------------------------------------------------------------------
     // Canvas
     // ------------------------------------------------------------------
+    get zoomPercent() {
+        return this.state.store ? Math.round(this.state.store.view.zoom * 100) : 100;
+    }
+
     onCanvasReady(canvas) {
-        const { width, height } = canvas.viewport;
+        this.canvas = canvas;
+        // The dialog is still opening when the canvas mounts, so its final
+        // size is only known a couple of frames later: fit then.
+        requestAnimationFrame(() => requestAnimationFrame(() => this.fit()));
+    }
+
+    /** Zoom and pan so the whole floor is visible. */
+    fit() {
+        if (!this.canvas || !this.state.store) {
+            return;
+        }
+        const { width, height } = this.canvas.viewport;
+        if (!width || !height) {
+            return;
+        }
         const plan = this.state.store.plan;
         Object.assign(this.state.store.view, fitView(plan.canvas_width, plan.canvas_height, width, height));
+    }
+
+    zoomIn() {
+        this.canvas?.zoomAt(ZOOM_STEP);
+    }
+
+    zoomOut() {
+        this.canvas?.zoomAt(1 / ZOOM_STEP);
     }
 
     // ------------------------------------------------------------------

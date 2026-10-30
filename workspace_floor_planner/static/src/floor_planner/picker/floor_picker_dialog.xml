@@ -45,6 +45,22 @@
 
                 <!-- Floor plan of the selected floor -->
                 <div class="o_fp_picker_canvas">
+                    <!-- Zoom controls -->
+                    <div t-if="state.store" class="o_fp_picker_zoom" role="group" aria-label="Zoom">
+                        <button type="button" class="btn btn-light btn-sm" title="Zoom out"
+                                t-on-click="zoomOut">
+                            <i class="fa fa-search-minus"/>
+                        </button>
+                        <span class="o_fp_picker_zoom_value"><t t-esc="zoomPercent"/>%</span>
+                        <button type="button" class="btn btn-light btn-sm" title="Zoom in"
+                                t-on-click="zoomIn">
+                            <i class="fa fa-search-plus"/>
+                        </button>
+                        <button type="button" class="btn btn-light btn-sm" title="Fit the whole floor"
+                                t-on-click="fit">
+                            <i class="fa fa-expand"/>
+                        </button>
+                    </div>
                     <FloorCanvas t-if="state.store" t-key="state.planId" store="state.store"
                                  readonly="true" onReady.bind="onCanvasReady"/>
                     <div t-elif="!state.loading" class="o_fp_picker_empty">
