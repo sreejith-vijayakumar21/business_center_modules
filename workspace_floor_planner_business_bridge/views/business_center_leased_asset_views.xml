@@ -12,6 +12,8 @@
                 <field name="contract_state" invisible="1"/>
                 <field name="available_space_ids" invisible="1"/>
                 <field name="available_desk_ids" invisible="1"/>
+                <field name="contract_space_ids" invisible="1"/>
+                <field name="contract_desk_ids" invisible="1"/>
             </field>
             <!-- Right under the Space / Desk field; hidden where the asset
                  cannot change (renewals, confirmed contracts). -->

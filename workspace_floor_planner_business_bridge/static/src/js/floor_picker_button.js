@@ -70,6 +70,10 @@ export class BcFloorPickerButton extends Component {
             sites,
             siteId: (sites.find((s) => s.plans.some((p) => p.pickable)) || sites[0]).id,
             allowed: { [config.linkKey]: resIds },
+            chosen: {
+                bc_office: record.data.contract_space_ids.currentIds,
+                bc_desk: record.data.contract_desk_ids.currentIds,
+            },
             onPick: (pick) => record.update({
                 [config.field]: { id: pick.res_id, display_name: pick.name },
             }),
