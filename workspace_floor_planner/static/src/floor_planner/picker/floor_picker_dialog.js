@@ -31,7 +31,8 @@ export class FloorPickerDialog extends Component {
     static components = { Dialog, FloorCanvas };
     static props = {
         title: String,
-        // [{id, name, note?, plans: [{id, name, pickable}]}]
+        // [{id, name, note?, plans: [{key, id, name, pickable}]}]; a plan
+        // without id is a floor that has no layout yet (listed, not openable)
         sites: Array,
         siteId: { type: Number, optional: true },
         // {link_key: [res_id, ...]}
@@ -75,11 +76,13 @@ export class FloorPickerDialog extends Component {
     // ------------------------------------------------------------------
     // Loading
     // ------------------------------------------------------------------
+    /** The first floor with something to pick, else the first floor with a layout. */
     firstPlanId(site) {
-        if (!site || !site.plans.length) {
+        if (!site) {
             return false;
         }
-        return (site.plans.find((p) => p.pickable) || site.plans[0]).id;
+        const plan = site.plans.find((p) => p.id && p.pickable) || site.plans.find((p) => p.id);
+        return plan ? plan.id : false;
     }
 
     async loadPlan() {
@@ -151,7 +154,7 @@ export class FloorPickerDialog extends Component {
     }
 
     async onPlanClick(planId) {
-        if (planId !== this.state.planId) {
+        if (planId && planId !== this.state.planId) {
             this.state.planId = planId;
             await this.loadPlan();
         }
