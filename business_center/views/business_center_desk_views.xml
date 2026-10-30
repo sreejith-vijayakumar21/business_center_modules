@@ -123,8 +123,8 @@
                         <div class="d-flex">
                             <!-- Icon avatar (desktop for Desk) -->
                             <aside class="me-2">
-                                <div class="d-flex align-items-center justify-content-center rounded-3 text-white"
-                                    style="width:48px; height:48px; background-color:#670675; font-size:20px;">
+                                <div class="d-flex align-items-center justify-content-center rounded-3"
+                                    style="width:48px; height:48px; background-color:#F1E4F7; color:#7B2A93; font-size:20px;">
                                     <i class="fa fa-desktop" title="Desk"/>
                                 </div>
                             </aside>

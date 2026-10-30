@@ -224,10 +224,13 @@
                             <aside class="me-3">
                                 <t t-set="is_office" t-value="record.space_type.raw_value == 'office'"/>
                                 <t t-set="is_cowork" t-value="record.is_coworking.raw_value"/>
-                                <div class="d-flex align-items-center justify-content-center rounded-3 text-white fw-bold"
-                                    t-att-style="'width:52px; height:52px; font-size:18px; background-color:#' + (
-                                        is_office and is_cowork ? '9C27B0' :
-                                        is_office ? '017E84' : 'D9822B') + ';'">
+                                <t t-set="badge_style" t-value="
+                                    is_office and is_cowork ? 'background-color:#F1E4F7; color:#7B2A93;' :
+                                    is_office ? 'background-color:#DDF3F2; color:#0F6E73;' :
+                                    'background-color:#FFEBDA; color:#A8561A;'"/>
+                                <div class="d-flex align-items-center justify-content-center rounded-3 fw-bold"
+                                     t-att-style="'width:52px; height:52px; font-size:18px; ' + badge_style"
+                                     t-att-title="is_office and is_cowork ? 'Coworking space' : is_office ? 'Private office' : 'Meeting room'">
                                     <t t-if="is_office and is_cowork">CO</t>
                                     <t t-elif="is_office">O</t>
                                     <t t-else="">M</t>
