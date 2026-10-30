@@ -94,10 +94,22 @@ class BusinessCenterLeasedAsset(models.Model):
         'contract_id.leased_asset_ids.space_id',
         'contract_id.leased_asset_ids.desk_id',
     )
+    @api.depends(
+        'contract_id.date_start', 'contract_id.date_end',
+        'contract_id.leased_asset_ids.space_id',
+        'contract_id.leased_asset_ids.desk_id',
+    )
     def _compute_available_resources(self):
-        """Compute the spaces and desks selectable on this line: same center as its
-        siblings, and free of any draft/active contract overlapping these dates."""
-        
+        """Compute the spaces and desks selectable on this line: ready to rent
+        (not draft or under maintenance), in the same center as its siblings,
+        not already picked on another line of this contract, and free of any
+        draft/active contract overlapping these dates.
+
+        The sibling lines are read as they stand in the form, saved or not,
+        so a unit picked on one line disappears from the others at once and
+        comes back as soon as that line is removed.
+        """
+
         Space = self.env['business.center.space']
         Desk = self.env['business.center.desk']
         LeasedAsset = self.env['business.center.leased.asset']
@@ -108,12 +120,22 @@ class BusinessCenterLeasedAsset(models.Model):
             # First sibling line with a resource locks the center for the rest.
             locked_center = rec._contract_locked_center()
 
+            # Units picked on the other lines of this contract; this line's
+            # own pick stays selectable so it keeps showing.
+            lines = rec.contract_id.leased_asset_ids
+            taken_space_ids = (lines.space_id - rec.space_id).ids
+            taken_desk_ids = (lines.desk_id - rec.desk_id).ids
+
             base_space_domain = [
                 ('space_type', '=', 'office'),
                 ('is_coworking', '=', False),
                 ('state', 'in', self._LEASABLE_STATES),
+                ('id', 'not in', taken_space_ids),
             ]
-            base_desk_domain = [('state', 'in', self._LEASABLE_STATES)]
+            base_desk_domain = [
+                ('state', 'in', self._LEASABLE_STATES),
+                ('id', 'not in', taken_desk_ids),
+            ]
             if locked_center:
                 base_space_domain.append(('center_id', '=', locked_center.id))
                 base_desk_domain.append(('space_id.center_id', '=', locked_center.id))
