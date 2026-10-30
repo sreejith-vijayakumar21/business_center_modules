@@ -33,11 +33,15 @@
                                 <span class="fw-bold" t-esc="selected.name"/>
                                 <t t-if="selected.category === 'rentable'">
                                     · <t t-esc="statusName(selected)"/>
-                                    <button t-if="selected.link_key and !selected.link_restricted" type="button"
-                                            class="btn btn-sm btn-link" t-on-click="openSelected">
-                                        <i class="fa fa-external-link"/> Open <t t-esc="selected.link_name"/>
-                                    </button>
                                 </t>
+                                <button t-if="selected.link_key and !selected.link_restricted" type="button"
+                                        class="btn btn-sm btn-link" t-on-click="openSelected">
+                                    <i class="fa fa-external-link"/> Open <t t-esc="selected.link_name"/>
+                                </button>
+                                <button t-foreach="createProviders" t-as="provider" t-key="provider.key"
+                                        type="button" class="btn btn-sm btn-link" t-on-click="() => this.createFor(provider)">
+                                    <i class="fa fa-plus"/> Create <t t-esc="provider.label"/>
+                                </button>
                             </div>
                             <button type="button" class="btn btn-light btn-sm" title="Zoom out"
                                     t-on-click="() => this.zoom(1 / 1.2)"><i class="fa fa-search-minus"/></button>

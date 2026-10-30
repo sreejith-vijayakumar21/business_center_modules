@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-
 from odoo import api, models
 
 from odoo.addons.workspace_floor_planner.tools.constants import (
@@ -46,50 +45,83 @@ class WorkspaceFloorLinkProvider(models.AbstractModel):
     # Which floor object types may be linked through this provider.
     _fp_object_types = RENTABLE_TYPES
 
-    # ------------------------------------------------------------------
-    # Description
-    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
+    #   MARK: DESCRIPTION
+    # ------------------------------------------------------------------------------
     @api.model
     def _fp_is_usable(self):
-        """False when the target model is not installed in this database."""
-        return bool(self._fp_link_key and self._fp_target_model and self._fp_target_model in self.env)
+        """Return False when the target model is not installed in this database."""
+
+        return bool(self._fp_link_key and self._fp_target_model
+                    and self._fp_target_model in self.env)
 
     @api.model
     def _fp_describe(self):
+        """Return what the editor needs to know about this provider."""
+
         return {
             "key": self._fp_link_key,
             "label": self._fp_link_label or self._fp_link_key,
             "object_types": sorted(self._fp_object_types),
+            "can_create": self._fp_can_create(),
         }
 
     @api.model
     def _fp_target(self):
+        """Return the (empty) recordset of the target model."""
+
         return self.env[self._fp_target_model]
 
-    # ------------------------------------------------------------------
-    # Lookup (always as the current user, never sudo)
-    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
+    #   MARK: RECORD CREATION
+    # ------------------------------------------------------------------------------
+    @api.model
+    def _fp_can_create(self):
+        """Return True when users may create a new target record from a floor
+        object. Bridges opt in; the core never assumes it can create business
+        records."""
+
+        return False
+
+    @api.model
+    def _fp_get_create_context(self, plan, obj):
+        """Return form defaults (``default_*`` context keys) for a record
+        created from ``obj`` on ``plan``, e.g. the building and floor it is
+        drawn on."""
+
+        return {}
+
+    # ------------------------------------------------------------------------------
+    #   MARK: LOOKUP (always as the current user, never sudo)
+    # ------------------------------------------------------------------------------
     @api.model
     def _fp_target_domain(self):
-        """Records of the target model this provider accepts at all, e.g.
-        only meeting rooms of a shared "space" model. Enforced on search
-        *and* when validating a link."""
+        """Return the records of the target model this provider accepts at
+        all, e.g. only meeting rooms of a shared "space" model. Enforced on
+        search *and* when validating a link."""
+
         return []
 
     @api.model
     def _fp_search_domain(self, plan):
-        """Extra restriction on selectable records. Override in bridges,
-        e.g. to only offer desks of the plan's building."""
+        """Return an extra restriction on selectable records. Override in
+        bridges, e.g. to only offer desks of the plan's building."""
+
         return []
 
     @api.model
     def _fp_company_domain(self, plan):
+        """Restrict targets to the plan's company, or to the user's companies
+        when the plan is shared."""
+
         target = self._fp_target()
         companies = plan.company_id or self.env.companies
         return target._check_company_domain(companies)
 
     @api.model
     def _fp_search(self, plan, query, limit):
+        """Search link targets matching ``query`` within every restriction."""
+
         target = self._fp_target()
         domain = [
             *self._fp_target_domain(),
@@ -105,6 +137,7 @@ class WorkspaceFloorLinkProvider(models.AbstractModel):
     def _fp_resolve(self, plan, res_ids):
         """Return only the records that exist, are readable by the current
         user and belong to a company compatible with the plan."""
+
         target = self._fp_target()
         records = target.browse(res_ids).exists()._filtered_access("read")
         if self._fp_target_domain():
@@ -114,9 +147,9 @@ class WorkspaceFloorLinkProvider(models.AbstractModel):
             records = records.filtered(lambda r: not r.company_id or r.company_id in allowed)
         return records
 
-    # ------------------------------------------------------------------
-    # Status and navigation
-    # ------------------------------------------------------------------
+    # ------------------------------------------------------------------------------
+    #   MARK: STATUS AND NAVIGATION
+    # ------------------------------------------------------------------------------
     @api.model
     def _fp_get_statuses(self, records, at=None):
         """Return ``{record_id: status_code}`` for already-resolved records.
@@ -126,15 +159,19 @@ class WorkspaceFloorLinkProvider(models.AbstractModel):
         "unknown" is always allowed. Codes come from
         ``tools.constants.UNIT_STATUS_CODES``.
         """
+
         return {rec.id: STATUS_UNKNOWN for rec in records}
 
     @api.model
     def _fp_is_time_dependent(self):
-        """True when statuses depend on the selected date/time."""
+        """Return True when statuses depend on the selected date/time."""
+
         return False
 
     @api.model
     def _fp_get_open_action(self, record):
+        """Return the action that opens ``record`` in its own form."""
+
         return {
             "type": "ir.actions.act_window",
             "res_model": record._name,

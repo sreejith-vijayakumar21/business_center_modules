@@ -15,6 +15,7 @@ export class LinkSelector extends Component {
         readonly: Boolean,
         onLink: Function,
         onOpen: Function,
+        onCreate: { type: Function, optional: true },
     };
 
     setup() {
@@ -44,6 +45,13 @@ export class LinkSelector extends Component {
 
     get isLinkSaved() {
         return Boolean(this.props.object.id && !this.props.object.link_restricted);
+    }
+
+    get canCreate() {
+        return Boolean(
+            this.props.onCreate && !this.props.readonly &&
+            !this.props.object.link_key && this.provider?.can_create
+        );
     }
 
     async search() {

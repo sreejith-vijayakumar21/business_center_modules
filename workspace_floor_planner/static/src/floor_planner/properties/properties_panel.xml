@@ -66,10 +66,11 @@
                     <div t-if="!obj.id" class="small text-muted mt-1">Save to see the status of new objects.</div>
                 </div>
 
-                <div t-if="isRentable" class="mb-2">
+                <div t-if="isRentable or providers.length" class="mb-2">
                     <div class="small fw-bold mb-1">Business record</div>
                     <LinkSelector t-if="providers.length" object="obj" providers="providers" api="props.api"
-                                  readonly="props.readonly" onLink.bind="onLink" onOpen="props.onOpenLink"/>
+                                  readonly="props.readonly" onLink.bind="onLink" onOpen="props.onOpenLink"
+                                  onCreate="props.onCreateLink"/>
                     <div t-else="" class="small text-muted">
                         No business integration is installed, so this space cannot be linked yet.
                         Layout editing works normally.

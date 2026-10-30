@@ -8,6 +8,7 @@ import { FloorCanvas } from "../canvas/floor_canvas";
 import { FloorPlanApi } from "../core/floor_plan_api";
 import { fitView } from "../core/geometry";
 import { LayoutStore } from "../core/layout_store";
+import { createLinkedRecord } from "../core/create_linked_record";
 import { StatusLegend } from "../legend/status_legend";
 
 /**
@@ -23,6 +24,7 @@ export class FloorPlanViewer extends Component {
     setup() {
         this.actionService = useService("action");
         this.notification = useService("notification");
+        this.dialog = useService("dialog");
         const action = this.props.action;
         this.planId = action.params?.plan_id || action.context?.active_id || this.props.resId;
         this.api = new FloorPlanApi(useService("orm"), this.planId);
@@ -66,6 +68,29 @@ export class FloorPlanViewer extends Component {
 
     get selected() {
         return this.store.selected;
+    }
+
+    get createProviders() {
+        const obj = this.selected;
+        if (!obj?.id || obj.link_key || !this.plan.can_edit) {
+            return [];
+        }
+        return this.store.providersFor(obj.object_type).filter((p) => p.can_create);
+    }
+
+    async createFor(provider) {
+        const obj = this.selected;
+        await createLinkedRecord({
+            api: this.api,
+            dialog: this.dialog,
+            obj,
+            provider,
+            onLinked: async () => {
+                this.store.load(await this.api.load());
+                this.store.select(`id_${obj.id}`);
+                await this.refreshStatuses();
+            },
+        });
     }
 
     onCanvasReady(canvas) {

@@ -27,6 +27,7 @@ export class PropertiesPanel extends Component {
         onDelete: Function,
         onDuplicate: Function,
         onOpenLink: Function,
+        onCreateLink: { type: Function, optional: true },
     };
 
     get store() {

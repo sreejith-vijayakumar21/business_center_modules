@@ -15,7 +15,7 @@
                         </div>
                         <PropertiesPanel store="store" api="api" readonly="readonly"
                                          onDelete.bind="deleteSelected" onDuplicate.bind="duplicateSelected"
-                                         onOpenLink.bind="openLinkedRecord"/>
+                                         onOpenLink.bind="openLinkedRecord" onCreateLink.bind="createLinkedRecord"/>
                     </div>
                 </div>
             </Layout>

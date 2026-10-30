@@ -33,4 +33,12 @@ export class FloorPlanApi {
     openLinkedRecordAction(objectId) {
         return this._call("fp_open_linked_record", [objectId]);
     }
+
+    prepareCreate(objectId, linkKey) {
+        return this._call("fp_prepare_create", [objectId, linkKey]);
+    }
+
+    linkCreatedRecord(objectId, linkKey, resId) {
+        return this._call("fp_link_created_record", [objectId, linkKey, resId]);
+    }
 }

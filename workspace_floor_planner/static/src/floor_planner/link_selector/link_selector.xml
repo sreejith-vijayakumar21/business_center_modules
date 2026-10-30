@@ -41,6 +41,12 @@
                         </li>
                     </ul>
                 </div>
+                <button t-if="canCreate" type="button" class="btn btn-sm btn-primary w-100 mt-2"
+                        t-att-disabled="!props.object.id"
+                        t-att-title="props.object.id ? '' : 'Save the layout first'"
+                        t-on-click="() => props.onCreate(provider)">
+                    <i class="fa fa-plus"/> Create <t t-esc="provider.label"/>
+                </button>
             </t>
         </div>
     </t>

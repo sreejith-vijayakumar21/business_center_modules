@@ -10,6 +10,7 @@ import { FloorCanvas } from "../canvas/floor_canvas";
 import { FloorPlanApi } from "../core/floor_plan_api";
 import { fitView } from "../core/geometry";
 import { LayoutStore } from "../core/layout_store";
+import { createLinkedRecord } from "../core/create_linked_record";
 import { StatusLegend } from "../legend/status_legend";
 import { Palette } from "../palette/palette";
 import { PropertiesPanel } from "../properties/properties_panel";
@@ -145,6 +146,30 @@ export class FloorPlannerEditor extends Component {
         } else {
             this.notification.add(_t("You do not have access to this record, or it no longer exists."), { type: "danger" });
         }
+    }
+
+    async createLinkedRecord(provider) {
+        const obj = this.store.selected;
+        if (!obj?.id || this.readonly) {
+            return;
+        }
+        if (this.store.dirty) {
+            this.notification.add(_t("Save the layout before creating the linked record."), { type: "warning" });
+            return;
+        }
+        await createLinkedRecord({
+            api: this.api,
+            dialog: this.dialog,
+            obj,
+            provider,
+            onLinked: () => this.reloadLayout(obj.id),
+        });
+    }
+
+    async reloadLayout(selectId) {
+        this.store.load(await this.api.load());
+        this.store.select(selectId ? `id_${selectId}` : null);
+        await this.refreshStatuses();
     }
 
     onKeydown(ev) {
