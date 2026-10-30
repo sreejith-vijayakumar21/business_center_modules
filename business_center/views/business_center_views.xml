@@ -113,8 +113,8 @@
                         </group>
                     </group>
                     <notebook>
-                        <page string="Floors" name="floors">
-                            <field name="floor_ids">
+                        <page string="Floors" name="floors" >
+                            <field name="floor_ids" readonly="not id">
                                 <list editable="bottom">
                                     <field name="name" placeholder="Eg: F0"/>
                                     <field name="note"/>
