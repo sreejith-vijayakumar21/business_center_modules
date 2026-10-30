@@ -39,6 +39,27 @@ class BusinessCenterFloor(models.Model):
         for rec in self:
             rec.space_count = len(rec.space_ids)
             
+    @api.model_create_multi
+    def create(self, vals_list):
+        """Place each new floor after the last floor of its center, unless a
+        sequence was given explicitly. Tracked per center so a batch create
+        doesn't hand out the same number twice."""
+
+        next_seq = {}
+        for vals in vals_list:
+            if 'sequence' in vals:
+                continue
+            center_id = vals.get('center_id') or self.env.context.get('default_center_id')
+            if not center_id:
+                continue
+            if center_id not in next_seq:
+                last = self.search([('center_id', '=', center_id)],
+                                   order='sequence desc', limit=1)
+                next_seq[center_id] = last.sequence + 10 if last else 10
+            vals['sequence'] = next_seq[center_id]
+            next_seq[center_id] += 10
+        return super().create(vals_list)
+            
     # ------------------------------------------------------------------------------
     #   MARK: BUTTON ACTION METHODS
     # ------------------------------------------------------------------------------
