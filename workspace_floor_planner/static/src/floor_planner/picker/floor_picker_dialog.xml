@@ -73,7 +73,10 @@
                 <div class="o_fp_picker_selection me-auto">
                     <t t-if="selected">
                         <span class="fw-bold" t-esc="selected.link_name or selected.name"/>
-                        <span t-if="!selectedPickable" class="text-muted">
+                        <span t-if="isChosen(selected)" class="text-muted">
+                            · already on this contract
+                        </span>
+                        <span t-elif="!selectedPickable" class="text-muted">
                             · not available for this record
                         </span>
                     </t>

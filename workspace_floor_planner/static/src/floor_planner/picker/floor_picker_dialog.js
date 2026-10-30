@@ -1,4 +1,4 @@
-import { Component, onMounted, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
+import { Component, onMounted, onWillStart, onWillUnmount, useEffect, useRef, useState } from "@odoo/owl";
 import { Dialog } from "@web/core/dialog/dialog";
 import { _t } from "@web/core/l10n/translation";
 import { useService } from "@web/core/utils/hooks";
@@ -10,6 +10,8 @@ import { LayoutStore } from "../core/layout_store";
 const PICKABLE = "pickable";
 const ZOOM_STEP = 1.25;
 const UNPICKABLE = "unpickable";
+const PICKED = "picked";
+const CHOSEN = "chosen";
 
 /** True when ``point`` lies inside ``rect`` once the rect is rotated around its centre. */
 function pointInRect(point, rect) {
@@ -38,6 +40,8 @@ export class FloorPickerDialog extends Component {
         siteId: { type: Number, optional: true },
         // {link_key: [res_id, ...]}
         allowed: Object,
+        // {link_key: [res_id, ...]} already chosen elsewhere (shown, not pickable)
+        chosen: { type: Object, optional: true },
         // ({link_key, res_id, name}) => void
         onPick: Function,
         close: Function,
@@ -62,6 +66,16 @@ export class FloorPickerDialog extends Component {
             this.resizeObserver.observe(this.canvasArea.el);
         });
         onWillUnmount(() => this.resizeObserver?.disconnect());
+        // Re-colour the plan whenever the selection changes, so the picked
+        // unit stands out from the other available ones.
+        useEffect(
+            () => {
+                if (this.state.store) {
+                    this.applyPickability(this.state.store);
+                }
+            },
+            () => [this.state.store, this.state.store && this.state.store.selectedKey],
+        );
     }
 
     // ------------------------------------------------------------------
@@ -111,7 +125,8 @@ export class FloorPickerDialog extends Component {
         }
     }
 
-    /** Colour every unit by whether it may be picked, and summarise zones. */
+    /** Colour every unit by whether it may be picked (the selected one
+     * stands out), and summarise zones. */
     applyPickability(store) {
         const palette = store.statusPalette;
         store.statusPalette = {
@@ -122,11 +137,20 @@ export class FloorPickerDialog extends Component {
                 color: palette.available ? palette.available.color : "#8EDCB0",
             },
             [UNPICKABLE]: { code: UNPICKABLE, name: _t("Not available here"), color: "#DCE0E8" },
+            [PICKED]: { code: PICKED, name: _t("Selected"), color: "#8E9BF5" },
+            [CHOSEN]: { code: CHOSEN, name: _t("On this contract"), color: "#C9D6FB" },
         };
+        const selectedKey = store.selectedKey;
         const objects = {};
         const units = store.objects.filter((o) => o.category === "rentable");
         for (const unit of units) {
-            objects[unit.id] = { status: this.isPickable(unit) ? PICKABLE : UNPICKABLE };
+            let status = UNPICKABLE;
+            if (this.isChosen(unit)) {
+                status = CHOSEN;
+            } else if (this.isPickable(unit)) {
+                status = unit.key === selectedKey ? PICKED : PICKABLE;
+            }
+            objects[unit.id] = { status };
         }
         for (const zone of store.objects.filter((o) => o.category === "zone")) {
             const inside = units.filter((u) => pointInRect(centerOf(u), zone));
@@ -142,6 +166,11 @@ export class FloorPickerDialog extends Component {
 
     isPickable(obj) {
         const ids = (obj.link_key && this.props.allowed[obj.link_key]) || [];
+        return ids.includes(obj.link_res_id);
+    }
+
+    isChosen(obj) {
+        const ids = (obj.link_key && this.props.chosen && this.props.chosen[obj.link_key]) || [];
         return ids.includes(obj.link_res_id);
     }
 
