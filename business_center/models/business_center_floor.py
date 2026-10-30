@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import api, fields, models
+from odoo import _, api, fields, models
+from odoo.exceptions import UserError
 
 
 class BusinessCenterFloor(models.Model):
     """Stores master records for business center floors"""
-    
+
     _name = 'business.center.floor'
     _description = 'A central registry of business center floors'
     _order = 'sequence'
@@ -18,27 +19,27 @@ class BusinessCenterFloor(models.Model):
     sequence = fields.Integer(default=10)
     note = fields.Char(string='Remark')
     space_count = fields.Integer(string='Cabin Space Count', compute='_compute_space_count')
-    
+
     company_id = fields.Many2one(related='center_id.company_id', store=True, string='Company')
     center_id = fields.Many2one('business.center', string='Business Center', required=True,
                                 ondelete='cascade', index=True)
     space_ids = fields.One2many('business.center.space', 'floor_id', string='Spaces')
-    
+
     _name_center_uniq = models.Constraint(
         'UNIQUE(name, center_id)',
         'The floor name must be unique per business center!',
     )
-    
+
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
     # ------------------------------------------------------------------------------
     @api.depends('space_ids')
     def _compute_space_count(self):
-        """Count spaces of type 'private_office' (cabins) for this center"""
-        
+        """Count the spaces on this floor"""
+
         for rec in self:
             rec.space_count = len(rec.space_ids)
-            
+
     @api.model_create_multi
     def create(self, vals_list):
         """Place each new floor after the last floor of its center, unless a
@@ -59,7 +60,24 @@ class BusinessCenterFloor(models.Model):
             vals['sequence'] = next_seq[center_id]
             next_seq[center_id] += 10
         return super().create(vals_list)
-            
+
+    @api.ondelete(at_uninstall=False)
+    def _unlink_except_has_spaces(self):
+        """A floor with spaces on it cannot be deleted: its offices, meeting
+        rooms and coworking spaces (and their desks) would lose their floor.
+        Delete or move them first."""
+
+        Space = self.env['business.center.space'].sudo()
+        for floor in self:
+            spaces = Space.search([('floor_id', '=', floor.id)], limit=5)
+            if spaces:
+                raise UserError(_(
+                    "%(floor)s still has spaces (%(spaces)s). Delete or move "
+                    "them before deleting the floor.",
+                    floor=floor.display_name,
+                    spaces=", ".join(spaces.mapped('name')),
+                ))
+
     # ------------------------------------------------------------------------------
     #   MARK: BUTTON ACTION METHODS
     # ------------------------------------------------------------------------------

@@ -9,7 +9,8 @@
     --bc-accent-ink: #4B58C9;
     --bc-accent-soft: #ECEEFF;
 
-    .o_kanban_record {
+    // Real cards only: the ghost slots below must stay borderless
+    .o_kanban_record:not(.o_kanban_ghost) {
         border: 1px solid var(--bc-border);
         border-radius: 14px;
         box-shadow: 0 1px 2px rgba(46, 49, 66, .05);
@@ -144,7 +145,11 @@
         }
     }
 
+    // Odoo pads a kanban row with empty "ghost" slots that keep each card one
+    // column wide; keep them, but with no border or background of their own.
     .o_kanban_ghost {
-        display: none !important;
+        border: 0 !important;
+        box-shadow: none !important;
+        background: transparent !important;
     }
 }
