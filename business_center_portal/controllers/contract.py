@@ -1,10 +1,12 @@
 # -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+
 from collections import OrderedDict
+from urllib.parse import quote
 
 from odoo import _, http
 from odoo.exceptions import AccessError, MissingError
 from odoo.http import request
-from urllib.parse import quote
 
 from odoo.addons.portal.controllers.portal import CustomerPortal, pager as portal_pager
 
@@ -43,6 +45,21 @@ class BusinessCenterContractPortal(CustomerPortal):
                 'business_center_portal.group_bc_tenant_admin'):
             return request.redirect('/my')
         return False
+    
+    def _bc_get_contract_sudo(self, contract_id, access_token):
+        """Return (contract_sudo, None) when the visitor may see the contract,
+        else (None, redirect response). A shared link with an access token
+        skips the tenant-admin check, like invoices."""
+
+        if not access_token:
+            denied = self._bc_contract_access_denied()
+            if denied:
+                return None, denied
+        try:
+            return self._document_check_access(
+                'business.center.contract', contract_id, access_token), None
+        except (AccessError, MissingError):
+            return None, request.redirect('/my')
 
     def _contract_searchbar_sortings(self):
         """The choices in the 'Sort By' dropdown on the contract list."""
@@ -151,15 +168,9 @@ class BusinessCenterContractPortal(CustomerPortal):
         (``report_type=pdf``, add ``download=true`` to save it), the same
         way an invoice page serves its report."""
 
-        if not access_token:
-            denied = self._bc_contract_access_denied()
-            if denied:
-                return denied
-        try:
-            contract_sudo = self._document_check_access(
-                'business.center.contract', contract_id, access_token)
-        except (AccessError, MissingError):
-            return request.redirect('/my')
+        contract_sudo, redirect = self._bc_get_contract_sudo(contract_id, access_token)
+        if redirect:
+            return redirect
 
         if report_type in ('html', 'pdf', 'text'):
             # A draft is not an agreement yet: nothing to print.
@@ -169,47 +180,60 @@ class BusinessCenterContractPortal(CustomerPortal):
                 model=contract_sudo, report_type=report_type,
                 report_ref=LEASE_AGREEMENT_REPORT, download=download)
 
-        token_query = f'?access_token={access_token}' if access_token else ''
-        attachment = contract_sudo.signed_attachment_id
-        signed_copy_url = (f'/my/contracts/{contract_id}/signed-copy{token_query}'
-                           if attachment else False)
         values = {
             'contract': contract_sudo,
             'page_name': 'contract',
             'access_token': access_token,
             'can_download_agreement': contract_sudo.state in CONFIRMED_STATES,
-            'signed_copy_url': signed_copy_url,
-            'signed_copy_is_pdf': attachment.mimetype == 'application/pdf',
-            'signed_copy_is_image': bool(attachment.mimetype and attachment.mimetype.startswith('image/')),
-            # Odoo's bundled PDF viewer, the same one the backend uses for PDFs.
-            'signed_copy_viewer_url': (
-                '/web/static/lib/pdfjs/web/viewer.html?file=' + quote(signed_copy_url, safe='')
-                if signed_copy_url else False),
-            'agreement_preview_url': (
-                f'/my/contracts/{contract_id}?report_type=html'
-                + (f'&access_token={access_token}' if access_token else '')),
         }
         return request.render('business_center_portal.portal_contract_page', values)
 
+    @http.route(['/my/contracts/<int:contract_id>/signed-agreement'],
+                type='http', auth='user', website=True)
+    def portal_my_contract_signed_page(self, contract_id, access_token=None, **kw):
+        """Show the signed copy inside the portal, the way an invoice page
+        shows its document: details and actions on the left, the document
+        on the right. Same access rules as the contract page."""
+
+        contract_sudo, redirect = self._bc_get_contract_sudo(contract_id, access_token)
+        if redirect:
+            return redirect
+
+        attachment = contract_sudo.signed_attachment_id
+        token_query = f'?access_token={access_token}' if access_token else ''
+        contract_url = f'/my/contracts/{contract_id}{token_query}'
+        if not attachment:
+            return request.redirect(contract_url)
+
+        file_url = f'/my/contracts/{contract_id}/signed-copy{token_query}'
+        mimetype = attachment.mimetype or ''
+        values = {
+            'contract': contract_sudo,
+            'page_name': 'contract',
+            'contract_url': contract_url,
+            'file_url': file_url,
+            'download_url': file_url + ('&' if token_query else '?') + 'download=1',
+            # Odoo's bundled PDF viewer, opened at page width without its outline.
+            'viewer_url': ('/web/static/lib/pdfjs/web/viewer.html?file='
+                           + quote(file_url, safe='') + '#pagemode=none&zoom=page-width'),
+            'is_pdf': mimetype == 'application/pdf',
+            'is_image': mimetype.startswith('image/'),
+        }
+        return request.render('business_center_portal.portal_contract_signed_page', values)
+
     @http.route(['/my/contracts/<int:contract_id>/signed-copy'],
                 type='http', auth='user')
-    def portal_my_contract_signed_copy(self, contract_id, access_token=None, **kw):
-        """Download the signed copy recorded on the contract (Mark as
-        Signed). Same access rules as the contract page."""
+    def portal_my_contract_signed_copy(self, contract_id, access_token=None,
+                                       download=False, **kw):
+        """Serve the signed copy file: shown in the browser by default (for
+        the signed copy page), saved when ``download`` is set."""
 
-        if not access_token:
-            denied = self._bc_contract_access_denied()
-            if denied:
-                return denied
-        try:
-            contract_sudo = self._document_check_access(
-                'business.center.contract', contract_id, access_token)
-        except (AccessError, MissingError):
-            return request.redirect('/my')
+        contract_sudo, redirect = self._bc_get_contract_sudo(contract_id, access_token)
+        if redirect:
+            return redirect
 
         attachment = contract_sudo.signed_attachment_id
         if not attachment:
             return request.redirect(f'/my/contracts/{contract_id}')
-        # Shown in the browser (a PDF or an image opens in the tab); 
         return request.env['ir.binary']._get_stream_from(attachment).get_response(
-            as_attachment=False)
+            as_attachment=bool(download))
