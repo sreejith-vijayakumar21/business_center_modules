@@ -38,6 +38,13 @@ class BusinessCenterBooking(models.Model):
     selected_slot_display = fields.Char(string='Selected Slot', compute='_compute_selected_slot_display', 
                                          store=True)
     operating_time = fields.Char(related='meeting_room_id.operating_hours_display', string='Available Time')
+    room_open_hour = fields.Float(related='meeting_room_id.min_booking_hour',
+                                  string='Room Opens')
+    room_close_hour = fields.Float(related='meeting_room_id.max_booking_hour',
+                                   string='Room Closes')
+    booked_ranges = fields.Json(string='Booked Slots', compute='_compute_booked_ranges',
+                                help="[start, end] hours of the room's other confirmed "
+                                     "bookings that day, for the time pickers.")
     booking_date = fields.Date(string='Date', required=True)
     charge_per_hr = fields.Monetary(string='Hourly Rate', related='meeting_room_id.hourly_rate')
     chargeable_hours = fields.Float(string='Chargeable Hours', compute='_compute_chargeable_hours', store=True)
@@ -208,6 +215,24 @@ class BusinessCenterBooking(models.Model):
                 "<div style='display:flex;flex-wrap:wrap;gap:6px;'>%s</div>"
                 % "".join(boxes)
             )
+            
+    @api.depends('meeting_room_id', 'booking_date')
+    def _compute_booked_ranges(self):
+        """List the room's other confirmed bookings that day as [start, end]
+        hour pairs, so the time pickers can grey out times already taken."""
+
+        for rec in self:
+            if not (rec.meeting_room_id and rec.booking_date):
+                rec.booked_ranges = []
+                continue
+            domain = [
+                ('meeting_room_id', '=', rec.meeting_room_id.id),
+                ('state', '=', 'confirmed'),
+                ('booking_date', '=', rec.booking_date),
+            ]
+            if rec._origin.id:
+                domain.append(('id', '!=', rec._origin.id))
+            rec.booked_ranges = [[b.start_time, b.end_time] for b in self.search(domain)]
             
     @api.depends('total_wallet_credits', 'start_time', 'end_time', 'state',
                  'wallet_balance_at_booking', 'cancel_outcome')

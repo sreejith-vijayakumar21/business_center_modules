@@ -34,12 +34,17 @@
                             <field name="operating_time"/>
                             <field name="slot_availability_html" widget="html" nolabel="1" colspan="2"
                                invisible="not meeting_room_id or not booking_date"/>
-                            <field name="start_time" widget="float_time"
-                                placeholder="e.g. 14:30"
-                                help="Enter in 24-hour format, HH:MM. E.g. 2:30 PM = 14:30."/>
-                            <field name="end_time" widget="float_time"
-                                placeholder="e.g. 16:00"
-                                help="Enter in 24-hour format, HH:MM. E.g. 4:00 PM = 16:00."/>
+                            <field name="room_open_hour" invisible="1"/>
+                            <field name="room_close_hour" invisible="1"/>
+                            <field name="booked_ranges" invisible="1"/>
+                            <field name="start_time" widget="bc_time_select"
+                                   options="{'role': 'start', 'end_field': 'end_time',
+                                             'open_field': 'room_open_hour', 'close_field': 'room_close_hour',
+                                             'busy_field': 'booked_ranges'}"/>
+                            <field name="end_time" widget="bc_time_select"
+                                   options="{'role': 'end', 'start_field': 'start_time',
+                                             'open_field': 'room_open_hour', 'close_field': 'room_close_hour',
+                                             'busy_field': 'booked_ranges'}"/>
                             <field name="selected_slot_display" invisible="not start_time and not end_time"/>
                         </group>
                         <group string="Wallet &amp; Charges">

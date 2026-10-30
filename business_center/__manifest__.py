@@ -52,6 +52,10 @@
         'web.report_assets_common': [
             'business_center/static/src/scss/business_center_contract_report.scss',
         ],
+        "web.assets_backend": [
+            "business_center/static/src/fields/time_select_field.js",
+            "business_center/static/src/fields/time_select_field.xml",
+        ],
     },
     'installable': True,
     'application': True,
