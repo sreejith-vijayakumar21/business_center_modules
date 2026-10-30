@@ -44,7 +44,7 @@
                 </aside>
 
                 <!-- Floor plan of the selected floor -->
-                <div class="o_fp_picker_canvas">
+                <div class="o_fp_picker_canvas" t-ref="canvasArea">
                     <!-- Zoom controls -->
                     <div t-if="state.store" class="o_fp_picker_zoom" role="group" aria-label="Zoom">
                         <button type="button" class="btn btn-light btn-sm" title="Zoom out"

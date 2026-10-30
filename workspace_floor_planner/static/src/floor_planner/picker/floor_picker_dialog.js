@@ -1,4 +1,4 @@
-import { Component, onWillStart, useExternalListener, useState } from "@odoo/owl";
+import { Component, onMounted, onWillStart, onWillUnmount, useRef, useState } from "@odoo/owl";
 import { Dialog } from "@web/core/dialog/dialog";
 import { _t } from "@web/core/l10n/translation";
 import { useService } from "@web/core/utils/hooks";
@@ -53,9 +53,15 @@ export class FloorPickerDialog extends Component {
             loading: false,
         });
         this.canvas = null;
+        this.canvasArea = useRef("canvasArea");
         onWillStart(() => this.loadPlan());
-        // Keep the whole floor in view when the window (and the dialog) resizes.
-        useExternalListener(window, "resize", () => this.fit());
+        // The plan area only gets its real size once the dialog has opened,
+        // and changes with the window: fit whenever that size changes.
+        onMounted(() => {
+            this.resizeObserver = new ResizeObserver(() => this.fit());
+            this.resizeObserver.observe(this.canvasArea.el);
+        });
+        onWillUnmount(() => this.resizeObserver?.disconnect());
     }
 
     // ------------------------------------------------------------------
@@ -148,17 +154,24 @@ export class FloorPickerDialog extends Component {
 
     onCanvasReady(canvas) {
         this.canvas = canvas;
-        // The dialog is still opening when the canvas mounts, so its final
-        // size is only known a couple of frames later: fit then.
-        requestAnimationFrame(() => requestAnimationFrame(() => this.fit()));
+        // A new floor's canvas: fit it once it has been laid out.
+        requestAnimationFrame(() => this.fit());
     }
 
-    /** Zoom and pan so the whole floor is visible. */
+    /**
+     * Zoom and pan so the whole floor is visible.
+     *
+     * Measured on the plan area itself rather than taken from the canvas,
+     * which records its size when it mounts: inside a dialog that is still
+     * opening, that size is zero and the floor would stay at 100%.
+     */
     fit() {
-        if (!this.canvas || !this.state.store) {
+        const area = this.canvasArea.el;
+        if (!area || !this.state.store) {
             return;
         }
-        const { width, height } = this.canvas.viewport;
+        const width = area.clientWidth;
+        const height = area.clientHeight;
         if (!width || !height) {
             return;
         }
