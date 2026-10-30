@@ -61,7 +61,7 @@
                         <group>
                             <field name="cancel_outcome"/>
                             <field name="cancelled_by_id"/>
-                            <field name="original_end_time" widget="float_time"
+                            <field name="original_end_time" widget="bc_time_select"
                                    invisible="cancel_outcome != 'used'"/>
                         </group>
                         <group>
@@ -85,8 +85,8 @@
                 <field name="contract_id"/>
                 <field name="center_id" optional="hide"/>
                 <field name="booking_date"/>
-                <field name="start_time" widget="float_time"/>
-                <field name="end_time" widget="float_time"/>
+                <field name="start_time" widget="bc_time_select"/>
+                <field name="end_time" widget="bc_time_select"/>
                 <field name="total_wallet_credits"/>
                 <field name="balance_wallet_credits"/>
                 <field name="chargeable_hours" invisible="1"/>

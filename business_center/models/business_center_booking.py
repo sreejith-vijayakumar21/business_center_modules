@@ -354,18 +354,19 @@ class BusinessCenterBooking(models.Model):
                     room=rec.meeting_room_id.display_name,
                     contract=rec.contract_id.name,
                     center=center.display_name,
-                ))         
+                ))    
+                     
     @api.constrains('start_time', 'end_time')
     def _check_booking_times(self):
-        """Reject bookings that end before they start or run longer than 8 hours."""
-        
+        """Reject bookings that end before they start. How long a booking
+        may run is bounded by the room's opening hours
+        (_check_within_operating_hours), not by a fixed limit."""
+
         for rec in self:
             if not rec.start_time and not rec.end_time:
                 continue
             if rec.end_time <= rec.start_time:
                 raise ValidationError(_('End time must be after start time.'))
-            if (rec.end_time - rec.start_time) > 8:
-                raise ValidationError(_('Cannot book more than 8 hours.'))
             
     @api.constrains('meeting_room_id')
     def _check_employee_meeting_room_only(self):
