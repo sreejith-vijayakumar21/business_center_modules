@@ -1,0 +1,141 @@
+// Floor cards on the business center form: pastel tint per unit type,
+// a soft availability bar and pill badges, matching the floor planner.
+
+.o_bc_floor_kanban {
+    --bc-ink: #2E3142;
+    --bc-muted: #858AA0;
+    --bc-border: #E6E8F1;
+    --bc-accent: #6C7BF0;
+    --bc-accent-ink: #4B58C9;
+    --bc-accent-soft: #ECEEFF;
+
+    .o_kanban_record {
+        border: 1px solid var(--bc-border);
+        border-radius: 14px;
+        box-shadow: 0 1px 2px rgba(46, 49, 66, .05);
+        overflow: hidden;
+    }
+
+    .o_bc_floor_card {
+        padding: 1rem;
+        color: var(--bc-ink);
+    }
+
+    .o_bc_floor_name {
+        font-size: 1.1rem;
+        font-weight: 700;
+
+        .fa {
+            color: var(--bc-muted);
+        }
+    }
+
+    .o_bc_floor_note,
+    .o_bc_floor_summary {
+        font-size: .82rem;
+        color: var(--bc-muted);
+    }
+
+    // Layout badge
+    .o_bc_floor_badge {
+        padding: .2rem .65rem;
+        border-radius: 999px;
+        font-size: .75rem;
+        font-weight: 600;
+        white-space: nowrap;
+        background: #F1F2F6;
+        color: #6B7085;
+    }
+
+    .o_bc_floor_badge_ready {
+        background: #E7F7EE;
+        color: #2F8A5B;
+    }
+
+    // Unit type tiles
+    .o_bc_floor_tiles {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: .5rem;
+        margin: .5rem 0 .75rem;
+    }
+
+    .o_bc_floor_tile {
+        padding: .55rem .4rem;
+        border-radius: 10px;
+        text-align: center;
+    }
+
+    .o_bc_floor_tile_label {
+        font-size: .78rem;
+        font-weight: 500;
+        opacity: .85;
+    }
+
+    .o_bc_floor_tile_value {
+        font-size: 1.25rem;
+        font-weight: 700;
+        line-height: 1.3;
+        font-variant-numeric: tabular-nums;
+    }
+
+    .o_bc_floor_tile_total {
+        font-size: .85rem;
+        font-weight: 500;
+        opacity: .7;
+    }
+
+    .o_bc_floor_tile_office {
+        background: #E3F5F1;
+        color: #2F7D6E;
+    }
+
+    .o_bc_floor_tile_desk {
+        background: #ECEEFF;
+        color: #4B58C9;
+    }
+
+    .o_bc_floor_tile_room {
+        background: #FFF1E3;
+        color: #A8621C;
+    }
+
+    // Availability bar
+    .o_bc_floor_progress {
+        height: 6px;
+        margin-bottom: .35rem;
+        background: #EEF0F5;
+        border-radius: 999px;
+        overflow: hidden;
+    }
+
+    .o_bc_floor_progress_bar {
+        height: 100%;
+        background: #8EDCB0;
+        border-radius: 999px;
+    }
+
+    // Buttons, in the floor planner's language
+    .btn-primary {
+        background: var(--bc-accent);
+        border-color: var(--bc-accent);
+        border-radius: 8px;
+
+        &:hover {
+            background: var(--bc-accent-ink);
+            border-color: var(--bc-accent-ink);
+        }
+    }
+
+    .btn-secondary {
+        background: var(--bc-accent-soft);
+        border-color: transparent;
+        color: var(--bc-accent-ink);
+        border-radius: 8px;
+
+        &:hover {
+            background: darken(#ECEEFF, 3%);
+            color: var(--bc-accent-ink);
+        }
+    }
+}
