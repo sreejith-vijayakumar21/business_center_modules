@@ -324,7 +324,7 @@
                 <group>
                     <filter name="groupby_center" string="Business Center" context="{'group_by': 'center_id'}"/>
                     <filter name="groupby_floor" string="Floor" context="{'group_by': 'floor_id'}"/>
-                    <filter name="groupby_type" string="Space Type" context="{'group_by': 'space_type'}"/>
+                    <filter name="groupby_category" string="Space Category" context="{'group_by': 'space_category'}"/>
                     <filter name="groupby_state" string="Status" context="{'group_by': 'state'}"/>
                 </group>
 
