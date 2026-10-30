@@ -101,8 +101,9 @@ class BusinessCenterContract(models.Model):
                                            help="Meeting-room overage and manual charges accrued but not yet invoiced.")
     deposit_amount = fields.Monetary(string='Security Deposit', currency_field='currency_id', tracking=True,
         help="Refundable deposit agreed for the whole contract. Enter it while "
-             "the contract is draft; it is invoiced on confirmation and locked "
-             "afterwards.")
+             "the contract is draft; it is invoiced when the tenant signs the "
+             "agreement, or on the start date if they have not signed by then, "
+             "and locked once confirmed.")
     
     signed_attachment_id = fields.Many2one('ir.attachment', string='Signed Copy',
                                            readonly=True, copy=False)
@@ -599,6 +600,10 @@ class BusinessCenterContract(models.Model):
         if signature:
             vals['signature'] = signature
         self.write(vals)
+        # The tenant has accepted, so the deposit can be invoiced now; sudo
+        # because the portal signs as the tenant, who has no accounting rights.
+        if self.state in ('upcoming', 'active'):
+            self.sudo()._create_deposit_invoice()
         self.activity_feedback(
             ['business_center.mail_activity_type_contract_signature'],
             feedback=_("Agreement signed by %s", signed_by))
@@ -628,9 +633,11 @@ class BusinessCenterContract(models.Model):
     def _create_deposit_invoice(self):
         """Raise a draft invoice for the security deposit, separate from rent.
 
-        A deposit is held for the tenant and refunded later, not earned, so it
-        is billed on its own tax-free line. A renewal keeps the deposit already
-        held and only invoices the increase, if there is one.
+        Called when the tenant signs, or on the start date if they have not
+        signed by then. A deposit is held for the tenant and refunded later,
+        not earned, so it is billed on its own tax-free line. A renewal keeps
+        the deposit already held and only invoices the increase, if there is
+        one.
         """
 
         self.ensure_one()
@@ -664,6 +671,17 @@ class BusinessCenterContract(models.Model):
         })
         self.deposit_invoice_id = move
         return move
+    
+    def _cancel_draft_deposit_invoice(self):
+        """Cancel a deposit invoice that is still draft and unlink it, so the
+        next one is raised with the revised amount. A posted deposit invoice
+        is left alone; it is settled through a credit note."""
+
+        self.ensure_one()
+        invoice = self.sudo().deposit_invoice_id
+        if invoice and invoice.state == 'draft':
+            invoice.button_cancel()
+            self.sudo().deposit_invoice_id = False
     
     def _deposit_received(self):
         """Deposit the tenant has actually paid, across this contract and the
@@ -835,7 +853,12 @@ class BusinessCenterContract(models.Model):
             vals['next_invoice_date'] = self.date_start
         self.write(vals)
         self._sync_leased_occupancy()
-        self._create_deposit_invoice()
+        # The deposit waits for the tenant's signature. A contract that is
+        # already running cannot wait any longer, so its deposit is raised
+        # now; an upcoming one is raised by the activation cron on its start
+        # date if the tenant has not signed by then.
+        if self.state == 'active':
+            self._create_deposit_invoice()
         return self.action_send_contract()
 
     def action_set_cancel(self):
@@ -875,6 +898,9 @@ class BusinessCenterContract(models.Model):
         self.wallet_seeded = False
         self._sync_leased_occupancy()
         self._reset_agreement()
+        # The contract is being revised (e.g. a different deposit), so an
+        # unposted deposit invoice no longer matches it.
+        self._cancel_draft_deposit_invoice()
         
     def action_send_contract(self):
         """Open the email composer with the lease agreement PDF attached, the
@@ -1268,8 +1294,9 @@ class BusinessCenterContract(models.Model):
         
     @api.model
     def _cron_activate_upcoming_contracts(self):
-        """Promote upcoming contracts whose start date has arrived, and claim
-        occupancy on their spaces and desks."""
+        """Promote upcoming contracts whose start date has arrived, claim
+        occupancy on their spaces and desks, and invoice the deposit of any
+        tenant who has not signed yet."""
 
         today = fields.Date.today()
         due = self.search([('state', '=', 'upcoming'), ('date_start', '<=', today), ('date_end', '>=', today)])
@@ -1280,6 +1307,16 @@ class BusinessCenterContract(models.Model):
         due.write({'state': 'active'})
         for contract in due:
             contract._sync_leased_occupancy()
+            # Start date reached: the deposit is invoiced whether or not the
+            # tenant has signed (no-op if signing already invoiced it). One
+            # failure must not stop the other activations.
+            try:
+                with self.env.cr.savepoint():
+                    contract._create_deposit_invoice()
+            except Exception:
+                _logger.exception(
+                    "Contract activation cron: could not invoice the deposit "
+                    "of %s.", contract.name)
 
         _logger.info("Contract activation cron: activated %s contract(s): %s",
                      len(due), ", ".join(due.mapped('name')))
