@@ -84,14 +84,14 @@
                         </div>
 
                         <!-- Layout actions (only once the floor is saved) -->
-                        <footer class="d-flex gap-2 pt-2">
+                        <footer class="d-flex align-items-center justify-content-between gap-2 pt-2 w-100">
                             <t t-if="record.id.raw_value">
                                 <button name="action_open_floor_layout" type="object" class="btn btn-primary btn-sm">
                                     <t t-if="record.has_layout.raw_value"><i class="fa fa-map-o"/> View layout</t>
                                     <t t-else=""><i class="fa fa-pencil-square-o"/> Create layout</t>
                                 </button>
                                 <button t-if="record.has_layout.raw_value" name="action_edit_floor_layout" type="object"
-                                        class="btn btn-secondary btn-sm"
+                                        class="btn btn-secondary btn-sm ms-auto"
                                         groups="workspace_floor_planner.group_floor_planner_user">
                                     <i class="fa fa-pencil"/> Edit layout
                                 </button>
