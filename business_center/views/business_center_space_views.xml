@@ -66,8 +66,9 @@
                                    force_save="1"/>
                             <field name="floor_id" readonly="context.get('bc_from_floor_layout')"
                                    force_save="1"/>
-                            <field name="is_coworking" invisible="space_type != 'office'"
-                                   readonly="desk_ids or context.get('bc_from_floor_layout')"
+                            <field name="is_coworking"
+                                   invisible="space_type != 'office' or context.get('bc_from_floor_layout')"
+                                   readonly="desk_ids"
                                    force_save="1"
                                    help="Remove all desks before unticking Coworking."/>
                             <field name="company_id"/>
