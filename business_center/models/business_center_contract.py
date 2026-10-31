@@ -142,7 +142,10 @@ class BusinessCenterContract(models.Model):
                                   string='Invoices')
     partner_id = fields.Many2one('res.partner', required=True, tracking=True, 
                                  domain="[('is_company', '=', True)]")
-    contact_ids = fields.Many2many('res.partner', string='Employees')
+    contact_ids = fields.Many2many(
+        'res.partner', string='Employees',
+        domain="[('id', 'child_of', partner_id), ('is_company', '=', False)]",
+        help="People of the tenant company covered by this contract.")
     currency_id = fields.Many2one('res.currency', string='Currency',
                                   related='company_id.currency_id', store=True)
     company_id = fields.Many2one('res.company', string='Company',
@@ -374,6 +377,15 @@ class BusinessCenterContract(models.Model):
         for contract in self:
             if not contract.is_wallet_eligible and contract.free_hours_monthly:
                 contract.free_hours_monthly = 0.0
+                
+    @api.onchange('partner_id')
+    def _onchange_partner_contacts(self):
+        """Keep only employees of the newly chosen tenant company, so a
+        contract never lists another company's people."""
+
+        commercial = self.partner_id.commercial_partner_id
+        self.contact_ids = self.contact_ids.filtered(
+            lambda c: commercial and c.commercial_partner_id == commercial)
                 
     @api.onchange('center_id')
     def _onchange_center_terms(self):
