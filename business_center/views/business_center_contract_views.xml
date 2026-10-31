@@ -67,7 +67,7 @@
                     <group>
                         <group string="Tenant &amp; Contacts">
                             <field name="partner_id" readonly="state != 'draft'"/>
-                            <field name="contact_ids" widget="many2many_tags"/>
+                            <field name="contact_ids" widget="many2many_tags" readonly="not partner_id"/>
                         </group>
 
                         <group string="Contract Period">
