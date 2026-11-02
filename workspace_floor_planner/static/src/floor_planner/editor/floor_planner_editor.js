@@ -16,6 +16,8 @@ import { Palette } from "../palette/palette";
 import { PropertiesPanel } from "../properties/properties_panel";
 import { Toolbar } from "../toolbar/toolbar";
 
+const REMOVABLE_STATUSES = ["draft", "not_linked", "unknown"];
+
 /**
  * Client action "workspace_floor_planner.editor".
  *
@@ -100,6 +102,18 @@ export class FloorPlannerEditor extends Component {
     deleteSelected() {
         const obj = this.store.selected;
         if (!obj || this.readonly) {
+            return;
+        }
+        const status = this.store.statusOf(obj).status;
+        if (obj.link_key && !REMOVABLE_STATUSES.includes(status)) {
+            const label = this.store.statusPalette[status]?.name || status;
+            this.notification.add(
+                _t("Only shapes of Draft spaces can be deleted. “%(name)s” is %(status)s.", {
+                    name: obj.name || obj.object_type,
+                    status: label,
+                }),
+                { type: "warning" }
+            );
             return;
         }
         const remove = () => this.store.remove(obj.key);

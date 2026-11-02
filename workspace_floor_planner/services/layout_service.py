@@ -104,6 +104,7 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
 
         # Delete first so a link can move from a removed object to a new one.
         to_delete = plan.object_ids.filtered(lambda o: o.id not in kept_ids)
+        self._check_removable(plan, to_delete)
         to_delete.unlink()
 
         updates = []
@@ -139,6 +140,23 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
         result = self._load(plan)
         result["id_map"] = dict(zip(client_keys, created.ids))
         return result
+    
+    def _check_removable(self, plan, objects):
+        """Let each link provider refuse the removal of the shapes linked
+        through it, before anything is deleted."""
+
+        registry = self.env["workspace.floor.link.registry"]
+        for link_key in set(objects.filtered("link_key").mapped("link_key")):
+            try:
+                provider = registry._get_provider(link_key)
+            except UserError:
+                continue  # provider no longer installed: nothing to protect
+            if not provider:
+                continue
+            linked = objects.filtered(lambda o: o.link_key == link_key and o.link_res_id)
+            records = provider._fp_target().sudo().browse(linked.mapped("link_res_id")).exists()
+            if records:
+                provider._fp_check_remove(plan, records)
 
     @api.model
     def _diff(self, obj, vals):

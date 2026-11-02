@@ -90,6 +90,17 @@ class WorkspaceFloorLinkProvider(models.AbstractModel):
         drawn on."""
 
         return {}
+    
+    # ------------------------------------------------------------------------------
+    #   MARK: RECORD REMOVAL
+    # ------------------------------------------------------------------------------
+    @api.model
+    def _fp_check_remove(self, plan, records):
+        """Raise a UserError when the shapes drawing ``records`` may not be
+        removed from ``plan``. Any shape may be removed by default; bridges
+        restrict it, e.g. to units that are not in use yet."""
+
+        return
 
     # ------------------------------------------------------------------------------
     #   MARK: LOOKUP (always as the current user, never sudo)
