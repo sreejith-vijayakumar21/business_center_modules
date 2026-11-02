@@ -36,6 +36,8 @@
                 <field name="state" widget="statusbar" statusbar_visible="draft,available,occupied,maintenance"/>
             </header>
                 <sheet readonly="state != 'draft'">
+                    <field name="active" invisible="1"/>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_open_contracts"
                                 type="object"
@@ -317,6 +319,7 @@
                 <filter name="filter_occupied" string="Occupied" domain="[('state', '=', 'occupied')]"/>
                 <filter name="filter_maintenance" string="Maintenance" domain="[('state', '=', 'maintenance')]"/>
                 <separator/>
+                <filter name="filter_archived" string="Archived" domain="[('active', '=', False)]"/>
                 <filter name="filter_cabin" string="Cabins"
                         domain="[('space_type', '=', 'office'), ('is_coworking', '=', False)]"/>
                 <filter name="filter_coworking" string="Coworking" domain="[('is_coworking', '=', True)]"/>

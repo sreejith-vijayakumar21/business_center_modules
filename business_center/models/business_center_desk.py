@@ -129,13 +129,12 @@ class BusinessCenterDesk(models.Model):
         those contracts and their invoices refer to it. Archive it instead."""
 
         for rec in self:
-            contracts = rec.leased_asset_ids.mapped('contract_id')
-            if contracts:
+            if rec._bc_has_history():
                 raise UserError(_(
                     "Desk %(desk)s appears on contract(s) %(contracts)s and cannot "
                     "be deleted. Archive it instead to stop using it.",
                     desk=rec.name,
-                    contracts=", ".join(contracts[:5].mapped('name')),
+                    contracts=", ".join(rec.sudo().leased_asset_ids.contract_id[:5].mapped('name')),
                 ))
             
     @api.depends('leased_asset_ids')
@@ -231,3 +230,12 @@ class BusinessCenterDesk(models.Model):
             'order': 'state asc',
 
         }
+        
+    # ------------------------------------------------------------------------------
+    #   MARK: HELPER METHODS
+    # ------------------------------------------------------------------------------
+    def _bc_has_history(self):
+        """True when the desk was ever on a contract, in any state."""
+
+        self.ensure_one()
+        return bool(self.sudo().leased_asset_ids)

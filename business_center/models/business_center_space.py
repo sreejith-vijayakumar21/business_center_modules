@@ -62,6 +62,9 @@ class BusinessCenterSpace(models.Model):
                                          store=True)
     contract_count = fields.Integer(string='Contract Count', compute='_compute_contract_count')
     image_1920 = fields.Image()
+    active = fields.Boolean(default=True, tracking=True,
+                        help="Archived spaces are kept for their history (contracts, "
+                                "invoices, bookings) but no longer offered anywhere.")
     
     product_id = fields.Many2one('product.product', string='Meeting Room Product', domain="[('type', '=', 'service')]", 
                                  default=lambda self: self.env.ref('business_center.product_meeting_room_hire',
@@ -102,7 +105,8 @@ class BusinessCenterSpace(models.Model):
     _NON_DRAFT_EDITABLE_FIELDS = {
         'state', 'occupant_id', 'current_contract_id',
         'contract_start_date', 'contract_end_date',
-        'message_main_attachment_id','is_bookable'
+        'message_main_attachment_id','is_bookable',
+        'active',
     }
     
     # ------------------------------------------------------------------------------
@@ -218,6 +222,13 @@ class BusinessCenterSpace(models.Model):
                     "Use 'Reset to Draft' first.",
                     space=non_draft[0].name,
                 ))
+        if 'active' in vals and not vals['active']:
+            busy = self.filtered(lambda s: s.state == 'occupied' or s.leased_asset_ids.filtered(
+                lambda a: a.contract_id.state in ('draft', 'upcoming', 'active')))
+            if busy:
+                raise UserError(_(
+                    "Space %s is occupied or part of a live contract and cannot "
+                    "be archived.", busy[0].name))
         return super().write(vals)
            
     @api.model_create_multi
@@ -241,29 +252,14 @@ class BusinessCenterSpace(models.Model):
                 
     @api.ondelete(at_uninstall=False)
     def _unlink_except_has_history(self):
-        """A space that was ever on a contract or ever booked, in any state,
-        keeps its record: contracts, bookings and invoices refer to it."""
+        """A space with history (contracts, bookings, or desks with contracts)
+        keeps its record; archive it instead."""
 
         for rec in self:
-            contracts = rec.leased_asset_ids.mapped('contract_id')
-            if contracts:
+            if rec._bc_has_history():
                 raise UserError(_(
-                    "Space %(space)s appears on contract(s) %(contracts)s and "
-                    "cannot be deleted. Archive it instead to stop using it.",
-                    space=rec.name,
-                    contracts=", ".join(contracts[:5].mapped('name')),
-                ))
-            if rec.space_type != 'meeting_room':
-                continue
-            bookings = self.env['business.center.booking'].search([
-                ('meeting_room_id', '=', rec.id)], limit=5)
-            if bookings:
-                raise UserError(_(
-                    "%(room)s has bookings (%(bookings)s) and cannot be deleted. "
-                    "Withdraw it from booking instead.",
-                    room=rec.display_name,
-                    bookings=", ".join(bookings.mapped('name')),
-                ))
+                    "%s has contracts or bookings in its history and cannot be "
+                    "deleted. Archive it instead to stop using it.", rec.display_name))
                 
     # ------------------------------------------------------------------------------
     #   MARK: CONSTRAINT/ONCHANGE METHODS
@@ -398,3 +394,16 @@ class BusinessCenterSpace(models.Model):
                 continue
             if space.state != target:
                 space.write({'state': target})
+                
+    def _bc_has_history(self):
+        """True when the space was ever on a contract, ever booked (meeting
+        rooms), or, for a coworking space, one of its desks has history."""
+
+        self.ensure_one()
+        space = self.sudo()
+        if space.leased_asset_ids:
+            return True
+        if space.space_type == 'meeting_room' and self.env['business.center.booking'].sudo().search_count(
+                [('meeting_room_id', '=', space.id)], limit=1):
+            return True
+        return any(desk._bc_has_history() for desk in space.with_context(active_test=False).desk_ids)
