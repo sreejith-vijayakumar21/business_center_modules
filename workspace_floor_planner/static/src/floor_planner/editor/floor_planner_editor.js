@@ -116,7 +116,7 @@ export class FloorPlannerEditor extends Component {
             this.dialog.add(ConfirmationDialog, {
                 title: _t("Delete object"),
                 body: status === "draft"
-                    ? _t("Delete “%s” from this floor plan? Its Draft record is deleted as well when you save.", obj.name || obj.object_type)
+                    ? _t("Delete “%s” from this floor plan? On save, its Draft record is deleted, or archived if it has contracts or bookings.", obj.name || obj.object_type)
                     : _t("Delete “%s” from this floor plan? The business record itself is not deleted.", obj.name || obj.object_type),
                 confirmLabel: _t("Delete"),
                 confirmClass: "btn-danger",

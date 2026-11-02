@@ -18,6 +18,11 @@ from odoo.exceptions import UserError
 
 from odoo.addons.workspace_floor_planner.tools.geometry import center_of, point_in_rotated_rect
 
+from odoo.addons.workspace_floor_planner_business_bridge.models.business_center_space import (
+    DESK_LINK_KEYS,
+    release_floor_links,
+)
+
 import logging
 
 # Business Center state -> floor planner status. Draft units are not ready to
@@ -105,16 +110,23 @@ class BusinessCenterProviderMixin(models.AbstractModel):
 
     @api.model
     def _fp_release(self, plan, records):
-        """A Draft unit taken off its floor layout is deleted: it was made from
-        its shape and has no place to be rented from without it. Units with
-        history are kept: any contract (in any state), or for meeting rooms
-        any booking, since those documents refer to them."""
+        """A Draft unit taken off its floor layout is deleted when it has no
+        history, and archived when it has (contracts in any state, bookings,
+        or desks with contracts): those documents must keep pointing at it.
+        A coworking space takes its desks along, and their shapes are freed.
+        Units that are not Draft never get here: the save refuses them."""
 
-        Booking = self.env["business.center.booking"].sudo()
-        records.filtered(lambda r: r.state == "draft" and not r.leased_asset_ids
-                         and not (r._name == "business.center.space"
-                                  and Booking.search_count([("meeting_room_id", "=", r.id)], limit=1))
-                         ).unlink()
+        drafts = records.filtered(lambda r: r.state == "draft")
+        kept = drafts.filtered(lambda r: r._bc_has_history())
+        (drafts - kept).unlink()
+        if not kept:
+            return
+        if kept._name == "business.center.space":
+            desks = kept.filtered("is_coworking").desk_ids
+            if desks:
+                release_floor_links(self.env, DESK_LINK_KEYS, desks.ids)
+                desks.write({"active": False})
+        kept.write({"active": False})
 
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
