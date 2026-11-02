@@ -11,7 +11,7 @@
                 <button name="action_set_occupied" type="object"
                         string="Set Occupied" class="btn-primary"
                         groups="business_center.group_bc_manager"
-                        invisible="state == 'occupied' or not current_contract_id or desk_type == 'hot'"/>/>
+                        invisible="state == 'occupied' or not current_contract_id or desk_type == 'hot'"/>
                 <button name="action_set_available" type="object"
                         string="Set Available"
                         groups="business_center.group_bc_manager"
@@ -96,7 +96,9 @@
         <field name="arch" type="xml">
             <list create="0">
                 <field name="name" string="Desk"/>
-                <field name="desk_type" optional="show"/>
+                <field name="desk_type" optional="show" widget="badge"
+                       decoration-danger="desk_type == 'hot'"
+                       decoration-muted="desk_type == 'dedicated'"/>
                 <field name="center_id" string="Center"/>
                 <field name="space_id" string="Space"/>
                 <field name="floor_id" string="Floor" optional="show"/>
@@ -133,9 +135,14 @@
                         <div class="d-flex">
                             <!-- Icon avatar (desktop for Desk) -->
                             <aside class="me-2">
+                                <!-- Pastel badge per desk type: purple dedicated, red hot desk -->
+                                <t t-set="is_hot" t-value="record.desk_type.raw_value == 'hot'"/>
                                 <div class="d-flex align-items-center justify-content-center rounded-3"
-                                    style="width:48px; height:48px; background-color:#F1E4F7; color:#7B2A93; font-size:20px;">
-                                    <i class="fa fa-desktop" title="Desk"/>
+                                     t-att-style="'width:48px; height:48px; font-size:20px; ' + (is_hot
+                                        ? 'background-color:#FDE4E4; color:#B23A3A;'
+                                        : 'background-color:#F1E4F7; color:#7B2A93;')"
+                                     t-att-title="is_hot ? 'Hot desk' : 'Dedicated desk'">
+                                    <i class="fa fa-desktop"/>
                                 </div>
                             </aside>
 
