@@ -100,6 +100,22 @@ class BusinessCenterProviderMixin(models.AbstractModel):
             name=unit.display_name,
             state=states.get(unit.state, unit.state),
         ))
+        
+    @api.model
+    def _fp_release(self, plan, records):
+        """A Draft unit taken off its floor layout is deleted: it was made from
+        its shape and has no place to be rented from without it. Units on any
+        contract, even a draft one, are kept."""
+
+        records.filtered(lambda r: r.state == "draft" and not r.leased_asset_ids).unlink()
+        
+    @api.model
+    def _fp_release(self, plan, records):
+        """Called after a save with the records that are no longer drawn on
+        ``plan`` (their shape was deleted or unlinked, and not linked again).
+        Nothing happens by default; bridges may clean up."""
+
+        return
 
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS

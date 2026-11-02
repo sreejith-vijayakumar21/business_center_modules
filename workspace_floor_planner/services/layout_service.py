@@ -101,6 +101,7 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
         Object = self.env["workspace.floor.plan.object"]
         existing = {obj.id: obj for obj in plan.object_ids}
         kept_ids = {vals["id"] for vals in clean["objects"] if vals.get("id")}
+        drawn_before = self._drawn_records(plan)
 
         # Delete first so a link can move from a removed object to a new one.
         to_delete = plan.object_ids.filtered(lambda o: o.id not in kept_ids)
@@ -139,6 +140,10 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
                 })
         created = Object.create(create_vals) if create_vals else Object
 
+        # Records drawn before this save and nowhere on the plan after it.
+        plan.invalidate_recordset(["object_ids"])
+        self._release_records(plan, drawn_before - self._drawn_records(plan))
+
         plan.write({**clean["plan"], "layout_version": plan.layout_version + 1})
         result = self._load(plan)
         result["id_map"] = dict(zip(client_keys, created.ids))
@@ -160,6 +165,30 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
             records = provider._fp_target().sudo().browse(linked.mapped("link_res_id")).exists()
             if records:
                 provider._fp_check_remove(plan, records)
+                
+    def _drawn_records(self, plan):
+        """(link_key, record id) of every record a shape on ``plan`` draws."""
+
+        return {(o.link_key, o.link_res_id) for o in plan.object_ids
+                if o.link_key and o.link_res_id}
+
+    def _release_records(self, plan, pairs):
+        """Hand each provider the records no longer drawn on ``plan``."""
+
+        registry = self.env["workspace.floor.link.registry"]
+        by_key = {}
+        for link_key, res_id in pairs:
+            by_key.setdefault(link_key, []).append(res_id)
+        for link_key, res_ids in by_key.items():
+            try:
+                provider = registry._get_provider(link_key)
+            except UserError:
+                continue
+            if not provider:
+                continue
+            records = provider._fp_target().sudo().browse(res_ids).exists()
+            if records:
+                provider._fp_release(plan, records)
 
     @api.model
     def _diff(self, obj, vals):
