@@ -106,12 +106,15 @@ class BusinessCenterProviderMixin(models.AbstractModel):
     @api.model
     def _fp_release(self, plan, records):
         """A Draft unit taken off its floor layout is deleted: it was made from
-        its shape and has no place to be rented from without it. Units on any
-        contract, even a draft one, are kept."""
+        its shape and has no place to be rented from without it. Units with
+        history are kept: any contract (in any state), or for meeting rooms
+        any booking, since those documents refer to them."""
 
-        logging.getLogger(__name__).info("FP-DEBUG _fp_release on %s: %s", self._name,
-                                         [(r.id, r.state, r.leased_asset_ids.ids) for r in records])
-        records.filtered(lambda r: r.state == "draft" and not r.leased_asset_ids).unlink()
+        Booking = self.env["business.center.booking"].sudo()
+        records.filtered(lambda r: r.state == "draft" and not r.leased_asset_ids
+                         and not (r._name == "business.center.space"
+                                  and Booking.search_count([("meeting_room_id", "=", r.id)], limit=1))
+                         ).unlink()
 
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS

@@ -240,30 +240,27 @@ class BusinessCenterSpace(models.Model):
         return super().create(vals_list)
                 
     @api.ondelete(at_uninstall=False)
-    def _unlink_except_live_contract(self):
-        """Prevent deleting a space while it still belongs to a draft or active contract"""
-        
+    def _unlink_except_has_history(self):
+        """A space that was ever on a contract or ever booked, in any state,
+        keeps its record: contracts, bookings and invoices refer to it."""
+
         for rec in self:
-            live = rec.leased_asset_ids.filtered(
-                lambda a: a.contract_id.state in ('draft', 'upcoming', 'active')
-            )
-            if live:
+            contracts = rec.leased_asset_ids.mapped('contract_id')
+            if contracts:
                 raise UserError(_(
-                    "Space %(space)s is part of contract(s) %(contracts)s. "
-                    "Cancel or amend the contract before deleting the space.",
+                    "Space %(space)s appears on contract(s) %(contracts)s and "
+                    "cannot be deleted. Archive it instead to stop using it.",
                     space=rec.name,
-                    contracts=", ".join(live.mapped('contract_id.name')),
+                    contracts=", ".join(contracts[:5].mapped('name')),
                 ))
             if rec.space_type != 'meeting_room':
                 continue
             bookings = self.env['business.center.booking'].search([
-                ('meeting_room_id', '=', rec.id),
-                ('state', '!=', 'cancelled'),
-            ], limit=5)
+                ('meeting_room_id', '=', rec.id)], limit=5)
             if bookings:
                 raise UserError(_(
-                    "%(room)s has bookings (%(bookings)s) and cannot be "
-                    "deleted. Cancel them first.",
+                    "%(room)s has bookings (%(bookings)s) and cannot be deleted. "
+                    "Withdraw it from booking instead.",
                     room=rec.display_name,
                     bookings=", ".join(bookings.mapped('name')),
                 ))
