@@ -106,7 +106,6 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
         existing = {obj.id: obj for obj in plan.object_ids}
         kept_ids = {vals["id"] for vals in clean["objects"] if vals.get("id")}
         drawn_before = self._drawn_records(plan)
-        _logger.info("FP-DEBUG plan %s drawn before: %s", plan.id, sorted(drawn_before))
 
         # Delete first so a link can move from a removed object to a new one.
         to_delete = plan.object_ids.filtered(lambda o: o.id not in kept_ids)
@@ -148,8 +147,6 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
         # Records drawn before this save and nowhere on the plan after it.
         plan.invalidate_recordset(["object_ids"])
         drawn_after = self._drawn_records(plan)
-        _logger.info("FP-DEBUG plan %s drawn after: %s | released: %s",
-                     plan.id, sorted(drawn_after), sorted(drawn_before - drawn_after))
         self._release_records(plan, drawn_before - drawn_after)
 
         plan.write({**clean["plan"], "layout_version": plan.layout_version + 1})
@@ -196,8 +193,6 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
                 continue
             records = provider._fp_target().sudo().browse(res_ids).exists()
             if records:
-                _logger.info("FP-DEBUG release %s -> %s %s", link_key, provider._name,
-                             [(r.id, r.display_name, r.state, r.leased_asset_ids.ids) for r in records])
                 provider._fp_release(plan, records)
 
     @api.model
