@@ -22,10 +22,11 @@ class WorkspaceFloorStatusService(models.AbstractModel):
     def _plan_summary(self, plan, units, unit_results, at=None):
         """Return the totals of a layout drawn for a Business Center floor.
 
-        The totals come from the floor's own offices, desks and meeting
-        rooms rather than from the shapes, so a unit counts even before it
-        is drawn; ``unplaced`` tells how many are not on the drawing yet.
-        Layouts not tied to a floor keep the core behaviour.
+        Spaces and desks exist through their shapes, so the totals count the
+        floor's offices, desks and meeting rooms that are drawn on this
+        layout. Units of the floor that are not drawn are left out of the
+        totals and only reported as ``unplaced``, so they can be found and
+        cleaned up. Layouts not tied to a floor keep the core behaviour.
         """
 
         if not plan.bc_floor_id:
@@ -42,9 +43,10 @@ class WorkspaceFloorStatusService(models.AbstractModel):
                 continue
             # Same access and company filtering as everywhere else.
             records = provider._fp_resolve(plan, records.ids)
-            for status in provider._fp_get_statuses(records, at).values():
+            drawn = records.filtered(lambda rec: (key, rec.id) in placed)
+            for status in provider._fp_get_statuses(drawn, at).values():
                 summary[status if status in summary else STATUS_UNKNOWN] += 1
-            unplaced += sum(1 for rec in records if (key, rec.id) not in placed)
+            unplaced += len(records - drawn)
         summary["total"] = sum(summary.values())
         summary["unplaced"] = unplaced
         return summary
