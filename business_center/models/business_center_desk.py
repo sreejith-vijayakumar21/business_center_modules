@@ -227,6 +227,10 @@ class BusinessCenterDesk(models.Model):
                     desk=rec.display_name,
                     space=rec.space_id.display_name,
                 ))
+            if rec.desk_type == 'hot' and rec.hourly_rate <= 0:
+                raise UserError(_(
+                    "Set the hourly rate of hot desk %s before making it available.",
+                    rec.display_name))
         self.write({'state': 'available'})
         
     def action_open_desk_contracts(self):

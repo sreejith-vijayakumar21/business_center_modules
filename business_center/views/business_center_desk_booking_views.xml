@@ -59,7 +59,8 @@
                         </group>
                         <group string="Price">
                             <field name="currency_id" invisible="1"/>
-                            <field name="hourly_rate" widget="monetary" readonly="state != 'draft'"/>
+                            <field name="hourly_rate" widget="monetary" readonly="state != 'draft'"
+                                   help="Taken from the hot desk; change it here for a special price on this booking."/>
                             <field name="duration_display"/>
                             <field name="amount" widget="monetary"/>
                             <field name="billed_hours" invisible="not billed_hours"/>

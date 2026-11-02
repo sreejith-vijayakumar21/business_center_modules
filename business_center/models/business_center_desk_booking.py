@@ -234,6 +234,10 @@ class BusinessCenterDeskBooking(models.Model):
                 raise UserError(_("%s is not available for booking.", rec.desk_id.display_name))
             if not rec._booking_hours():
                 raise UserError(_("Pick a start and an end time first."))
+            if rec.hourly_rate <= 0:
+                raise UserError(_(
+                    "%s has no hourly rate. Set the rate on the hot desk, or on "
+                    "this booking for a special price.", rec.desk_id.display_name))
             if rec._is_in_past() and not self.env.user.has_group('business_center.group_bc_manager'):
                 raise UserError(_(
                     "%s starts in the past. Ask a manager to record a past booking.", rec.name))
