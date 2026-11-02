@@ -116,8 +116,8 @@
                                         <field name="min_lock_period_unit" nolabel="1" invisible="not is_lock_period"/>
                                     </div>
                                 </group>
-                                <group string="Booking Rules" invisible="space_type != 'meeting_room'">
-                                    <field name="is_bookable"/>
+                                <group string="Booking Rules" invisible="space_type != 'meeting_room' and not is_coworking">
+                                    <field name="is_bookable" invisible="space_type != 'meeting_room'"/>
                                     <field name="min_booking_hour" widget="bc_time_select"
                                            options="{'role': 'start', 'end_field': 'max_booking_hour'}"
                                            help="When the room opens for bookings."/>

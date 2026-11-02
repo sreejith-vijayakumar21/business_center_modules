@@ -23,3 +23,12 @@ class ResCompany(models.Model):
                 help="When the monthly billing run creates a contract invoice, confirm "
              "it and email it to the tenant. Leave off to review drafts first. "
              "A contract can opt out with Review Invoices Manually.")
+    bc_hot_desk_no_show_charge = fields.Selection([
+        ('none', 'No Charge'),
+        ('first_hour', 'First Hour'),
+        ('full', 'Full Booking'),
+    ], string='Hot Desk No-show Charge', default='first_hour', required=True,
+        help="What a hot desk booking nobody checked in to is charged.")
+    bc_hot_desk_checkin_grace = fields.Integer(
+        string='Hot Desk Check-in Grace (min)', default=15,
+        help="Minutes after the start before an unchecked booking becomes a no-show.")

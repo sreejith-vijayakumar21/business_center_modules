@@ -27,6 +27,8 @@ class BusinessCenterContractCharge(models.Model):
         ('cancelled', 'Cancelled'),
     ], string='Status', default='pending')
     
+    desk_booking_id = fields.Many2one('business.center.desk.booking', string='Hot Desk Booking',
+                                      ondelete='restrict', index=True)
     contract_id = fields.Many2one('business.center.contract', string='Contract',
                                   required=True, ondelete='cascade', index=True)
     booking_id = fields.Many2one('business.center.booking', string='Source Booking',
@@ -47,3 +49,26 @@ class BusinessCenterContractCharge(models.Model):
         
         for rec in self:
             rec.amount = rec.quantity * rec.unit_price
+            
+    # ------------------------------------------------------------------------------
+    #   MARK: HELPER METHODS
+    # ------------------------------------------------------------------------------
+    def _bc_invoice_resource(self):
+        """The booked resource this charge bills: a hot desk or a meeting room."""
+
+        self.ensure_one()
+        return self.desk_booking_id.desk_id or self.booking_id.meeting_room_id
+
+    def _bc_invoice_product(self):
+        """The product its invoice line uses."""
+
+        self.ensure_one()
+        if self.desk_booking_id:
+            return self.env.ref('business_center.product_hot_desk_booking')
+        return self.booking_id.meeting_room_id.product_id
+
+    def _bc_invoice_label(self):
+        """The kind of charge, shown on the invoice line."""
+
+        self.ensure_one()
+        return _("Hot Desk") if self.desk_booking_id else _("Meeting Room")

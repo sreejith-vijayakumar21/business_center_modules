@@ -26,3 +26,7 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.bc_renewal_increase_pct', readonly=False)
     bc_invoice_auto_send = fields.Boolean(
         related='company_id.bc_invoice_auto_send', readonly=False)
+    bc_hot_desk_no_show_charge = fields.Selection(
+        related='company_id.bc_hot_desk_no_show_charge', readonly=False)
+    bc_hot_desk_checkin_grace = fields.Integer(
+        related='company_id.bc_hot_desk_checkin_grace', readonly=False)

@@ -28,6 +28,13 @@
                                 help="Booking dates and times are compared in this timezone, including for portal users.">
                             <field name="bc_timezone" class="w-100"/>
                         </setting>
+                        <setting string="Hot Desk No-shows"
+                                help="A booking nobody checks in to is released after the grace period and charged as set here.">
+                            <div class="mt-2">
+                                <field name="bc_hot_desk_checkin_grace" class="oe_inline"/> minutes grace,
+                                charge: <field name="bc_hot_desk_no_show_charge" class="oe_inline"/>
+                            </div>
+                        </setting>
                     </block>
                 </app>
             </xpath>

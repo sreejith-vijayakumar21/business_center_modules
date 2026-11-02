@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- FORM VIEW -->
+    <record id="business_center_desk_booking_view_form" model="ir.ui.view">
+        <field name="name">business.center.desk.booking.view.form</field>
+        <field name="model">business.center.desk.booking</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_confirm" string="Confirm" type="object"
+                            class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_check_in" string="Check In" type="object"
+                            class="btn-primary" invisible="state != 'confirmed'"/>
+                    <button name="action_done" string="Check Out" type="object"
+                            class="btn-primary" invisible="state != 'checked_in'"/>
+                    <button name="action_cancel" string="Cancel" type="object"
+                            invisible="state not in ('draft', 'confirmed')"/>
+                    <button name="action_reset_to_draft" string="Reset to Draft" type="object"
+                            invisible="state != 'cancelled'"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="draft,confirmed,checked_in,done"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group string="Customer">
+                            <field name="partner_id" readonly="state != 'draft'"/>
+                            <field name="commercial_partner_id" invisible="1"/>
+                            <field name="contract_id" readonly="state != 'draft'"
+                                   options="{'no_create': True}"/>
+                        </group>
+                        <group string="Hot Desk">
+                            <field name="center_id" readonly="state != 'draft'"/>
+                            <field name="space_id" readonly="state != 'draft'"
+                                   options="{'no_create': True}"/>
+                            <field name="desk_id" readonly="state != 'draft'"
+                                   options="{'no_create': True}"/>
+                        </group>
+                        <group string="Schedule">
+                            <field name="booking_date" readonly="state != 'draft'"/>
+                            <field name="slot_availability_html" widget="html" nolabel="1" colspan="2"
+                                   invisible="not desk_id or not booking_date"/>
+                            <field name="slot_open_hour" invisible="1"/>
+                            <field name="slot_close_hour" invisible="1"/>
+                            <field name="booked_ranges" invisible="1"/>
+                            <field name="start_time" widget="bc_time_select" readonly="state != 'draft'"
+                                   options="{'role': 'start', 'end_field': 'end_time',
+                                             'open_field': 'slot_open_hour', 'close_field': 'slot_close_hour',
+                                             'busy_field': 'booked_ranges'}"/>
+                            <field name="end_time" widget="bc_time_select" readonly="state != 'draft'"
+                                   options="{'role': 'end', 'start_field': 'start_time',
+                                             'open_field': 'slot_open_hour', 'close_field': 'slot_close_hour',
+                                             'busy_field': 'booked_ranges'}"/>
+                            <field name="selected_slot_display" invisible="not start_time and not end_time"/>
+                            <field name="checked_in_at" invisible="not checked_in_at"/>
+                        </group>
+                        <group string="Price">
+                            <field name="currency_id" invisible="1"/>
+                            <field name="hourly_rate" widget="monetary" readonly="state != 'draft'"/>
+                            <field name="duration_display"/>
+                            <field name="amount" widget="monetary"/>
+                            <field name="billed_hours" invisible="not billed_hours"/>
+                            <field name="charge_id" invisible="not charge_id"/>
+                            <field name="invoice_id" invisible="not invoice_id"/>
+                        </group>
+                    </group>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- LIST VIEW -->
+    <record id="business_center_desk_booking_view_list" model="ir.ui.view">
+        <field name="name">business.center.desk.booking.view.list</field>
+        <field name="model">business.center.desk.booking</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="name"/>
+                <field name="desk_id"/>
+                <field name="partner_id"/>
+                <field name="contract_id" optional="show"/>
+                <field name="center_id" optional="hide"/>
+                <field name="booking_date"/>
+                <field name="selected_slot_display" string="Slot"/>
+                <field name="duration_display" string="Duration"/>
+                <field name="currency_id" column_invisible="1"/>
+                <field name="amount" widget="monetary" sum="Total"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-primary="state == 'confirmed'"
+                       decoration-success="state in ('checked_in', 'done')"
+                       decoration-warning="state == 'no_show'"
+                       decoration-muted="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- CALENDAR VIEW -->
+    <record id="business_center_desk_booking_view_calendar" model="ir.ui.view">
+        <field name="name">business.center.desk.booking.view.calendar</field>
+        <field name="model">business.center.desk.booking</field>
+        <field name="arch" type="xml">
+            <calendar date_start="booking_date" color="desk_id" mode="week" quick_create="0">
+                <field name="desk_id" filters="1"/>
+                <field name="partner_id"/>
+                <field name="selected_slot_display"/>
+                <field name="state"/>
+            </calendar>
+        </field>
+    </record>
+
+    <!-- SEARCH VIEW -->
+    <record id="business_center_desk_booking_view_search" model="ir.ui.view">
+        <field name="name">business.center.desk.booking.view.search</field>
+        <field name="model">business.center.desk.booking</field>
+        <field name="arch" type="xml">
+            <search string="Hot Desk Bookings">
+                <field name="name"/>
+                <field name="partner_id"/>
+                <field name="desk_id"/>
+                <field name="contract_id"/>
+                <filter name="filter_today" string="Today"
+                        domain="[('booking_date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <filter name="filter_confirmed" string="Confirmed" domain="[('state', '=', 'confirmed')]"/>
+                <filter name="filter_checked_in" string="Checked In" domain="[('state', '=', 'checked_in')]"/>
+                <filter name="filter_no_show" string="No-show" domain="[('state', '=', 'no_show')]"/>
+                <group>
+                    <filter name="groupby_desk" string="Hot Desk" context="{'group_by': 'desk_id'}"/>
+                    <filter name="groupby_date" string="Date" context="{'group_by': 'booking_date'}"/>
+                    <filter name="groupby_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ACTION -->
+    <record id="action_business_center_desk_booking" model="ir.actions.act_window">
+        <field name="name">Hot Desk Bookings</field>
+        <field name="res_model">business.center.desk.booking</field>
+        <field name="view_mode">list,calendar,form</field>
+        <field name="search_view_id" ref="business_center_desk_booking_view_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Book a hot desk</p>
+            <p>Hot desks are booked by the hour, by tenants or walk-ins.</p>
+        </field>
+    </record>
+
+    <!-- MENU: replace PARENT_BOOKINGS_MENU with the parent of the meeting room bookings menu -->
+    <menuitem id="menu_business_center_desk_booking"
+              name="Hot Desks"
+              parent="bc_booking_menu"
+              action="action_business_center_desk_booking"
+              sequence="20"/>
+
+</odoo>

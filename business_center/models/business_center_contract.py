@@ -1047,7 +1047,7 @@ class BusinessCenterContract(models.Model):
 
         period_start, period_end = self._get_billing_period()
         pending = self.charge_ids.filtered(
-            lambda c: c.state == 'pending' and c.booking_id.meeting_room_id)
+            lambda c: c.state == 'pending' and c._bc_invoice_resource())
         if not period_start and not pending:
             raise UserError(_("Nothing to invoice: this contract is billed up to "
                               "its end date and has no pending charges."))
@@ -1086,28 +1086,29 @@ class BusinessCenterContract(models.Model):
                     'price_unit': price_unit,
                 }, False))
 
-        by_room = {}
+        # One line per booked resource (meeting room or hot desk) for the exact
+        # amount: billing hours as the quantity would round them (50 min = 0.83 h).
+        by_resource = {}
         for charge in pending:
-            room = charge.booking_id.meeting_room_id
-            by_room.setdefault(room.id, self.env['business.center.contract.charge'])
-            by_room[room.id] |= charge
+            resource = charge._bc_invoice_resource()
+            key = (resource._name, resource.id)
+            by_resource.setdefault(key, self.env['business.center.contract.charge'])
+            by_resource[key] |= charge
 
-        for room_charges in by_room.values():
-            room = room_charges[0].booking_id.meeting_room_id
-            # One line per room for the exact amount. Billing the hours as the
-            # quantity would round them to the unit precision (50 min = 0.83 h)
-            # and under-charge against what the booking showed.
-            duration = room_charges[0].booking_id._float_to_duration(
-                sum(room_charges.mapped('quantity')))
-            label = _("Meeting Room - %(room)s (%(duration)s)",
-                      room=room.name or _("Charge"), duration=duration)
-            vals = {
-                'product_id': room.product_id.id,
+        for charges in by_resource.values():
+            first = charges[0]
+            duration = self.env['business.center.time.format.mixin']._float_to_duration(
+                sum(charges.mapped('quantity')))
+            label = _("%(kind)s - %(name)s (%(duration)s)",
+                      kind=first._bc_invoice_label(),
+                      name=first._bc_invoice_resource().name or _("Charge"),
+                      duration=duration)
+            line_specs.append(({
+                'product_id': first._bc_invoice_product().id,
                 'name': label,
                 'quantity': 1.0,
-                'price_unit': self.currency_id.round(sum(room_charges.mapped('amount'))),
-            }
-            line_specs.append((vals, room_charges))
+                'price_unit': self.currency_id.round(sum(charges.mapped('amount'))),
+            }, charges))
 
         if not line_specs:
             raise UserError(_("Nothing to invoice: no rent or pending charges found."))
@@ -1174,7 +1175,7 @@ class BusinessCenterContract(models.Model):
                 break
             has_rent = self.leased_asset_ids.filtered(lambda a: a.monthly_rent_total)
             has_charges = self.charge_ids.filtered(
-                lambda c: c.state == 'pending' and c.booking_id.meeting_room_id)
+                lambda c: c.state == 'pending' and c._bc_invoice_resource())
             if not has_rent and not has_charges:
                 self.next_invoice_date = period_end + relativedelta(days=1)
                 continue
@@ -1184,7 +1185,7 @@ class BusinessCenterContract(models.Model):
                 "Billing cron: %s hit the 24-period catch-up limit; it may "
                 "still owe invoices.", self.name)
         if self.state == 'expired' and self.charge_ids.filtered(
-                lambda c: c.state == 'pending' and c.booking_id.meeting_room_id):
+                lambda c: c.state == 'pending' and c._bc_invoice_resource()):
             moves |= self._create_rent_invoice()
         return moves
     

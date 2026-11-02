@@ -145,11 +145,8 @@ class BusinessCenterDesk(models.Model):
         for rec in self:
             if rec._bc_has_history():
                 raise UserError(_(
-                    "Desk %(desk)s appears on contract(s) %(contracts)s and cannot "
-                    "be deleted. Archive it instead to stop using it.",
-                    desk=rec.name,
-                    contracts=", ".join(rec.sudo().leased_asset_ids.contract_id[:5].mapped('name')),
-                ))
+                    "Desk %s has contracts or bookings in its history and cannot be "
+                    "deleted. Archive it instead to stop using it.", rec.name))
             
     @api.depends('leased_asset_ids')
     def _compute_desk_contract_count(self):
@@ -251,7 +248,9 @@ class BusinessCenterDesk(models.Model):
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
     def _bc_has_history(self):
-        """True when the desk was ever on a contract, in any state."""
+        """True when the desk was ever on a contract or ever booked."""
 
         self.ensure_one()
-        return bool(self.sudo().leased_asset_ids)
+        return bool(self.sudo().leased_asset_ids) or bool(
+            self.env['business.center.desk.booking'].sudo().search_count(
+                [('desk_id', '=', self.id)], limit=1))
