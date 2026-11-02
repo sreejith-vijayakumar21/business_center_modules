@@ -82,9 +82,7 @@ class BusinessCenterSlotBookingMixin(models.AbstractModel):
         """Opening and closing time of the booked resource."""
 
         for rec in self:
-            holder = rec._slot_hours_holder()
-            rec.slot_open_hour = holder.min_booking_hour if holder else 0.0
-            rec.slot_close_hour = holder.max_booking_hour if holder else 0.0
+            rec.slot_open_hour, rec.slot_close_hour = rec._slot_hours()
 
     @api.depends(_resource_deps('booking_date'))
     def _compute_booked_ranges(self):
@@ -100,13 +98,11 @@ class BusinessCenterSlotBookingMixin(models.AbstractModel):
         opening hours at every booking edge and marking each part busy or free."""
 
         for rec in self:
-            holder = rec._slot_hours_holder()
-            if not rec._slot_resource() or not rec.booking_date or not holder.max_booking_hour:
+            open_h, close_h = rec._slot_hours()
+            if not rec._slot_resource() or not rec.booking_date or not close_h:
                 rec.slot_availability_html = False
                 continue
 
-            open_h = holder.min_booking_hour or 0.0
-            close_h = holder.max_booking_hour
             existing = rec._slot_other_bookings()
 
             # 1. Boundary points: the day's edges plus every booking edge,
@@ -187,20 +183,20 @@ class BusinessCenterSlotBookingMixin(models.AbstractModel):
         it closes."""
 
         for rec in self:
-            holder = rec._slot_hours_holder()
-            if not holder or rec.end_time <= rec.start_time:
+            if not rec._slot_resource() or rec.end_time <= rec.start_time:
                 continue
-            if holder.min_booking_hour and rec.start_time < holder.min_booking_hour:
+            open_h, close_h = rec._slot_hours()
+            if open_h and rec.start_time < open_h:
                 raise ValidationError(_(
                     "Booking cannot start before %(resource)s opens at %(time)s.",
                     resource=rec._slot_resource().display_name,
-                    time=rec._float_to_ampm(holder.min_booking_hour),
+                    time=rec._float_to_ampm(open_h),
                 ))
-            if holder.max_booking_hour and rec.end_time > holder.max_booking_hour:
+            if close_h and rec.end_time > close_h:
                 raise ValidationError(_(
                     "Booking cannot end after %(resource)s closes at %(time)s.",
                     resource=rec._slot_resource().display_name,
-                    time=rec._float_to_ampm(holder.max_booking_hour),
+                    time=rec._float_to_ampm(close_h),
                 ))
 
     @api.onchange('start_time', 'end_time', 'booking_date')
@@ -222,6 +218,13 @@ class BusinessCenterSlotBookingMixin(models.AbstractModel):
         """The record holding the opening hours of the booked resource."""
 
         return self.mapped(self._slot_hours_path)[:1]
+
+    def _slot_hours(self):
+        """(open, close) hours of the booked resource; close 0 means no
+        opening hours are set. Booking models may supply a fallback."""
+
+        holder = self._slot_hours_holder()
+        return (holder.min_booking_hour or 0.0, holder.max_booking_hour or 0.0) if holder else (0.0, 0.0)
 
     def _slot_other_bookings(self):
         """Other holding bookings of the same resource on the same day."""
@@ -246,6 +249,23 @@ class BusinessCenterSlotBookingMixin(models.AbstractModel):
         return self._slot_other_bookings().filtered(
             lambda b: b.start_time < self.end_time and b.end_time > self.start_time)[:1]
 
+    def _slot_check_free(self):
+        """Raise when another holding booking overlaps this slot. Called
+        before a booking starts holding its resource: checking only in the
+        constraint would first flush the new state, and the database's
+        exclusion constraint would refuse it with a raw SQL error instead
+        of this message."""
+
+        for rec in self:
+            overlapping = rec._slot_overlapping()
+            if overlapping:
+                raise ValidationError(_(
+                    "%(resource)s is already booked from %(start)s to %(end)s.",
+                    resource=rec._slot_resource().display_name,
+                    start=rec._float_to_ampm(overlapping.start_time),
+                    end=rec._float_to_ampm(overlapping.end_time),
+                ))
+
     def _slot_onchange_warning(self):
         """Form warning for a clashing slot or one outside opening hours."""
 
@@ -256,15 +276,14 @@ class BusinessCenterSlotBookingMixin(models.AbstractModel):
                 'title': _('Unavailable'),
                 'message': _('This slot is already booked. Please choose another time.'),
             }}
-        holder = self._slot_hours_holder()
-        if (holder.min_booking_hour and self.start_time < holder.min_booking_hour) or \
-           (holder.max_booking_hour and self.end_time > holder.max_booking_hour):
+        open_h, close_h = self._slot_hours()
+        if (open_h and self.start_time < open_h) or (close_h and self.end_time > close_h):
             return {'warning': {
                 'title': _('Outside Opening Hours'),
                 'message': _(
                     "Open %(open)s–%(close)s. Please pick a time within that window.",
-                    open=self._float_to_ampm(holder.min_booking_hour),
-                    close=self._float_to_ampm(holder.max_booking_hour),
+                    open=self._float_to_ampm(open_h),
+                    close=self._float_to_ampm(close_h),
                 ),
             }}
         return None

@@ -330,6 +330,7 @@ class BusinessCenterBooking(models.Model):
             (contract.id,))
         contract.invalidate_recordset(['wallet_balance'])
 
+        self._slot_check_free()
         hours = self._booking_hours()
         available = contract.wallet_balance if contract.is_wallet_eligible else 0.0
         self.wallet_balance_at_booking = available
