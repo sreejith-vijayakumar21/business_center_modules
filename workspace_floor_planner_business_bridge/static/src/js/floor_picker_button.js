@@ -5,33 +5,27 @@ import { useService } from "@web/core/utils/hooks";
 import { standardWidgetProps } from "@web/views/widgets/standard_widget_props";
 import { FloorPickerDialog } from "@workspace_floor_planner/floor_planner/picker/floor_picker_dialog";
 
-/** Per lease asset type: the field to fill, the field listing what may be
- * picked, and the floor planner link key of those records. */
-const PICK_CONFIG = {
-    office: {
-        field: "space_id",
-        options: "available_space_ids",
-        linkKey: "bc_office",
-        title: _t("Pick an office from the floor plan"),
-    },
-    desk: {
-        field: "desk_id",
-        options: "available_desk_ids",
-        linkKey: "bc_desk",
-        title: _t("Pick a desk from the floor plan"),
-    },
-};
-
 /**
- * "Pick from floor plan" button on a leased asset line.
+ * "Pick from floor plan" button.
  *
- * Offers exactly the records the line's own dropdown offers (its
- * available_space_ids / available_desk_ids), shown on their floor layouts,
- * and fills the space or desk field with the one picked.
+ * Shows the records a many2one may take on their floor layouts and fills it
+ * with the one picked. Configured by the view, so any form can use it:
+ *   field          the many2one to fill
+ *   options_field  x2many listing the records that may be picked
+ *   link_key       floor planner link key of those records
+ *   title          dialog title
+ *   chosen_fields  {link_key: x2many} of records already chosen elsewhere
  */
 export class BcFloorPickerButton extends Component {
     static template = "workspace_floor_planner_business_bridge.FloorPickerButton";
-    static props = { ...standardWidgetProps };
+    static props = {
+        ...standardWidgetProps,
+        field: String,
+        optionsField: String,
+        linkKey: String,
+        title: { type: String, optional: true },
+        chosenFields: { type: Object, optional: true },
+    };
 
     setup() {
         this.orm = useService("orm");
@@ -39,26 +33,29 @@ export class BcFloorPickerButton extends Component {
         this.notification = useService("notification");
     }
 
-    get config() {
-        return PICK_CONFIG[this.props.record.data.lease_asset_type] || null;
+    get disabled() {
+        return Boolean(this.props.readonly);
     }
 
-    get disabled() {
-        return Boolean(this.props.readonly || !this.config);
+    /** Records already chosen elsewhere, per link key, shown but not pickable. */
+    get chosen() {
+        const data = this.props.record.data;
+        return Object.fromEntries(
+            Object.entries(this.props.chosenFields || {}).map(
+                ([linkKey, fieldName]) => [linkKey, data[fieldName]?.currentIds || []]
+            )
+        );
     }
 
     async open() {
         const record = this.props.record;
-        const config = this.config;
-        const resIds = record.data[config.options].currentIds;
+        const resIds = record.data[this.props.optionsField].currentIds;
         if (!resIds.length) {
-            this.notification.add(_t("Nothing is available for this contract's dates."), {
-                type: "warning",
-            });
+            this.notification.add(_t("Nothing is available to pick right now."), { type: "warning" });
             return;
         }
         const sites = await this.orm.call(
-            "business.center.floor", "bc_get_picker_sites", [config.linkKey, resIds]);
+            "business.center.floor", "bc_get_picker_sites", [this.props.linkKey, resIds]);
         if (!sites.length) {
             this.notification.add(
                 _t("None of the available units are drawn on a floor layout yet. Use the dropdown instead."),
@@ -66,16 +63,13 @@ export class BcFloorPickerButton extends Component {
             return;
         }
         this.dialog.add(FloorPickerDialog, {
-            title: config.title,
+            title: this.props.title || _t("Pick from the floor plan"),
             sites,
             siteId: (sites.find((s) => s.plans.some((p) => p.pickable)) || sites[0]).id,
-            allowed: { [config.linkKey]: resIds },
-            chosen: {
-                bc_office: record.data.contract_space_ids.currentIds,
-                bc_desk: record.data.contract_desk_ids.currentIds,
-            },
+            allowed: { [this.props.linkKey]: resIds },
+            chosen: this.chosen,
             onPick: (pick) => record.update({
-                [config.field]: { id: pick.res_id, display_name: pick.name },
+                [this.props.field]: { id: pick.res_id, display_name: pick.name },
             }),
         });
     }
@@ -83,4 +77,11 @@ export class BcFloorPickerButton extends Component {
 
 registry.category("view_widgets").add("bc_floor_picker", {
     component: BcFloorPickerButton,
+    extractProps: ({ options }) => ({
+        field: options.field,
+        optionsField: options.options_field,
+        linkKey: options.link_key,
+        title: options.title,
+        chosenFields: options.chosen_fields,
+    }),
 });

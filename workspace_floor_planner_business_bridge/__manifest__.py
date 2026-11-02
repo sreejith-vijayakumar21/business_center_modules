@@ -22,6 +22,7 @@ Connects Workspace Floor Planner to the Business Center app:
     'data': [
         "security/floor_layout_security.xml",
         
+        "views/business_center_desk_booking_views.xml",
         "views/business_center_leased_asset_views.xml",
         "views/business_center_floor_views.xml",
         "views/business_center_views.xml",

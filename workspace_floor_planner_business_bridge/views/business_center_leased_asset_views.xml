@@ -20,7 +20,14 @@
             <xpath expr="//field[@name='desk_id']/.." position="after">
                 <div class="mb-3"
                      invisible="not lease_asset_type or renewal_of_contract_id or contract_state not in (False, 'draft')">
-                    <widget name="bc_floor_picker"/>
+                    <widget name="bc_floor_picker" invisible="lease_asset_type != 'office'"
+                            options="{'field': 'space_id', 'options_field': 'available_space_ids',
+                                    'link_key': 'bc_office', 'title': 'Pick an office from the floor plan',
+                                    'chosen_fields': {'bc_office': 'contract_space_ids', 'bc_desk': 'contract_desk_ids'}}"/>
+                    <widget name="bc_floor_picker" invisible="lease_asset_type != 'desk'"
+                            options="{'field': 'desk_id', 'options_field': 'available_desk_ids',
+                                    'link_key': 'bc_desk', 'title': 'Pick a desk from the floor plan',
+                                    'chosen_fields': {'bc_office': 'contract_space_ids', 'bc_desk': 'contract_desk_ids'}}"/>
                 </div>
             </xpath>
         </field>
