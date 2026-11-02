@@ -1,5 +1,10 @@
 import { reactive } from "@odoo/owl";
 import { clampToCanvas, normalizeAngle, round, snap } from "./geometry";
+import { _t } from "@web/core/l10n/translation";
+
+// Statuses whose linked shape may still be removed or unlinked; the server
+// has the final word through the link provider.
+export const REMOVABLE_STATUSES = ["draft", "not_linked", "unknown"];
 
 const HISTORY_LIMIT = 60;
 const OBJECT_FIELDS = [
@@ -118,6 +123,20 @@ export class LayoutStore {
         const fallback = { status: obj.link_key ? "unknown" : "not_linked" };
         const info = (obj.id && this.statusByObjectId[obj.id]) || fallback;
         return { ...info, display: this.statusPalette[info.status] || this.statusPalette.unknown };
+    }
+
+    /** Whether the record this shape draws may be taken off the layout. */
+    canRelease(obj) {
+        return !obj.link_key || REMOVABLE_STATUSES.includes(this.statusOf(obj).status);
+    }
+
+    /** Message explaining why ``obj`` may not be taken off the layout. */
+    releaseRefusal(obj) {
+        const status = this.statusOf(obj).status;
+        return _t("Only Draft spaces can be removed from or unlinked on the layout. “%(name)s” is %(status)s.", {
+            name: obj.name || obj.object_type,
+            status: this.statusPalette[status]?.name || status,
+        });
     }
 
     providersFor(objectType) {
@@ -293,10 +312,15 @@ export class LayoutStore {
     }
 
     /** Link or unlink an object. A linked shape takes the record's name as its
-     * label; an unlinked one goes back to its type's name, so it never shows
-     * the reference of a record it no longer draws. */
+     * label; an unlinked one goes back to its type's name. Unlinking (or
+     * swapping) the record of a unit that is not Draft is refused. */
     setLink(key, provider, record) {
         const obj = this.objects.find((o) => o.key === key);
+        const releases = obj && obj.link_key && (!record || record.id !== obj.link_res_id);
+        if (releases && !this.canRelease(obj)) {
+            this.notify?.(this.releaseRefusal(obj));
+            return false;
+        }
         const patch = {
             link_key: provider ? provider.key : false,
             link_res_id: record ? record.id : false,
@@ -310,6 +334,7 @@ export class LayoutStore {
             patch.name = preset ? preset.name : obj.name;
         }
         this.update(key, patch);
+        return true;
     }
 
     setPlanOption(field, value) {
