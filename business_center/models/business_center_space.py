@@ -4,6 +4,8 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
+DESK_LINK_KEYS = ("bc_desk", "bc_hot_desk")
+
 
 class BusinessCenterSpace(models.Model):
     """Stores master records for business center spaces"""

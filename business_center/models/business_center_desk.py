@@ -20,6 +20,14 @@ class BusinessCenterDesk(models.Model):
                        index='trigram', default=lambda self: _('New'))
     row_label = fields.Char(string='Seat Rows')
     position = fields.Integer(string='Position')
+    desk_type = fields.Selection([
+        ('dedicated', 'Dedicated Desk'),
+        ('hot', 'Hot Desk'),
+    ], string='Desk Type', required=True, default='dedicated', tracking=True,
+        help="Dedicated desks are leased on contracts; hot desks are shared "
+             "and booked by the hour.")
+    hourly_rate = fields.Monetary(string='Hourly Rate', currency_field='currency_id', tracking=True,
+                                  help="Price per hour of a hot desk booking.")
     state = fields.Selection([
         ('draft', 'Draft'),
         ('available', 'Available'),
@@ -60,6 +68,10 @@ class BusinessCenterDesk(models.Model):
     _monthly_rent_positive = models.Constraint(
         'CHECK (monthly_rent >= 0)',
          'Monthly rent cannot be negative!'
+    )
+    _hourly_rate_positive = models.Constraint(
+        'CHECK (hourly_rate >= 0)',
+        'Hourly rate cannot be negative!'
     )
     _NON_DRAFT_EDITABLE_FIELDS = {
         'state', 'occupant_id', 'current_contract_id',
@@ -118,7 +130,9 @@ class BusinessCenterDesk(models.Model):
                 row_label = vals.get('row_label') or ''
                 position = vals.get('position')
                 position = str(position) if position else ''
-                sequence = 'D' + row_label + position
+                desk_type = vals.get('desk_type') or self.env.context.get('default_desk_type')
+                prefix = 'H' if desk_type == 'hot' else 'D'
+                sequence = prefix + row_label + position
                 parts = [part for part in (center.code, floor.name, sequence) if part]
                 vals['name'] = '/'.join(parts)
         return super().create(vals_list)
@@ -177,6 +191,8 @@ class BusinessCenterDesk(models.Model):
     def action_set_occupied(self):
         """Mark the desk as occupied, refusing if no active contract is linked"""
         
+        if self.filtered(lambda d: d.desk_type == 'hot'):
+            raise UserError(_("Hot desks are booked by the hour, not occupied through a contract."))
         for rec in self:
             if not rec.current_contract_id:
                 raise UserError(_(
