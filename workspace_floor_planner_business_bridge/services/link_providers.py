@@ -149,6 +149,42 @@ class BusinessCenterProviderMixin(models.AbstractModel):
         Spaces by default; desk providers override it."""
 
         return floor.space_ids.filtered_domain(self._fp_target_domain())
+    
+    @api.model
+    def _local_moment(self, at):
+        """Convert ``at`` (naive UTC, or None for now) to the user's local
+        date and float hour, the way bookings store their times."""
+
+        tz = pytz.timezone(self.env.user.tz or "UTC")
+        local = pytz.utc.localize(at or fields.Datetime.now()).astimezone(tz)
+        return local.date(), local.hour + local.minute / 60.0
+
+    @api.model
+    def _bc_booking_statuses(self, records, at, booking_model, resource_field, holding_states):
+        """Statuses of bookable units at ``at``: draft and maintenance come
+        from the unit; otherwise a holding booking running then makes it
+        occupied, one later the same day reserved, none available."""
+
+        statuses = {rec.id: STATE_MAP.get(rec.state, "unknown") for rec in records}
+        bookable = records.filtered(lambda r: r.state in ("available", "occupied"))
+        if not bookable:
+            return statuses
+        day, hour = self._local_moment(at)
+        bookings = self.env[booking_model].sudo().search([
+            (resource_field, "in", bookable.ids),
+            ("state", "in", holding_states),
+            ("booking_date", "=", day),
+            ("end_time", ">", hour),
+        ])
+        for rec in bookable:
+            mine = bookings.filtered(lambda b: b[resource_field] == rec)
+            if mine.filtered(lambda b: b.start_time <= hour):
+                statuses[rec.id] = "occupied"
+            elif mine:
+                statuses[rec.id] = "reserved"
+            else:
+                statuses[rec.id] = "available"
+        return statuses
 
 
 class BusinessCenterOfficeProvider(models.AbstractModel):
@@ -246,6 +282,22 @@ class BusinessCenterHotDeskProvider(models.AbstractModel):
     _fp_link_label = "Hot Desk"
     _fp_object_types = frozenset({"hot_desk"})
     _fp_desk_type = "hot"
+    
+    # ------------------------------------------------------------------------------
+    #   MARK: COMPUTE/OVERRIDDEN METHODS
+    # ------------------------------------------------------------------------------
+    @api.model
+    def _fp_is_time_dependent(self):
+        """Hot desk statuses depend on bookings, so on the selected moment."""
+
+        return True
+
+    @api.model
+    def _fp_get_statuses(self, records, at=None):
+        """Hot desk statuses from their state and bookings at ``at``."""
+
+        return self._bc_booking_statuses(records, at, "business.center.desk.booking",
+                                         "desk_id", ("confirmed", "checked_in"))
 
 
 class BusinessCenterCoworkingProvider(models.AbstractModel):
@@ -329,42 +381,10 @@ class BusinessCenterMeetingRoomProvider(models.AbstractModel):
 
     @api.model
     def _fp_get_statuses(self, records, at=None):
-        """Maintenance and draft come from the room; otherwise a confirmed
-        booking running at that moment makes it occupied, and one later the
-        same day makes it reserved."""
+        """Room statuses from their state and confirmed bookings at ``at``."""
 
-        statuses = super()._fp_get_statuses(records, at)
-        bookable = records.filtered(lambda r: r.state in ("available", "occupied"))
-        if not bookable:
-            return statuses
-        day, hour = self._local_moment(at)
-        bookings = self.env["business.center.booking"].search([
-            ("meeting_room_id", "in", bookable.ids),
-            ("state", "=", "confirmed"),
-            ("booking_date", "=", day),
-            ("end_time", ">", hour),
-        ])
-        for room in bookable:
-            room_bookings = bookings.filtered(lambda b: b.meeting_room_id == room)
-            if room_bookings.filtered(lambda b: b.start_time <= hour):
-                statuses[room.id] = "occupied"
-            elif room_bookings:
-                statuses[room.id] = "reserved"
-            else:
-                statuses[room.id] = "available"
-        return statuses
-
-    # ------------------------------------------------------------------------------
-    #   MARK: HELPER METHODS
-    # ------------------------------------------------------------------------------
-    @api.model
-    def _local_moment(self, at):
-        """Convert ``at`` (naive UTC, or None for now) to the user's local
-        date and float hour, the way bookings store their times."""
-
-        tz = pytz.timezone(self.env.user.tz or "UTC")
-        local = pytz.utc.localize(at or fields.Datetime.now()).astimezone(tz)
-        return local.date(), local.hour + local.minute / 60.0
+        return self._bc_booking_statuses(records, at, "business.center.booking",
+                                         "meeting_room_id", ("confirmed",))
 
 
 class WorkspaceFloorLinkRegistry(models.AbstractModel):
