@@ -95,7 +95,8 @@ class BusinessCenterProviderMixin(models.AbstractModel):
         unit = in_use[0]
         states = dict(unit._fields["state"]._description_selection(self.env))
         raise UserError(self.env._(
-            "Only shapes of Draft spaces can be deleted. “%(name)s” is %(state)s.",
+            "Only Draft spaces can be removed from or unlinked on the layout. "
+            "“%(name)s” is %(state)s.",
             name=unit.display_name,
             state=states.get(unit.state, unit.state),
         ))

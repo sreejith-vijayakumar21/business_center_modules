@@ -292,8 +292,11 @@ export class LayoutStore {
         }
     }
 
-    /** Link (or unlink) an object; a linked shape takes the record's name as its label. */
+    /** Link or unlink an object. A linked shape takes the record's name as its
+     * label; an unlinked one goes back to its type's name, so it never shows
+     * the reference of a record it no longer draws. */
     setLink(key, provider, record) {
+        const obj = this.objects.find((o) => o.key === key);
         const patch = {
             link_key: provider ? provider.key : false,
             link_res_id: record ? record.id : false,
@@ -302,6 +305,9 @@ export class LayoutStore {
         };
         if (record) {
             patch.name = record.display_name.slice(0, 120);
+        } else if (obj) {
+            const preset = this.presets.find((p) => p.object_type === obj.object_type);
+            patch.name = preset ? preset.name : obj.name;
         }
         this.update(key, patch);
     }

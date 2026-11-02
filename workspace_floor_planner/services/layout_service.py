@@ -119,6 +119,9 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
         relinked = Object.browse([
             obj.id for obj, changes, _vals in updates if "link_key" in changes or "link_res_id" in changes
         ])
+        # Unlinking or relinking takes a unit off the floor just like deleting
+        # its shape, so the providers decide for the records being released.
+        self._check_removable(plan, relinked.filtered("link_res_id"))
         if relinked:
             relinked.write({"link_key": False, "link_res_id": False})
         for obj, changes, vals in updates:
