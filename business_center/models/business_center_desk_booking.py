@@ -56,7 +56,11 @@ class BusinessCenterDeskBooking(models.Model):
                                domain="[('center_id', '=', center_id), ('is_coworking', '=', True)]")
     desk_id = fields.Many2one(
         'business.center.desk', string='Hot Desk', required=True, tracking=True,
-        domain="[('space_id', '=', space_id), ('desk_type', '=', 'hot'), ('state', '=', 'available')]")
+        domain="[('id', 'in', available_desk_ids), ('space_id', '=', space_id)]")
+    available_desk_ids = fields.Many2many(
+        'business.center.desk', string='Free Hot Desks', compute='_compute_available_desk_ids',
+        help="Available hot desks (of the chosen centre, if any) not booked "
+             "during this slot, for the dropdown and the floor picker.")
     hourly_rate = fields.Monetary(string='Hourly Rate', compute='_compute_hourly_rate',
                                   store=True, readonly=False, currency_field='currency_id')
     duration_display = fields.Char(string='Duration', compute='_compute_amount')
@@ -98,6 +102,29 @@ class BusinessCenterDeskBooking(models.Model):
             hours = rec._booking_hours()
             rec.duration_display = rec._float_to_duration(hours)
             rec.amount = rec.currency_id.round(hours * rec.hourly_rate) if rec.currency_id else 0.0
+            
+    @api.depends('center_id', 'booking_date', 'start_time', 'end_time')
+    def _compute_available_desk_ids(self):
+        """Available hot desks, of the centre when one is chosen, minus those
+        held by another booking overlapping this slot."""
+
+        Desk = self.env['business.center.desk']
+        for rec in self:
+            domain = [('desk_type', '=', 'hot'), ('state', '=', 'available')]
+            if rec.center_id:
+                domain.append(('center_id', '=', rec.center_id.id))
+            desks = Desk.search(domain)
+            if rec.booking_date and rec.end_time > rec.start_time:
+                busy = self.search([
+                    ('desk_id', 'in', desks.ids),
+                    ('state', 'in', self._slot_blocking_states),
+                    ('booking_date', '=', rec.booking_date),
+                    ('start_time', '<', rec.end_time),
+                    ('end_time', '>', rec.start_time),
+                    ('id', '!=', rec._origin.id or 0),
+                ]).desk_id
+                desks -= busy
+            rec.available_desk_ids = desks
 
     @api.model_create_multi
     def create(self, vals_list):
@@ -158,8 +185,12 @@ class BusinessCenterDeskBooking(models.Model):
 
     @api.onchange('desk_id')
     def _onchange_desk_slot(self):
-        """Re-check the slot against the newly picked desk."""
+        """A picked desk brings its coworking space and centre along, then
+        the slot is re-checked against it."""
 
+        if self.desk_id:
+            self.space_id = self.desk_id.space_id
+            self.center_id = self.desk_id.center_id
         return self._slot_onchange_warning()
 
     @api.constrains('desk_id')
