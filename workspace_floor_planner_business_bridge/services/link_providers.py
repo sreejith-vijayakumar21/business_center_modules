@@ -142,6 +142,13 @@ class BusinessCenterProviderMixin(models.AbstractModel):
             "default_floor_id": floor.id,
             "bc_from_floor_layout": True,
         }
+        
+    @api.model
+    def _bc_floor_records(self, floor):
+        """This provider's rentable units on ``floor``, for the floor totals.
+        Spaces by default; desk providers override it."""
+
+        return floor.space_ids.filtered_domain(self._fp_target_domain())
 
 
 class BusinessCenterOfficeProvider(models.AbstractModel):
@@ -174,29 +181,39 @@ class BusinessCenterOfficeProvider(models.AbstractModel):
 
 
 class BusinessCenterDeskProvider(models.AbstractModel):
-    """Desks of coworking spaces."""
+    """Dedicated desks of coworking spaces, leased on contracts."""
 
     _name = "workspace.floor.link.provider.bc_desk"
     _inherit = "workspace.floor.link.provider.bc_mixin"
-    _description = "Floor link: Business Center desks"
+    _description = "Floor link: Business Center dedicated desks"
 
     _fp_link_key = "bc_desk"
     _fp_link_label = "Desk"
     _fp_target_model = "business.center.desk"
-    _fp_object_types = frozenset({"hot_desk", "dedicated_desk"})
+    _fp_object_types = frozenset({"dedicated_desk"})
+    # Desk type of the records this provider draws; subclasses change only this.
+    _fp_desk_type = "dedicated"
 
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
     # ------------------------------------------------------------------------------
     @api.model
-    def _fp_get_create_context(self, plan, obj):
-        """Put the new desk in the coworking space it is drawn in; a linked
-        coworking area wins over an unlinked one, the topmost over the rest.
+    def _fp_target_domain(self):
+        """Accept only desks of this provider's type."""
 
-        A desk always belongs to a coworking space, so creating one is
-        refused until the desk sits inside a coworking area whose coworking
-        space exists.
-        """
+        return [("desk_type", "=", self._fp_desk_type)]
+
+    @api.model
+    def _bc_floor_records(self, floor):
+        """Desks of this type in the floor's coworking spaces."""
+
+        return floor.space_ids.filtered("is_coworking").desk_ids.filtered_domain(self._fp_target_domain())
+
+    @api.model
+    def _fp_get_create_context(self, plan, obj):
+        """Put the new desk in the coworking space it is drawn in, with this
+        provider's desk type; a linked coworking area wins over an unlinked
+        one, the topmost over the rest."""
 
         point = center_of(obj._read_geometry())
         areas = plan.object_ids.filtered(
@@ -205,13 +222,30 @@ class BusinessCenterDeskProvider(models.AbstractModel):
         ).sorted("z_index", reverse=True)
         linked = areas.filtered(lambda a: a.link_key == "bc_coworking" and a.link_res_id)[:1]
         if linked:
-            return {"default_space_id": linked.link_res_id}
+            return {
+                "default_space_id": linked.link_res_id,
+                "default_desk_type": self._fp_desk_type,
+                "bc_from_floor_layout": True,
+            }
         if areas:
             raise UserError(self.env._(
                 "Create the coworking space first, then create the desk."))
         raise UserError(self.env._(
             "Place the desk inside a coworking space on the layout first, "
             "then create the desk."))
+
+
+class BusinessCenterHotDeskProvider(models.AbstractModel):
+    """Hot desks: shared desks of coworking spaces, booked by the hour."""
+
+    _name = "workspace.floor.link.provider.bc_hot_desk"
+    _inherit = "workspace.floor.link.provider.bc_desk"
+    _description = "Floor link: Business Center hot desks"
+
+    _fp_link_key = "bc_hot_desk"
+    _fp_link_label = "Hot Desk"
+    _fp_object_types = frozenset({"hot_desk"})
+    _fp_desk_type = "hot"
 
 
 class BusinessCenterCoworkingProvider(models.AbstractModel):
@@ -252,6 +286,12 @@ class BusinessCenterCoworkingProvider(models.AbstractModel):
             release_floor_links(self.env, DESK_LINK_KEYS, desks.ids)
             desks.write({"active": False})
         super()._fp_archive_released(records)
+        
+    @api.model
+    def _bc_floor_records(self, floor):
+        """A coworking space is not counted itself; its desks are."""
+
+        return self._fp_target().browse()
 
 
 class BusinessCenterMeetingRoomProvider(models.AbstractModel):
@@ -344,4 +384,5 @@ class WorkspaceFloorLinkRegistry(models.AbstractModel):
             "workspace.floor.link.provider.bc_desk",
             "workspace.floor.link.provider.bc_meeting_room",
             "workspace.floor.link.provider.bc_coworking",
+            "workspace.floor.link.provider.bc_hot_desk",
         ]

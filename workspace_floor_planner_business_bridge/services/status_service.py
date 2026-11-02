@@ -5,9 +5,6 @@ from odoo import api, models
 
 from odoo.addons.workspace_floor_planner.tools.constants import SUMMARY_STATUS_CODES, STATUS_UNKNOWN
 
-# Provider key of each kind of rentable unit counted in a floor's totals.
-UNIT_PROVIDER_KEYS = ("bc_office", "bc_desk", "bc_meeting_room")
-
 
 class WorkspaceFloorStatusService(models.AbstractModel):
     """Count every unit of a Business Center floor in the layout totals,
@@ -22,27 +19,22 @@ class WorkspaceFloorStatusService(models.AbstractModel):
     def _plan_summary(self, plan, units, unit_results, at=None):
         """Return the totals of a layout drawn for a Business Center floor.
 
-        Spaces and desks exist through their shapes, so the totals count the
-        floor's offices, desks and meeting rooms that are drawn on this
-        layout. Units of the floor that are not drawn are left out of the
-        totals and only reported as ``unplaced``, so they can be found and
-        cleaned up. Layouts not tied to a floor keep the core behaviour.
+        Each provider says which records of the floor are its units, and
+        only those drawn on this layout are counted; undrawn ones are
+        reported as ``unplaced``. Layouts not tied to a floor keep the core
+        behaviour.
         """
 
         if not plan.bc_floor_id:
             return super()._plan_summary(plan, units, unit_results, at)
 
-        providers = self.env["workspace.floor.link.registry"]._get_providers()
-        floor_units = self.env["workspace.floor.bc.units"]._floor_units(plan.bc_floor_id)
         placed = set(units.filtered("link_key").mapped(lambda o: (o.link_key, o.link_res_id)))
         summary = dict.fromkeys(SUMMARY_STATUS_CODES, 0)
         unplaced = 0
-        for key, records in zip(UNIT_PROVIDER_KEYS, floor_units):
-            provider = providers.get(key)
-            if provider is None:
+        for key, provider in self.env["workspace.floor.link.registry"]._get_providers().items():
+            if not hasattr(provider, "_bc_floor_records"):
                 continue
-            # Same access and company filtering as everywhere else.
-            records = provider._fp_resolve(plan, records.ids)
+            records = provider._fp_resolve(plan, provider._bc_floor_records(plan.bc_floor_id).ids)
             drawn = records.filtered(lambda rec: (key, rec.id) in placed)
             for status in provider._fp_get_statuses(drawn, at).values():
                 summary[status if status in summary else STATUS_UNKNOWN] += 1
