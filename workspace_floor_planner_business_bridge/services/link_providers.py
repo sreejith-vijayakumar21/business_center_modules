@@ -111,22 +111,20 @@ class BusinessCenterProviderMixin(models.AbstractModel):
     @api.model
     def _fp_release(self, plan, records):
         """A Draft unit taken off its floor layout is deleted when it has no
-        history, and archived when it has (contracts in any state, bookings,
-        or desks with contracts): those documents must keep pointing at it.
-        A coworking space takes its desks along, and their shapes are freed.
-        Units that are not Draft never get here: the save refuses them."""
+        history, and archived when it has. Providers extend
+        ``_fp_archive_released`` for what else must follow an archived unit."""
 
         drafts = records.filtered(lambda r: r.state == "draft")
         kept = drafts.filtered(lambda r: r._bc_has_history())
         (drafts - kept).unlink()
-        if not kept:
-            return
-        if kept._name == "business.center.space":
-            desks = kept.filtered("is_coworking").desk_ids
-            if desks:
-                release_floor_links(self.env, DESK_LINK_KEYS, desks.ids)
-                desks.write({"active": False})
-        kept.write({"active": False})
+        if kept:
+            self._fp_archive_released(kept)
+
+    @api.model
+    def _fp_archive_released(self, records):
+        """Archive released units that have history."""
+
+        records.write({"active": False})
 
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
@@ -243,6 +241,17 @@ class BusinessCenterCoworkingProvider(models.AbstractModel):
 
         return {**self._fp_floor_defaults(plan),
                 "default_space_type": "office", "default_is_coworking": True}
+        
+    @api.model
+    def _fp_archive_released(self, records):
+        """An archived coworking space takes its desks along, and their shapes
+        are freed: desks cannot be used without their space."""
+
+        desks = records.desk_ids
+        if desks:
+            release_floor_links(self.env, DESK_LINK_KEYS, desks.ids)
+            desks.write({"active": False})
+        super()._fp_archive_released(records)
 
 
 class BusinessCenterMeetingRoomProvider(models.AbstractModel):
