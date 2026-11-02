@@ -82,6 +82,23 @@ class BusinessCenterProviderMixin(models.AbstractModel):
         """Business Center records can be created from their shape."""
 
         return True
+    
+    @api.model
+    def _fp_check_remove(self, plan, records):
+        """Only shapes of Draft units may be removed: a space or desk that is
+        available, occupied or under maintenance keeps its place on the floor.
+        Reset it to Draft first to redraw it."""
+
+        in_use = records.filtered(lambda r: r.state != "draft")
+        if not in_use:
+            return
+        unit = in_use[0]
+        states = dict(unit._fields["state"]._description_selection(self.env))
+        raise UserError(self.env._(
+            "Only shapes of Draft spaces can be deleted. “%(name)s” is %(state)s.",
+            name=unit.display_name,
+            state=states.get(unit.state, unit.state),
+        ))
 
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
