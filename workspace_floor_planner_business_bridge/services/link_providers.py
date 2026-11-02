@@ -18,6 +18,8 @@ from odoo.exceptions import UserError
 
 from odoo.addons.workspace_floor_planner.tools.geometry import center_of, point_in_rotated_rect
 
+import logging
+
 # Business Center state -> floor planner status. Draft units are not ready to
 # rent yet, so they show as unknown.
 # Business Center state -> floor planner status.
@@ -100,22 +102,16 @@ class BusinessCenterProviderMixin(models.AbstractModel):
             name=unit.display_name,
             state=states.get(unit.state, unit.state),
         ))
-        
+
     @api.model
     def _fp_release(self, plan, records):
         """A Draft unit taken off its floor layout is deleted: it was made from
         its shape and has no place to be rented from without it. Units on any
         contract, even a draft one, are kept."""
 
+        logging.getLogger(__name__).info("FP-DEBUG _fp_release on %s: %s", self._name,
+                                         [(r.id, r.state, r.leased_asset_ids.ids) for r in records])
         records.filtered(lambda r: r.state == "draft" and not r.leased_asset_ids).unlink()
-        
-    @api.model
-    def _fp_release(self, plan, records):
-        """Called after a save with the records that are no longer drawn on
-        ``plan`` (their shape was deleted or unlinked, and not linked again).
-        Nothing happens by default; bridges may clean up."""
-
-        return
 
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS

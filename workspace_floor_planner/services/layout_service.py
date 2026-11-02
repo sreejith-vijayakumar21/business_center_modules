@@ -11,6 +11,10 @@ from odoo.addons.workspace_floor_planner.models.floor_plan_object import (
     STYLE_FIELDS,
 )
 
+import logging
+
+_logger = logging.getLogger(__name__)
+
 PLAN_FIELDS = (
     "name", "code", "site", "floor_level", "canvas_width", "canvas_height", "units_per_meter",
     "grid_size", "show_grid", "snap_to_grid", "status_refresh_interval", "layout_version",
@@ -27,7 +31,7 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
     _description = "Floor Plan Layout Service"
 
     # ------------------------------------------------------------------
-    # Load
+    # MARK: LOAD
     # ------------------------------------------------------------------
     @api.model
     def _load(self, plan):
@@ -75,7 +79,7 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
         return data
 
     # ------------------------------------------------------------------
-    # Save
+    # MARK: SAVE
     # ------------------------------------------------------------------
     @api.model
     def _save(self, plan, payload):
@@ -102,6 +106,7 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
         existing = {obj.id: obj for obj in plan.object_ids}
         kept_ids = {vals["id"] for vals in clean["objects"] if vals.get("id")}
         drawn_before = self._drawn_records(plan)
+        _logger.info("FP-DEBUG plan %s drawn before: %s", plan.id, sorted(drawn_before))
 
         # Delete first so a link can move from a removed object to a new one.
         to_delete = plan.object_ids.filtered(lambda o: o.id not in kept_ids)
@@ -142,7 +147,10 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
 
         # Records drawn before this save and nowhere on the plan after it.
         plan.invalidate_recordset(["object_ids"])
-        self._release_records(plan, drawn_before - self._drawn_records(plan))
+        drawn_after = self._drawn_records(plan)
+        _logger.info("FP-DEBUG plan %s drawn after: %s | released: %s",
+                     plan.id, sorted(drawn_after), sorted(drawn_before - drawn_after))
+        self._release_records(plan, drawn_before - drawn_after)
 
         plan.write({**clean["plan"], "layout_version": plan.layout_version + 1})
         result = self._load(plan)
@@ -159,7 +167,7 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
                 provider = registry._get_provider(link_key)
             except UserError:
                 continue  # provider no longer installed: nothing to protect
-            if not provider:
+            if provider is None:
                 continue
             linked = objects.filtered(lambda o: o.link_key == link_key and o.link_res_id)
             records = provider._fp_target().sudo().browse(linked.mapped("link_res_id")).exists()
@@ -184,10 +192,12 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
                 provider = registry._get_provider(link_key)
             except UserError:
                 continue
-            if not provider:
+            if provider is None:
                 continue
             records = provider._fp_target().sudo().browse(res_ids).exists()
             if records:
+                _logger.info("FP-DEBUG release %s -> %s %s", link_key, provider._name,
+                             [(r.id, r.display_name, r.state, r.leased_asset_ids.ids) for r in records])
                 provider._fp_release(plan, records)
 
     @api.model

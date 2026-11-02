@@ -101,6 +101,13 @@ class WorkspaceFloorLinkProvider(models.AbstractModel):
         restrict it, e.g. to units that are not in use yet."""
 
         return
+    
+    @api.model
+    def _fp_release(self, plan, records):
+        """Called after a save with the records no longer drawn on ``plan``.
+        Nothing happens by default; bridges may clean up."""
+
+        return
 
     # ------------------------------------------------------------------------------
     #   MARK: LOOKUP (always as the current user, never sudo)
