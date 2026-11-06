@@ -14,9 +14,9 @@
                             class="btn-primary" invisible="state != 'confirmed'"/>
                     <button name="action_done" string="Check Out" type="object"
                             class="btn-primary" invisible="state != 'checked_in'"/>
-                    <button name="action_release" string="Release Desk" type="object"
-                            invisible="state != 'confirmed'"
-                            confirm="Release this desk? Once the booking has started, the late release charge applies."/>
+                    <button name="action_decide_charge" string="Decide Charge" type="object"
+                            class="btn-primary" groups="business_center.group_bc_manager"
+                            invisible="not charge_to_decide"/>
                     <button name="action_cancel" string="Cancel" type="object"
                             invisible="state not in ('draft', 'confirmed')"/>
                     <button name="action_reset_to_draft" string="Reset to Draft" type="object"
@@ -72,6 +72,20 @@
                             <field name="billed_hours" invisible="not billed_hours"/>
                             <field name="charge_id" invisible="not charge_id"/>
                             <field name="invoice_id" invisible="not invoice_id"/>
+                        </group>
+                    </group>
+                    <field name="charge_to_decide" invisible="1"/>
+                    <div class="alert alert-warning" role="alert" invisible="not charge_to_decide">
+                        No charge has been decided for this booking yet. A manager decides it with
+                        <strong>Decide Charge</strong>.
+                    </div>
+                    <group string="Charge Decision" invisible="not cancel_outcome">
+                        <group>
+                            <field name="cancel_outcome"/>
+                            <field name="cancelled_by_id"/>
+                        </group>
+                        <group>
+                            <field name="cancel_reason" nolabel="1" colspan="2"/>
                         </group>
                     </group>
                 </sheet>
@@ -137,6 +151,8 @@
                 <filter name="filter_checked_in" string="Checked In" domain="[('state', '=', 'checked_in')]"/>
                 <filter name="filter_no_show" string="No-show" domain="[('state', '=', 'no_show')]"/>
                 <filter name="filter_released" string="Released" domain="[('state', '=', 'released')]"/>
+                <separator/>
+                <filter name="filter_charge_to_decide" string="Charge to Decide" domain="[('charge_to_decide', '=', True)]"/>
                 <group>
                     <filter name="groupby_desk" string="Hot Desk" context="{'group_by': 'desk_id'}"/>
                     <filter name="groupby_date" string="Date" context="{'group_by': 'booking_date'}"/>

@@ -25,12 +25,6 @@ class ResCompany(models.Model):
                 help="When the monthly billing run creates a contract invoice, confirm "
              "it and email it to the tenant. Leave off to review drafts first. "
              "A contract can opt out with Review Invoices Manually.")
-    bc_hot_desk_no_show_charge = fields.Selection([
-        ('none', 'No Charge'),
-        ('first_hour', 'First Hour'),
-        ('full', 'Full Booking'),
-    ], string='Hot Desk No-show Charge', default='first_hour', required=True,
-        help="What a hot desk booking nobody checked in to is charged.")
     bc_hot_desk_reminder_minutes = fields.Integer(
         string='Send Reminder After (min)', default=10,
         help="Minutes after a hot desk booking starts, without check-in, before "
@@ -39,12 +33,6 @@ class ResCompany(models.Model):
         string='Release Unattended Desk After (min)', default=30,
         help="Minutes after the start, without check-in or an answer, before "
              "the desk is released and the booking becomes a no-show.")
-    bc_hot_desk_late_release_charge = fields.Selection([
-        ('none', 'No Charge'),
-        ('first_hour', 'First Hour'),
-        ('full', 'Full Booking'),
-    ], string='Late Release Charge', default='none', required=True,
-        help="What a booking released by the customer after it started is charged.")
     
     # ------------------------------------------------------------------------------
     #   MARK: CONSTRAINT/ONCHANGE METHODS

@@ -207,6 +207,33 @@ class BusinessCenterSlotBookingMixin(models.AbstractModel):
         return self._slot_onchange_warning()
 
     # ------------------------------------------------------------------------------
+    #   MARK: BUTTON ACTION METHODS
+    # ------------------------------------------------------------------------------
+    def action_open_cancel_wizard(self):
+        """Open the manager's charge decision wizard for this booking, with
+        'used until' defaulting to now, kept within the booked slot. The
+        wizard works on any booking model implementing _bc_check_settle and
+        _apply_cancellation."""
+
+        self.ensure_one()
+        now = self._local_now()
+        if self.booking_date == now.date():
+            used_until = min(max(now.hour + now.minute / 60.0, self.start_time), self.end_time)
+        else:
+            used_until = self.end_time
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Charge Decision'),
+            'res_model': 'business.center.booking.cancel.wizard',
+            'view_mode': 'form',
+            'target': 'new',
+            'context': {
+                'default_booking_ref': '%s,%s' % (self._name, self.id),
+                'default_used_until': used_until,
+            },
+        }
+
+    # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
     def _slot_resource(self):

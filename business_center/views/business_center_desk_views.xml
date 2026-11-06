@@ -16,28 +16,41 @@
                         string="Set Available"
                         groups="business_center.group_bc_manager"
                         invisible="state in ('available', 'occupied')"/>
-                <button name="action_set_maintenance" type="object"
-                        string="Maintenance"
+                <button name="action_open_out_of_service_wizard" type="object" string="Maintenance"
+                        context="{'bc_target_state': 'maintenance'}"
                         groups="business_center.group_bc_manager"
                         invisible="state in ('draft', 'maintenance')"/>
-                <button name="action_set_draft" type="object"
-                        string="Reset to Draft" class="btn-secondary"
+                <button name="action_open_out_of_service_wizard" type="object" string="Reset to Draft"
+                        context="{'bc_target_state': 'draft'}"
                         groups="business_center.group_bc_manager"
                         invisible="state == 'draft'"/>
+                <button name="action_toggle_bookable" type="object" string="Withdraw from Booking"
+                        groups="business_center.group_bc_manager"
+                        invisible="desk_type != 'hot' or not is_bookable or state != 'available'"/>
+                <button name="action_toggle_bookable" type="object" string="Open for Booking" class="btn-primary"
+                        groups="business_center.group_bc_manager"
+                        invisible="desk_type != 'hot' or is_bookable or state != 'available'"/>
                 <field name="state" widget="statusbar" statusbar_visible="draft,available,occupied,maintenance"/>
                 <field name="desk_type" invisible="1"/>
             </header>
-                <sheet readonly="state != 'draft'">
+                <sheet>
+                    <field name="out_of_service_since" invisible="1"/>
+                    <div class="alert alert-warning" role="alert" invisible="not out_of_service_since">
+                        Out of service since <field name="out_of_service_since" readonly="1" class="oe_inline"/>
+                        by <field name="out_of_service_by_id" readonly="1" class="oe_inline"/>:
+                        <field name="out_of_service_reason" readonly="1" class="oe_inline"/>.
+                        Set it Available when finished.
+                    </div>
                     <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_open_desk_contracts"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-file-text-o">
-                            <field name="desk_contract_count" 
-                                   widget="statinfo" 
-                                   string="Contracts"
-                                   invisible="desk_type == 'hot'"/>
+                                icon="fa-file-text-o"
+                                invisible="desk_type == 'hot'">
+                            <field name="desk_contract_count"
+                                   widget="statinfo"
+                                   string="Contracts"/>
                         </button>
                     </div>
                     <div class="oe_title">
@@ -49,15 +62,16 @@
                     <group>
                         <group string="Location &amp; Setup">
                             <field name="desk_type" widget="radio" options="{'horizontal': True}"
-                                   readonly="context.get('bc_from_floor_layout')" force_save="1"/>
+                                   readonly="state != 'draft' or context.get('bc_from_floor_layout')"
+                                   force_save="1"/>
                             <field name="space_id"
-                                   readonly="context.get('default_space_id', False)"
+                                   readonly="state != 'draft' or context.get('default_space_id', False)"
                                    force_save="1"
                                    options="{'no_create': True}"/>
                             <field name="center_id"/>
                             <field name="floor_id"/>
-                            <field name="row_label"/>
-                            <field name="position"/>
+                            <field name="row_label" readonly="state != 'draft'"/>
+                            <field name="position" readonly="state != 'draft'"/>
                             <field name="company_id"/>
                             <field name="active"/>
                         </group>
@@ -73,6 +87,7 @@
                         <group string="Pricing &amp; Booking">
                             <field name="monthly_rent" widget="monetary" invisible="desk_type == 'hot'"/>
                             <field name="hourly_rate" widget="monetary" invisible="desk_type != 'hot'"/>
+                            <field name="is_bookable" invisible="desk_type != 'hot'"/>
                         </group>
                         <group string="Contract Terms" invisible="desk_type == 'hot'">
                             <field name="is_lock_period"/>

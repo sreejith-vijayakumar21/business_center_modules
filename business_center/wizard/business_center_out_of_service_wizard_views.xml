@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="business_center_out_of_service_wizard_view_form" model="ir.ui.view">
+        <field name="name">business.center.out.of.service.wizard.view.form</field>
+        <field name="model">business.center.out.of.service.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Take Out of Service">
+                <div class="alert alert-info" role="alert">
+                    Prices, photos, amenities, capacity and opening hours can be changed
+                    without this. Take an asset out of service only for structural changes
+                    or repairs; you get a to-do to make it available again.
+                </div>
+                <group>
+                    <field name="asset_ref"/>
+                    <field name="target_state" widget="radio"/>
+                    <field name="reason" placeholder="e.g. Moving the desk to row C"/>
+                </group>
+                <footer>
+                    <button name="action_confirm" type="object" string="Take Out of Service" class="btn-primary"/>
+                    <button string="Discard" special="cancel" class="btn-secondary"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+
+</odoo>

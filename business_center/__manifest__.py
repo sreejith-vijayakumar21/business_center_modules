@@ -26,6 +26,7 @@
         
         'report/business_center_contract_report.xml',
         
+        'data/asset_service_data.xml',
         'data/hot_desk_data.xml',
         'data/hot_desk_mail_data.xml',
         'data/mail_activity_type_data.xml',
@@ -38,6 +39,7 @@
         'wizard/business_center_booking_cancel_wizard_views.xml',
         'wizard/business_center_contract_sign_wizard_views.xml',
         'wizard/business_center_contract_decline_wizard_views.xml',
+        'wizard/business_center_out_of_service_wizard_views.xml',
 
         'views/business_center_desk_booking_views.xml',
         'views/res_config_settings_views.xml',

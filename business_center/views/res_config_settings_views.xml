@@ -37,13 +37,6 @@
                                 <field name="bc_hot_desk_checkin_grace" class="oe_inline"/> minutes.
                             </div>
                         </setting>
-                        <setting string="Hot Desk Charges"
-                                help="What a booking released by the customer, or nobody showed up for, is charged.">
-                            <div class="mt-2">
-                                <div>Released by the customer: <field name="bc_hot_desk_late_release_charge" class="oe_inline"/></div>
-                                <div>No-show: <field name="bc_hot_desk_no_show_charge" class="oe_inline"/></div>
-                            </div>
-                        </setting>
                     </block>
                 </app>
             </xpath>

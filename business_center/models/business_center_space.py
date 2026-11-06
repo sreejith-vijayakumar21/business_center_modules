@@ -4,8 +4,6 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 
-DESK_LINK_KEYS = ("bc_desk", "bc_hot_desk")
-
 
 class BusinessCenterSpace(models.Model):
     """Stores master records for business center spaces"""
@@ -13,7 +11,7 @@ class BusinessCenterSpace(models.Model):
     _name = 'business.center.space'
     _description = 'A central registry of business center spaces'
     _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.time.format.mixin', 
-                'business.center.search.panel.mixin']
+                'business.center.search.panel.mixin', 'business.center.service.mixin']
     _order = 'floor_id'
     
     # ------------------------------------------------------------------------------
@@ -52,8 +50,8 @@ class BusinessCenterSpace(models.Model):
     contract_start_date = fields.Date(string='Start Date')
     contract_end_date = fields.Date(string='End Date')
     contract_period_display = fields.Char(string="Contract Period", compute="_compute_contract_period_display")
-    area_sqm = fields.Float(string='Floor Area')
-    capacity = fields.Integer(string='Persons/Seats')
+    area_sqm = fields.Float(string='Floor Area', tracking=True)
+    capacity = fields.Integer(string='Persons/Seats', tracking=True)
     monthly_rent = fields.Monetary(string='Office Lease Rate', currency_field='currency_id', tracking=True, required=True)
     hourly_rate = fields.Monetary(string='Meeting Room Rate', currency_field='currency_id', tracking=True, required=True)
     is_bookable = fields.Boolean(string='Bookable', store=True, readonly=False, compute='_compute_is_bookable', tracking=True,
@@ -105,10 +103,18 @@ class BusinessCenterSpace(models.Model):
         'The space name must be unique per business center!',
     )
     _NON_DRAFT_EDITABLE_FIELDS = {
+        # status and occupancy, managed by the contract and booking flows
         'state', 'occupant_id', 'current_contract_id',
         'contract_start_date', 'contract_end_date',
-        'message_main_attachment_id','is_bookable',
-        'active',
+        'message_main_attachment_id', 'is_bookable', 'active',
+        'out_of_service_since', 'out_of_service_reason', 'out_of_service_by_id',
+        # commercial: applies to new contracts and bookings only
+        'monthly_rent', 'hourly_rate', 'product_id',
+        'is_lock_period', 'min_lock_period', 'min_lock_period_unit',
+        # descriptive
+        'capacity', 'area_sqm', 'amenity_ids', 'image_1920', 'attachment_ids',
+        # operational, checked against future bookings
+        'min_booking_hour', 'max_booking_hour',
     }
     
     # ------------------------------------------------------------------------------
@@ -225,11 +231,11 @@ class BusinessCenterSpace(models.Model):
                     space=non_draft[0].name,
                 ))
         if 'active' in vals and not vals['active']:
-            busy = self.filtered(lambda s: s.state == 'occupied' or s.leased_asset_ids.filtered(
-                lambda a: a.contract_id.state in ('draft', 'upcoming', 'active')))
+            busy = self.filtered(lambda s: s.state == 'occupied' or s._bc_upcoming_commitments()
+                                 or s.leased_asset_ids.filtered(lambda a: a.contract_id.state == 'draft'))
             if busy:
                 raise UserError(_(
-                    "Space %s is occupied or part of a live contract and cannot "
+                    "Space %s is occupied, booked or part of a live contract and cannot "
                     "be archived.", busy[0].name))
         return super().write(vals)
            
@@ -268,13 +274,34 @@ class BusinessCenterSpace(models.Model):
     # ------------------------------------------------------------------------------  
     @api.constrains('min_booking_hour', 'max_booking_hour')
     def _check_operating_hours(self):
-        """A room whose close time precedes its open time rejects every booking."""
+        """Opening hours must make sense, and may not shut out a booking
+        already made: future bookings must still fit the new hours."""
 
+        today = fields.Date.context_today(self)
         for rec in self:
-            if rec.space_type == 'meeting_room' \
-                    and rec.max_booking_hour <= rec.min_booking_hour:
+            open_h, close_h = rec.min_booking_hour, rec.max_booking_hour
+            if (rec.space_type == 'meeting_room' or (rec.is_coworking and close_h)) \
+                    and close_h <= open_h:
+                raise ValidationError(_("%s closes before it opens.", rec.display_name))
+            if not close_h:
+                continue  # coworking space open all day
+            if rec.space_type == 'meeting_room':
+                bookings = self.env['business.center.booking'].sudo().search([
+                    ('meeting_room_id', '=', rec.id), ('state', '=', 'confirmed'),
+                    ('booking_date', '>=', today)])
+            elif rec.is_coworking:
+                bookings = self.env['business.center.desk.booking'].sudo().search([
+                    ('desk_id.space_id', '=', rec.id),
+                    ('state', 'in', ('confirmed', 'checked_in')),
+                    ('booking_date', '>=', today)])
+            else:
+                continue
+            outside = bookings.filtered(lambda b: b.start_time < open_h or b.end_time > close_h)
+            if outside:
                 raise ValidationError(_(
-                    "%s closes before it opens.", rec.display_name))
+                    "%(space)s has bookings outside the new hours (%(bookings)s). "
+                    "Move or cancel them first.",
+                    space=rec.display_name, bookings=", ".join(outside[:5].mapped('name'))))
                 
     @api.constrains('space_type', 'is_coworking')
     def _check_coworking_is_office(self):
@@ -291,38 +318,19 @@ class BusinessCenterSpace(models.Model):
     #   MARK: BUTTON ACTION METHODS
     # ------------------------------------------------------------------------------
     def action_set_draft(self):
-        """Reset the space to draft, refusing while a live contract holds it
-        or any of its desks is occupied; free desks go back to draft too.
+        """Reset the space to draft, only while nothing holds it (running or
+        upcoming contracts, current or future bookings, on it or its desks);
+        its desks go back to draft too. Past history is left as it is."""
 
-        Writing state alone would leave occupant_id and current_contract_id
-        pointing at a running contract while the space vanished from every
-        'occupied' filter — the kanban, the occupancy rate, and the centre's
-        delete guard.
-        """
-
-        for rec in self:
-            if rec.current_contract_id.state in ('upcoming', 'active'):
-                raise UserError(_(
-                    "%(space)s is held by contract %(contract)s. Cancel or "
-                    "amend the contract before resetting the space.",
-                    space=rec.display_name,
-                    contract=rec.current_contract_id.name,
-                ))
-            occupied = rec.desk_ids.filtered(lambda d: d.state == 'occupied')
-            if occupied:
-                raise UserError(_(
-                    "%(space)s still has occupied desks (%(desks)s). Release "
-                    "them before resetting the space.",
-                    space=rec.display_name,
-                    desks=", ".join(occupied.mapped('name')),
-                ))
+        self._bc_check_no_commitments()
         self.write({'state': 'draft'})
         self.desk_ids.filtered(lambda d: d.state != 'draft').write({'state': 'draft'})
 
     def action_set_maintenance(self):
-        """Put the space under maintenance; its available desks follow,
-        occupied desks stay with their tenants"""
+        """Put the space under maintenance, only while nothing holds it; its
+        available desks follow."""
 
+        self._bc_check_no_commitments()
         self.write({'state': 'maintenance'})
         self.desk_ids.filtered(lambda d: d.state == 'available').write({'state': 'maintenance'})
 
@@ -338,10 +346,12 @@ class BusinessCenterSpace(models.Model):
         
     def action_set_available(self):
         """Mark the space as available for new contracts or bookings. A
-        coworking space whose desks are all taken goes straight to Occupied."""
+        coworking space whose desks are all taken goes straight to Occupied.
+        Ends any out-of-service period and closes its to-do."""
 
         self.write({'state': 'available'})
         self._sync_coworking_state()
+        self._bc_back_in_service()
         
     def action_toggle_bookable(self):
         """Withdraw a meeting room from booking, or open it back up.
@@ -409,3 +419,19 @@ class BusinessCenterSpace(models.Model):
                 [('meeting_room_id', '=', space.id)], limit=1):
             return True
         return any(desk._bc_has_history() for desk in space.with_context(active_test=False).desk_ids)
+    
+    def _bc_upcoming_commitments(self):
+        """Running or upcoming contracts and current or future bookings that
+        hold this space, including those of its desks."""
+
+        self.ensure_one()
+        today = fields.Date.context_today(self)
+        items = self.sudo().leased_asset_ids.contract_id.filtered(
+            lambda c: c.state in ('upcoming', 'active')).mapped('name')
+        if self.space_type == 'meeting_room':
+            items += self.env['business.center.booking'].sudo().search([
+                ('meeting_room_id', '=', self.id), ('state', '=', 'confirmed'),
+                ('booking_date', '>=', today)]).mapped('name')
+        for desk in self.desk_ids:
+            items += desk._bc_upcoming_commitments()
+        return items

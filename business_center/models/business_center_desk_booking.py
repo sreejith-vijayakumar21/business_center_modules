@@ -79,6 +79,17 @@ class BusinessCenterDeskBooking(models.Model):
     charge_id = fields.Many2one('business.center.contract.charge', string='Contract Charge',
                                 readonly=True, copy=False)
     invoice_id = fields.Many2one('account.move', string='Invoice', readonly=True, copy=False)
+    charge_to_decide = fields.Boolean(
+        string='Charge to Decide', readonly=True, copy=False, tracking=True,
+        help="Released or no-show without anyone deciding the charge yet; a "
+             "manager settles it with Decide Charge.")
+    cancel_outcome = fields.Selection([
+        ('waive', 'Charges Waived'),
+        ('used', 'Time Used Charged'),
+        ('full', 'Charged in Full'),
+    ], string='Charge Decision', readonly=True, copy=False, tracking=True)
+    cancel_reason = fields.Text(string='Decision Reason', readonly=True, copy=False)
+    cancelled_by_id = fields.Many2one('res.users', string='Decided By', readonly=True, copy=False)
     company_id = fields.Many2one(related='center_id.company_id', store=True, string='Company')
     currency_id = fields.Many2one(related='company_id.currency_id', string='Currency')
 
@@ -118,7 +129,7 @@ class BusinessCenterDeskBooking(models.Model):
 
         Desk = self.env['business.center.desk']
         for rec in self:
-            domain = [('desk_type', '=', 'hot'), ('state', '=', 'available')]
+            domain = [('desk_type', '=', 'hot'), ('state', '=', 'available'), ('is_bookable', '=', True)]
             if rec.center_id:
                 domain.append(('center_id', '=', rec.center_id.id))
             desks = Desk.search(domain)
@@ -239,6 +250,8 @@ class BusinessCenterDeskBooking(models.Model):
                 raise UserError(_("Only a draft booking can be confirmed."))
             if rec.desk_id.state != 'available':
                 raise UserError(_("%s is not available for booking.", rec.desk_id.display_name))
+            if not rec.desk_id.is_bookable:
+                raise UserError(_("%s is withdrawn from booking.", rec.desk_id.display_name))
             if not rec._booking_hours():
                 raise UserError(_("Pick a start and an end time first."))
             if rec.hourly_rate <= 0:
@@ -273,23 +286,28 @@ class BusinessCenterDeskBooking(models.Model):
         self.write({'state': 'done'})
 
     def action_cancel(self):
-        """Cancel before the slot starts, free of charge. Once it has started
-        only a manager may cancel it."""
+        """Cancel a booking. Before it starts this is free. Once it has
+        started only a manager may cancel it, through the charge decision
+        wizard, like a meeting room booking."""
 
-        is_manager = self.env.user.has_group('business_center.group_bc_manager')
+        started = self.filtered(lambda b: b.state == 'confirmed' and b._is_in_past())
         for rec in self:
             if rec.state not in ('draft', 'confirmed'):
                 raise UserError(_("Only a draft or confirmed booking can be cancelled."))
-            if rec.state == 'confirmed' and rec._is_in_past() and not is_manager:
+        if started:
+            if not self.env.user.has_group('business_center.group_bc_manager'):
                 raise UserError(_(
-                    "%s has already started. Ask a manager to cancel it.", rec.name))
+                    "%s has already started. Ask a manager to cancel it.", started[0].name))
+            if len(self) > 1:
+                raise UserError(_("Cancel started bookings one at a time."))
+            return self.action_open_cancel_wizard()
         self.write({'state': 'cancelled'})
 
     def action_release(self):
-        """Free the desk of a booking the customer will not use, said by
-        the reminder link or by phone. Before the start it is a plain free
-        cancellation; once started it is charged per the late release
-        setting."""
+        """Free the desk of a booking the customer will not use, said by the
+        reminder link. Before the start it is a plain free cancellation;
+        once started the desk is freed at once and a manager decides the
+        charge."""
 
         for rec in self:
             if rec.state != 'confirmed':
@@ -297,9 +315,15 @@ class BusinessCenterDeskBooking(models.Model):
         not_started = self.filtered(lambda b: not b._is_in_past())
         not_started.write({'state': 'cancelled'})
         started = self - not_started
-        for rec in started:
-            rec._bc_bill(rec._bc_policy_hours(rec.company_id.bc_hot_desk_late_release_charge))
         started.write({'state': 'released', 'released_at': fields.Datetime.now()})
+        started._bc_request_charge_decision()
+
+    def action_decide_charge(self):
+        """Open the charge decision wizard for a released or no-show booking."""
+
+        self.ensure_one()
+        self._bc_check_settle()
+        return self.action_open_cancel_wizard()
 
     def action_keep(self):
         """The customer is on the way: hold the desk until the end of the
@@ -320,23 +344,65 @@ class BusinessCenterDeskBooking(models.Model):
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
-    def _bc_policy_hours(self, policy):
-        """Hours charged under a charge policy: none, first hour or full."""
+    def _bc_mark_no_show(self):
+        """Release the desk of a booking nobody checked in to; a manager
+        decides the charge."""
+
+        self.write({'state': 'no_show'})
+        self._bc_request_charge_decision()
+
+    def _bc_request_charge_decision(self):
+        """Flag released and no-show bookings for a charge decision and ask
+        the centre manager to make it."""
+
+        self.write({'charge_to_decide': True})
+        for rec in self:
+            rec.activity_schedule(
+                'mail.mail_activity_data_todo',
+                summary=_("Decide hot desk charge"),
+                note=_("%(booking)s ended as %(state)s. Open it and use Decide Charge "
+                       "to waive it or charge the time used or the full slot.",
+                       booking=rec.name,
+                       state=dict(rec._fields['state']._description_selection(rec.env))[rec.state]),
+                user_id=(rec.center_id.manager_id or rec.user_id or self.env.user).id,
+            )
+
+    def _bc_check_settle(self):
+        """The charge decision wizard settles a started confirmed booking
+        (cancelling it) or a released / no-show booking awaiting a decision."""
 
         self.ensure_one()
-        if policy == 'full':
-            return self._booking_hours()
-        if policy == 'first_hour':
-            return min(1.0, self._booking_hours())
-        return 0.0
+        if self.state == 'confirmed' or (self.state in ('released', 'no_show') and self.charge_to_decide):
+            return
+        if self.state in ('released', 'no_show'):
+            raise UserError(_("The charge of %s has already been decided.", self.name))
+        raise UserError(_("Only a confirmed, released or no-show booking can be settled here."))
 
-    def _bc_mark_no_show(self):
-        """Release the desk of a booking nobody checked in to, and charge
-        per the no-show setting."""
+    def _apply_cancellation(self, outcome=False, reason=False, used_until=False):
+        """Settle the booking with the manager's decision: bill nothing, the
+        time used, or the full slot. A confirmed booking is cancelled; a
+        released or no-show one keeps its state."""
 
-        for rec in self:
-            rec._bc_bill(rec._bc_policy_hours(rec.company_id.bc_hot_desk_no_show_charge))
-        self.write({'state': 'no_show'})
+        self.ensure_one()
+        if outcome == 'full':
+            hours = self._booking_hours()
+        elif outcome == 'used':
+            hours = max(min(used_until or 0.0, self.end_time) - self.start_time, 0.0)
+        else:
+            hours = 0.0
+        self._bc_bill(hours)
+        vals = {
+            'cancel_outcome': outcome or 'waive',
+            'cancel_reason': reason,
+            'cancelled_by_id': self.env.uid,
+            'charge_to_decide': False,
+        }
+        if self.state == 'confirmed':
+            vals['state'] = 'cancelled'
+        self.write(vals)
+        self.activity_feedback(['mail.mail_activity_data_todo'],
+                               feedback=_("Charge decided: %s", dict(
+                                   self._fields['cancel_outcome'].selection)[vals['cancel_outcome']]))
 
     def _bc_minutes_since_start(self, today, hour):
         """Minutes since the slot started (infinite for an earlier day)."""

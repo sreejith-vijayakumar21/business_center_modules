@@ -16,12 +16,12 @@
                         string="Set Available"
                         groups="business_center.group_bc_manager"
                         invisible="not id or state in ('available', 'occupied')"/>
-                <button name="action_set_maintenance" type="object"
-                        string="Maintenance"
+                <button name="action_open_out_of_service_wizard" type="object" string="Maintenance"
+                        context="{'bc_target_state': 'maintenance'}"
                         groups="business_center.group_bc_manager"
                         invisible="not id or state in ('draft', 'maintenance')"/>
-                <button name="action_set_draft" type="object"
-                        string="Reset to Draft" class="btn-secondary"
+                <button name="action_open_out_of_service_wizard" type="object" string="Reset to Draft"
+                        context="{'bc_target_state': 'draft'}"
                         groups="business_center.group_bc_manager"
                         invisible="not id or state == 'draft'"/>
                 <button name="action_toggle_bookable" type="object"
@@ -35,7 +35,14 @@
                 <field name="space_type" invisible="1"/>
                 <field name="state" widget="statusbar" statusbar_visible="draft,available,occupied,maintenance"/>
             </header>
-                <sheet readonly="state != 'draft'">
+                <sheet>
+                    <field name="out_of_service_since" invisible="1"/>
+                    <div class="alert alert-warning" role="alert" invisible="not out_of_service_since">
+                        Out of service since <field name="out_of_service_since" readonly="1" class="oe_inline"/>
+                        by <field name="out_of_service_by_id" readonly="1" class="oe_inline"/>:
+                        <field name="out_of_service_reason" readonly="1" class="oe_inline"/>.
+                        Set it Available when finished.
+                    </div>
                     <field name="active" invisible="1"/>
                     <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
                     <div class="oe_button_box" name="button_box">
@@ -61,16 +68,18 @@
                         <group string="Location &amp; Setup">
                             <field name="space_type" string="Space Type" widget="radio"
                                    options="{'horizontal': True}"
-                                   readonly="is_coworking or context.get('bc_from_floor_layout')"
+                                   readonly="state != 'draft' or is_coworking or context.get('bc_from_floor_layout')"
                                    force_save="1"
                                    help="Untick Coworking to change the space type."/>
-                            <field name="center_id" readonly="context.get('default_center_id', False)"
+                            <field name="center_id"
+                                   readonly="state != 'draft' or context.get('default_center_id', False)"
                                    force_save="1"/>
-                            <field name="floor_id" readonly="context.get('bc_from_floor_layout')"
+                            <field name="floor_id"
+                                   readonly="state != 'draft' or context.get('bc_from_floor_layout')"
                                    force_save="1"/>
                             <field name="is_coworking"
                                    invisible="space_type != 'office' or context.get('bc_from_floor_layout')"
-                                   readonly="desk_ids"
+                                   readonly="state != 'draft' or desk_ids"
                                    force_save="1"
                                    help="Remove all desks before unticking Coworking."/>
                             <field name="company_id"/>

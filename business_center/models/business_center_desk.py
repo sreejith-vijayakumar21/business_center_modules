@@ -10,7 +10,8 @@ class BusinessCenterDesk(models.Model):
     
     _name = 'business.center.desk'
     _description = 'A central registry of business center desks'
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.search.panel.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.search.panel.mixin', 
+                'business.center.service.mixin']
     _order = 'id desc'
     
     # ------------------------------------------------------------------------------
@@ -28,6 +29,9 @@ class BusinessCenterDesk(models.Model):
              "and booked by the hour.")
     hourly_rate = fields.Monetary(string='Hourly Rate', currency_field='currency_id', tracking=True,
                                   help="Price per hour of a hot desk booking.")
+    is_bookable = fields.Boolean(
+        string='Open for Booking', default=True, tracking=True,
+        help="Hot desks only: untick to stop new bookings while existing ones continue.")
     state = fields.Selection([
         ('draft', 'Draft'),
         ('available', 'Available'),
@@ -76,7 +80,11 @@ class BusinessCenterDesk(models.Model):
     _NON_DRAFT_EDITABLE_FIELDS = {
         'state', 'occupant_id', 'current_contract_id',
         'contract_start_date', 'contract_end_date',
-        'message_main_attachment_id', 'active',
+        'message_main_attachment_id', 'active', 'is_bookable',
+        'out_of_service_since', 'out_of_service_reason', 'out_of_service_by_id',
+        # commercial: applies to new contracts and bookings only
+        'monthly_rent', 'hourly_rate',
+        'is_lock_period', 'min_lock_period', 'min_lock_period_unit',
     }
 
     # ------------------------------------------------------------------------------
@@ -96,11 +104,11 @@ class BusinessCenterDesk(models.Model):
                     desk=non_draft[0].name,
                 ))
         if 'active' in vals and not vals['active']:
-            busy = self.filtered(lambda d: d.state == 'occupied' or d.leased_asset_ids.filtered(
-                lambda a: a.contract_id.state in ('draft', 'upcoming', 'active')))
+            busy = self.filtered(lambda d: d.state == 'occupied' or d._bc_upcoming_commitments()
+                                 or d.leased_asset_ids.filtered(lambda a: a.contract_id.state == 'draft'))
             if busy:
                 raise UserError(_(
-                    "Desk %s is occupied or part of a live contract and "
+                    "Desk %s is occupied, booked or part of a live contract and "
                     "cannot be archived.", busy[0].name))
         res = super().write(vals)
         if {'state', 'active'} & set(vals):
@@ -181,8 +189,9 @@ class BusinessCenterDesk(models.Model):
     #   MARK: BUTTON ACTION METHODS
     # ------------------------------------------------------------------------------
     def action_set_maintenance(self):
-        """Put the desk under maintenance"""
-        
+        """Put the desk under maintenance, only while nothing holds it."""
+
+        self._bc_check_no_commitments()
         self.write({'state': 'maintenance'})
 
     def action_set_occupied(self):
@@ -198,22 +207,11 @@ class BusinessCenterDesk(models.Model):
         self.write({'state': 'occupied'})
         
     def action_set_draft(self):
-        """Reset the desk to draft, refusing while a live contract holds it.
+        """Reset the desk to draft, only while nothing holds it (running or
+        upcoming contracts, current or future bookings). Past history is
+        left as it is."""
 
-        Writing state alone would leave occupant_id and current_contract_id
-        pointing at a running contract while the space vanished from every
-        'occupied' filter — the kanban, the occupancy rate, and the centre's
-        delete guard.
-        """
-
-        for rec in self:
-            if rec.current_contract_id.state in ('upcoming', 'active'):
-                raise UserError(_(
-                    "%(desk)s is held by contract %(contract)s. Cancel or "
-                    "amend the contract before resetting the space.",
-                    desk=rec.display_name,
-                    contract=rec.current_contract_id.name,
-                ))
+        self._bc_check_no_commitments()
         self.write({'state': 'draft'})
         
     def action_set_available(self):
@@ -232,6 +230,7 @@ class BusinessCenterDesk(models.Model):
                     "Set the hourly rate of hot desk %s before making it available.",
                     rec.display_name))
         self.write({'state': 'available'})
+        self._bc_back_in_service()
         
     def action_open_desk_contracts(self):
         """Open the list of contracts that lease this desk"""
@@ -248,6 +247,15 @@ class BusinessCenterDesk(models.Model):
 
         }
         
+    def action_toggle_bookable(self):
+        """Stop new bookings on a hot desk, or open it back up; existing
+        bookings continue either way."""
+
+        if self.filtered(lambda d: d.desk_type != 'hot'):
+            raise UserError(_("Only hot desks are booked; dedicated desks are leased."))
+        for rec in self:
+            rec.is_bookable = not rec.is_bookable
+        
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
@@ -258,3 +266,15 @@ class BusinessCenterDesk(models.Model):
         return bool(self.sudo().leased_asset_ids) or bool(
             self.env['business.center.desk.booking'].sudo().search_count(
                 [('desk_id', '=', self.id)], limit=1))
+        
+    def _bc_upcoming_commitments(self):
+        """Running or upcoming contracts and current or future bookings that
+        hold this desk."""
+
+        self.ensure_one()
+        items = self.sudo().leased_asset_ids.contract_id.filtered(
+            lambda c: c.state in ('upcoming', 'active')).mapped('name')
+        items += self.env['business.center.desk.booking'].sudo().search([
+            ('desk_id', '=', self.id), ('state', 'in', ('confirmed', 'checked_in')),
+            ('booking_date', '>=', fields.Date.context_today(self))]).mapped('name')
+        return items

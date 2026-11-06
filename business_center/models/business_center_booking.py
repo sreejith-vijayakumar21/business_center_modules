@@ -38,7 +38,8 @@ class BusinessCenterBooking(models.Model):
     total_wallet_credits = fields.Float(string='Wallet Credit (hrs)', compute='_compute_total_wallet_credits')
     balance_wallet_credits = fields.Float(string='Balance Credits', compute='_compute_balance_wallet_credits')
     operating_time = fields.Char(related='meeting_room_id.operating_hours_display', string='Available Time')
-    charge_per_hr = fields.Monetary(string='Hourly Rate', related='meeting_room_id.hourly_rate')
+    charge_per_hr = fields.Monetary(string='Hourly Rate', compute='_compute_charge_per_hr', store=True,
+        help="The room's rate when it was picked; later rate changes do not reprice this booking.")
     chargeable_hours = fields.Float(string='Chargeable Hours', compute='_compute_chargeable_hours', store=True)
     wallet_balance_at_booking = fields.Float(string='Wallet Snapshot', copy=False)
     wallet_period_date = fields.Date(string='Wallet Period', copy=False, readonly=True, 
@@ -111,6 +112,13 @@ class BusinessCenterBooking(models.Model):
                 booking.total_wallet_credits = booking.contract_id.wallet_balance
             else:
                 booking.total_wallet_credits = 0.0
+                
+    @api.depends('meeting_room_id')
+    def _compute_charge_per_hr(self):
+        """Take the room's rate when it is picked, and keep it."""
+
+        for rec in self:
+            rec.charge_per_hr = rec.meeting_room_id.hourly_rate
             
     @api.depends('chargeable_hours', 'charge_per_hr')
     def _compute_overage_amount(self):
@@ -376,29 +384,6 @@ class BusinessCenterBooking(models.Model):
                     "to cancel this booking.", self.name))
         self._apply_cancellation()
 
-    def action_open_cancel_wizard(self):
-        """Open the manager's wizard for cancelling a booking that has started,
-        with 'used until' defaulting to now, kept within the booked slot."""
-
-        self.ensure_one()
-        now = self._local_now()
-        if self.booking_date == now.date():
-            now_hours = now.hour + now.minute / 60.0
-            used_until = min(max(now_hours, self.start_time), self.end_time)
-        else:
-            used_until = self.end_time
-        return {
-            'type': 'ir.actions.act_window',
-            'name': _('Cancel Started Booking'),
-            'res_model': 'business.center.booking.cancel.wizard',
-            'view_mode': 'form',
-            'target': 'new',
-            'context': {
-                'default_booking_id': self.id,
-                'default_used_until': used_until,
-            },
-        }
-        
     def action_reset_to_draft(self):
         """Reset to draft, reversing any wallet draw and overage charge first."""
 
@@ -442,6 +427,13 @@ class BusinessCenterBooking(models.Model):
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
+    def _bc_check_settle(self):
+        """The charge decision wizard cancels a confirmed booking that has started."""
+
+        self.ensure_one()
+        if self.state != 'confirmed':
+            raise UserError(_("Only a confirmed booking can be cancelled here."))
+        
     def _apply_cancellation(self, outcome=False, reason=False, used_until=False):
         """Cancel the booking and settle its wallet hours and overage.
 
