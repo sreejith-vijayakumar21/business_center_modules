@@ -1,13 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-    <!-- Pick a free hot desk from the floor plan, like a contract's desks. -->
+    <!-- Hot desk booking: pick a free hot desk on the floor plan first; the
+         desk fills its coworking space and centre. -->
     <record id="business_center_desk_booking_view_form_floor_picker" model="ir.ui.view">
         <field name="name">business.center.desk.booking.form.floor.picker</field>
         <field name="model">business.center.desk.booking</field>
         <field name="inherit_id" ref="business_center.business_center_desk_booking_view_form"/>
         <field name="arch" type="xml">
-            <field name="desk_id" position="after">
+            <field name="center_id" position="before">
                 <field name="available_desk_ids" invisible="1"/>
                 <widget name="bc_floor_picker" colspan="2" invisible="state != 'draft'"
                         options="{'title': 'Pick a hot desk from the floor plan',
