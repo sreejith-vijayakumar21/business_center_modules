@@ -103,6 +103,9 @@ class BusinessCenterDesk(models.Model):
                     "Use 'Reset to Draft' first.",
                     desk=non_draft[0].name,
                 ))
+        if {'monthly_rent', 'hourly_rate'} & set(vals) \
+                and not self.env.user.has_group('business_center.group_bc_manager'):
+            raise UserError(_("Only a Business Center Manager can change desk rates."))
         if 'active' in vals and not vals['active']:
             busy = self.filtered(lambda d: d.state == 'occupied' or d._bc_upcoming_commitments()
                                  or d.leased_asset_ids.filtered(lambda a: a.contract_id.state == 'draft'))

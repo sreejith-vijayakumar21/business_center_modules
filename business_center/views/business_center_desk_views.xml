@@ -85,9 +85,16 @@
 
                     <group>
                         <group string="Pricing &amp; Booking">
-                            <field name="monthly_rent" widget="monetary" invisible="desk_type == 'hot'"/>
-                            <field name="hourly_rate" widget="monetary" invisible="desk_type != 'hot'"/>
-                            <field name="is_bookable" invisible="desk_type != 'hot'"/>
+                            <!-- Managers edit rates; everyone else sees them read-only -->
+                            <field name="monthly_rent" widget="monetary" invisible="desk_type == 'hot'"
+                                   groups="business_center.group_bc_manager"/>
+                            <field name="monthly_rent" widget="monetary" invisible="desk_type == 'hot'"
+                                   readonly="1" groups="!business_center.group_bc_manager"/>
+                            <field name="hourly_rate" widget="monetary" invisible="desk_type != 'hot'"
+                                   groups="business_center.group_bc_manager"/>
+                            <field name="hourly_rate" widget="monetary" invisible="desk_type != 'hot'"
+                                   readonly="1" groups="!business_center.group_bc_manager"/>
+                            <field name="is_bookable" invisible="desk_type != 'hot'" readonly="1"/>
                         </group>
                         <group string="Contract Terms" invisible="desk_type == 'hot'">
                             <field name="is_lock_period"/>
