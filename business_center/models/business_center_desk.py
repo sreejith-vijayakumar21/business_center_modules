@@ -249,12 +249,19 @@ class BusinessCenterDesk(models.Model):
         
     def action_toggle_bookable(self):
         """Stop new bookings on a hot desk, or open it back up; existing
-        bookings continue either way."""
+        bookings continue either way, and the chatter lists them on
+        withdrawal."""
 
         if self.filtered(lambda d: d.desk_type != 'hot'):
             raise UserError(_("Only hot desks are booked; dedicated desks are leased."))
         for rec in self:
             rec.is_bookable = not rec.is_bookable
+            if not rec.is_bookable:
+                upcoming = rec._bc_upcoming_commitments()
+                if upcoming:
+                    rec.message_post(body=_(
+                        "Withdrawn from booking. Existing bookings continue: %s.",
+                        ", ".join(upcoming[:5])))
         
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS

@@ -359,6 +359,7 @@ class BusinessCenterSpace(models.Model):
         Separate from state: a room can stay occupied and visible while being
         closed to new bookings — a projector out of order, or a room reserved
         for internal use. Maintenance would be the wrong signal for those.
+        Existing bookings continue; the chatter lists them on withdrawal.
         """
 
         for rec in self:
@@ -367,6 +368,12 @@ class BusinessCenterSpace(models.Model):
                     "%s is not a meeting room, so it has no booking status.",
                     rec.display_name))
             rec.is_bookable = not rec.is_bookable
+            if not rec.is_bookable:
+                upcoming = rec._bc_upcoming_commitments()
+                if upcoming:
+                    rec.message_post(body=_(
+                        "Withdrawn from booking. Existing bookings continue: %s.",
+                        ", ".join(upcoming[:5])))
         
     def action_open_contracts(self):
         """Open the list of contracts that lease this space"""
