@@ -5,3 +5,4 @@ from . import portal
 from . import contract
 from . import booking
 from . import invoice
+from . import hot_desk

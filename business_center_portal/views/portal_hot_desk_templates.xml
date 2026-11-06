@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Answer page of the "still coming?" reminder: question, then result. -->
+    <template id="portal_hot_desk_answer" name="Hot Desk: Still Coming?">
+        <t t-call="portal.frontend_layout">
+            <div class="container py-5" style="max-width: 640px;">
+                <h4 class="mb-1">Hot desk <span t-field="booking.desk_id.name"/></h4>
+                <p class="text-muted mb-4">
+                    <span t-field="booking.name"/> ·
+                    <span t-field="booking.booking_date"/> ·
+                    <span t-field="booking.selected_slot_display"/>
+                </p>
+
+                <div t-if="message" class="alert alert-info" role="status">
+                    <t t-out="message"/>
+                </div>
+
+                <t t-elif="booking.state == 'confirmed'">
+                    <form method="post" t-attf-action="/my/hot-desk/#{booking.id}/#{answer}">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <input type="hidden" name="access_token" t-att-value="access_token"/>
+                        <t t-if="answer == 'release'">
+                            <p>Release this desk so someone else can use it?</p>
+                            <button type="submit" class="btn btn-primary">Release the desk</button>
+                        </t>
+                        <t t-else="">
+                            <p>Keep this desk for you until the end of your booking?</p>
+                            <button type="submit" class="btn btn-primary">I'm on my way</button>
+                        </t>
+                    </form>
+                </t>
+
+                <div t-else="" class="alert alert-secondary" role="status">
+                    This booking is <span t-field="booking.state"/>; there is nothing to change.
+                </div>
+            </div>
+        </t>
+    </template>
+
+</odoo>

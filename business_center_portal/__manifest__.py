@@ -24,6 +24,9 @@
         'security/ir.model.access.csv',
         'security/business_center_portal_security.xml',
         
+        'data/hot_desk_mail_data.xml',
+        
+        'views/portal_hot_desk_templates.xml',
         'views/portal_invoice_templates.xml',
         'views/res_partner_views.xml',
         'views/portal_contract_templates.xml',
