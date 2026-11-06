@@ -12,7 +12,8 @@
                         <field name="renewal_of_contract_id" invisible="1"/>
                         <field name="lease_asset_type" widget="radio"
                                options="{'horizontal': true}"
-                               readonly="renewal_of_contract_id"/>
+                               readonly="renewal_of_contract_id"
+                               invisible="1"/>
                         <field name="space_id" invisible="lease_asset_type != 'office'"
                             required="lease_asset_type == 'office'"
                             readonly="renewal_of_contract_id"
