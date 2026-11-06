@@ -79,6 +79,12 @@ class BusinessCenterDeskBooking(models.Model):
     charge_id = fields.Many2one('business.center.contract.charge', string='Contract Charge',
                                 readonly=True, copy=False)
     invoice_id = fields.Many2one('account.move', string='Invoice', readonly=True, copy=False)
+    billed_invoice_id = fields.Many2one(
+        'account.move', string='Billed On', compute='_compute_billed_invoice_id', compute_sudo=True,
+        help="The invoice this booking is billed on: its own, or the contract's "
+             "monthly invoice once its charge has been invoiced.")
+    billed_invoice_name = fields.Char(string='Invoice Number', compute='_compute_billed_invoice_id',
+                                      compute_sudo=True)
     charge_to_decide = fields.Boolean(
         string='Charge to Decide', readonly=True, copy=False, tracking=True,
         help="Released or no-show without anyone deciding the charge yet; a "
@@ -121,6 +127,16 @@ class BusinessCenterDeskBooking(models.Model):
             hours = rec._booking_hours()
             rec.duration_display = rec._float_to_duration(hours)
             rec.amount = rec.currency_id.round(hours * rec.hourly_rate) if rec.currency_id else 0.0
+            
+    @api.depends('invoice_id.name', 'charge_id.invoice_line_id.move_id.name')
+    def _compute_billed_invoice_id(self):
+        """The booking's own invoice, or the contract invoice carrying its
+        charge, with its number for the smart button."""
+
+        for rec in self:
+            move = rec.invoice_id or rec.charge_id.invoice_line_id.move_id
+            rec.billed_invoice_id = move
+            rec.billed_invoice_name = move.name or False
 
     @api.depends('center_id', 'booking_date', 'start_time', 'end_time')
     def _compute_available_desk_ids(self):
@@ -340,6 +356,32 @@ class BusinessCenterDeskBooking(models.Model):
         if self.filtered(lambda b: b.state != 'cancelled'):
             raise UserError(_("Only a cancelled booking can be reset to draft."))
         self.write({'state': 'draft'})
+        
+    def action_view_invoice(self):
+        """Open the invoice this booking is billed on."""
+
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Invoice'),
+            'res_model': 'account.move',
+            'res_id': self.billed_invoice_id.id,
+            'view_mode': 'form',
+            'views': [(False, 'form')],
+        }
+
+    def action_view_contract(self):
+        """Open the contract this booking is billed to."""
+
+        self.ensure_one()
+        return {
+            'type': 'ir.actions.act_window',
+            'name': _('Contract'),
+            'res_model': 'business.center.contract',
+            'res_id': self.contract_id.id,
+            'view_mode': 'form',
+            'views': [(False, 'form')],
+        }
 
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS

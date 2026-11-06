@@ -25,6 +25,24 @@
                            statusbar_visible="draft,confirmed,checked_in,done"/>
                 </header>
                 <sheet>
+                    <div class="oe_button_box" name="button_box">
+                        <button name="action_view_invoice" type="object" class="oe_stat_button"
+                                icon="fa-pencil-square-o" invisible="not billed_invoice_id"
+                                groups="business_center.group_bc_manager">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value"><field name="billed_invoice_name"/></span>
+                                <span class="o_stat_text">Invoice</span>
+                            </div>
+                        </button>
+                        <button name="action_view_contract" type="object" class="oe_stat_button"
+                                icon="fa-file-text-o" invisible="not contract_id">
+                            <div class="o_field_widget o_stat_info">
+                                <span class="o_stat_value"><field name="contract_id" readonly="1"/></span>
+                                <span class="o_stat_text">Billed to Contract</span>
+                            </div>
+                        </button>
+                        <field name="billed_invoice_id" invisible="1"/>
+                    </div>
                     <div class="oe_title">
                         <h1><field name="name" readonly="1"/></h1>
                     </div>
@@ -71,7 +89,7 @@
                             <field name="amount" widget="monetary"/>
                             <field name="billed_hours" invisible="not billed_hours"/>
                             <field name="charge_id" invisible="not charge_id"/>
-                            <field name="invoice_id" invisible="not invoice_id"/>
+                            <field name="charge_id" invisible="not charge_id"/>
                         </group>
                     </group>
                     <field name="charge_to_decide" invisible="1"/>
