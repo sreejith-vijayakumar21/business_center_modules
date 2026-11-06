@@ -10,8 +10,9 @@
             <field name="desk_id" position="after">
                 <field name="available_desk_ids" invisible="1"/>
                 <widget name="bc_floor_picker" colspan="2" invisible="state != 'draft'"
-                        options="{'field': 'desk_id', 'options_field': 'available_desk_ids',
-                                  'link_key': 'bc_hot_desk', 'title': 'Pick a hot desk from the floor plan'}"/>
+                        options="{'title': 'Pick a hot desk from the floor plan',
+                                  'targets': {'bc_hot_desk': {'field': 'desk_id',
+                                                              'options_field': 'available_desk_ids'}}}"/>
             </field>
         </field>
     </record>
