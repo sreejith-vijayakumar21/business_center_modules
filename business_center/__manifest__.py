@@ -27,6 +27,7 @@
         'report/business_center_contract_report.xml',
         
         'data/hot_desk_data.xml',
+        'data/hot_desk_mail_data.xml',
         'data/mail_activity_type_data.xml',
         'data/mail_template_contract_data.xml',
         'data/mail_template_data.xml',

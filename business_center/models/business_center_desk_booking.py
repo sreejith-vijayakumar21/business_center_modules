@@ -39,6 +39,7 @@ class BusinessCenterDeskBooking(models.Model):
         ('checked_in', 'Checked In'),
         ('done', 'Done'),
         ('no_show', 'No-show'),
+        ('released', 'Released'),
         ('cancelled', 'Cancelled'),
     ], default='draft', required=True, tracking=True, copy=False)
     user_id = fields.Many2one('res.users', string='Booked By', default=lambda self: self.env.user,
@@ -66,8 +67,15 @@ class BusinessCenterDeskBooking(models.Model):
     duration_display = fields.Char(string='Duration', compute='_compute_amount')
     amount = fields.Monetary(string='Amount', compute='_compute_amount', currency_field='currency_id')
     checked_in_at = fields.Datetime(string='Checked In At', readonly=True, copy=False)
+    reminder_sent_at = fields.Datetime(string='Reminder Sent At', readonly=True, copy=False)
+    customer_coming = fields.Boolean(
+        string='Customer On the Way', readonly=True, copy=False, tracking=True,
+        help="The customer answered the reminder: the desk is held until the "
+             "end of the slot instead of being released early.")
+    released_at = fields.Datetime(string='Released At', readonly=True, copy=False)
     billed_hours = fields.Float(string='Billed Hours', readonly=True, copy=False,
-                                help="Hours charged: the slot when done, or the no-show charge.")
+                                help="Hours charged: the slot when done, or the no-show or "
+                                     "late release charge.")
     charge_id = fields.Many2one('business.center.contract.charge', string='Contract Charge',
                                 readonly=True, copy=False)
     invoice_id = fields.Many2one('account.move', string='Invoice', readonly=True, copy=False)
@@ -102,7 +110,7 @@ class BusinessCenterDeskBooking(models.Model):
             hours = rec._booking_hours()
             rec.duration_display = rec._float_to_duration(hours)
             rec.amount = rec.currency_id.round(hours * rec.hourly_rate) if rec.currency_id else 0.0
-            
+
     @api.depends('center_id', 'booking_date', 'start_time', 'end_time')
     def _compute_available_desk_ids(self):
         """Available hot desks, of the centre when one is chosen, minus those
@@ -115,7 +123,7 @@ class BusinessCenterDeskBooking(models.Model):
                 domain.append(('center_id', '=', rec.center_id.id))
             desks = Desk.search(domain)
             if rec.booking_date and rec.end_time > rec.start_time:
-                busy = self.search([
+                desks -= self.search([
                     ('desk_id', 'in', desks.ids),
                     ('state', 'in', self._slot_blocking_states),
                     ('booking_date', '=', rec.booking_date),
@@ -123,7 +131,6 @@ class BusinessCenterDeskBooking(models.Model):
                     ('end_time', '>', rec.start_time),
                     ('id', '!=', rec._origin.id or 0),
                 ]).desk_id
-                desks -= busy
             rec.available_desk_ids = desks
 
     @api.model_create_multi
@@ -278,6 +285,31 @@ class BusinessCenterDeskBooking(models.Model):
                     "%s has already started. Ask a manager to cancel it.", rec.name))
         self.write({'state': 'cancelled'})
 
+    def action_release(self):
+        """Free the desk of a booking the customer will not use, said by
+        the reminder link or by phone. Before the start it is a plain free
+        cancellation; once started it is charged per the late release
+        setting."""
+
+        for rec in self:
+            if rec.state != 'confirmed':
+                raise UserError(_("Only a confirmed booking that is not checked in can be released."))
+        not_started = self.filtered(lambda b: not b._is_in_past())
+        not_started.write({'state': 'cancelled'})
+        started = self - not_started
+        for rec in started:
+            rec._bc_bill(rec._bc_policy_hours(rec.company_id.bc_hot_desk_late_release_charge))
+        started.write({'state': 'released', 'released_at': fields.Datetime.now()})
+
+    def action_keep(self):
+        """The customer is on the way: hold the desk until the end of the
+        slot instead of releasing it early."""
+
+        for rec in self:
+            if rec.state != 'confirmed':
+                raise UserError(_("Only a confirmed booking can be kept."))
+        self.write({'customer_coming': True})
+
     def action_reset_to_draft(self):
         """Reopen a cancelled booking."""
 
@@ -288,11 +320,10 @@ class BusinessCenterDeskBooking(models.Model):
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
-    def _bc_no_show_hours(self):
-        """Hours charged for a no-show, per the company setting."""
+    def _bc_policy_hours(self, policy):
+        """Hours charged under a charge policy: none, first hour or full."""
 
         self.ensure_one()
-        policy = self.company_id.bc_hot_desk_no_show_charge
         if policy == 'full':
             return self._booking_hours()
         if policy == 'first_hour':
@@ -304,8 +335,47 @@ class BusinessCenterDeskBooking(models.Model):
         per the no-show setting."""
 
         for rec in self:
-            rec._bc_bill(rec._bc_no_show_hours())
+            rec._bc_bill(rec._bc_policy_hours(rec.company_id.bc_hot_desk_no_show_charge))
         self.write({'state': 'no_show'})
+
+    def _bc_minutes_since_start(self, today, hour):
+        """Minutes since the slot started (infinite for an earlier day)."""
+
+        self.ensure_one()
+        if self.booking_date < today:
+            return float('inf')
+        return (hour - self.start_time) * 60.0
+
+    def _bc_reminder_template(self):
+        """Mail template of the "still coming?" reminder. The portal module
+        replaces it with one carrying Keep / Release buttons."""
+
+        return self.env.ref('business_center.mail_template_hot_desk_reminder',
+                            raise_if_not_found=False)
+
+    def _bc_send_reminder(self):
+        """Email the "still coming?" reminder once per booking."""
+
+        for rec in self:
+            template = rec._bc_reminder_template()
+            if template and rec.partner_id.email:
+                template.send_mail(rec.id)
+                rec.message_post(body=_("Reminder sent: the booking has started and nobody has checked in."))
+        self.write({'reminder_sent_at': fields.Datetime.now()})
+
+    def _bc_customer_answer(self, answer):
+        """Apply the customer's answer to the reminder and return what to
+        tell them. ``answer`` is 'keep' or 'release'."""
+
+        self.ensure_one()
+        if self.state != 'confirmed':
+            return _("This booking is %s, so there is nothing to change.",
+                     dict(self._fields['state']._description_selection(self.env))[self.state])
+        if answer == 'keep':
+            self.action_keep()
+            return _("Thank you, your desk is held until %s.", self._float_to_ampm(self.end_time))
+        self.action_release()
+        return _("Your desk has been released. Thank you for letting us know.")
 
     def _bc_bill(self, hours):
         """Bill ``hours`` of this booking: a pending charge on the contract,
@@ -363,21 +433,30 @@ class BusinessCenterDeskBooking(models.Model):
     # ------------------------------------------------------------------------------
     @api.model
     def _cron_process_hot_desk_bookings(self):
-        """Release no-shows and close finished stays.
-
-        A confirmed booking nobody checked in to within the grace period
-        becomes a no-show; a checked-in booking whose slot has ended is
-        completed and billed. Runs every few minutes.
-        """
+        """Run every few minutes, using each booking's company policy:
+        remind customers who have not checked in, release unattended desks
+        as no-shows (or at the end of the slot for customers on their way),
+        and complete finished stays."""
 
         now = self._local_now()
         today, hour = now.date(), now.hour + now.minute / 60.0
-        grace = (self.env.company.bc_hot_desk_checkin_grace or 0) / 60.0
 
-        late = self.search([('state', '=', 'confirmed'), ('booking_date', '<=', today)]).filtered(
-            lambda b: b.booking_date < today or b.start_time + grace <= hour)
-        if late:
-            late._bc_mark_no_show()
+        started = self.search([('state', '=', 'confirmed'), ('booking_date', '<=', today)])
+        to_remind, no_shows = self.browse(), self.browse()
+        for booking in started:
+            company = booking.company_id
+            minutes = booking._bc_minutes_since_start(today, hour)
+            if minutes < 0:
+                continue
+            if booking.customer_coming:
+                if booking.booking_date < today or booking.end_time <= hour:
+                    no_shows |= booking
+            elif minutes >= company.bc_hot_desk_checkin_grace:
+                no_shows |= booking
+            elif minutes >= company.bc_hot_desk_reminder_minutes and not booking.reminder_sent_at:
+                to_remind |= booking
+        to_remind._bc_send_reminder()
+        no_shows._bc_mark_no_show()
 
         ended = self.search([('state', '=', 'checked_in'), ('booking_date', '<=', today)]).filtered(
             lambda b: b.booking_date < today or b.end_time <= hour)

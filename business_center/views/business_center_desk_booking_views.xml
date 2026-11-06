@@ -14,6 +14,9 @@
                             class="btn-primary" invisible="state != 'confirmed'"/>
                     <button name="action_done" string="Check Out" type="object"
                             class="btn-primary" invisible="state != 'checked_in'"/>
+                    <button name="action_release" string="Release Desk" type="object"
+                            invisible="state != 'confirmed'"
+                            confirm="Release this desk? Once the booking has started, the late release charge applies."/>
                     <button name="action_cancel" string="Cancel" type="object"
                             invisible="state not in ('draft', 'confirmed')"/>
                     <button name="action_reset_to_draft" string="Reset to Draft" type="object"
@@ -56,6 +59,9 @@
                                              'busy_field': 'booked_ranges'}"/>
                             <field name="selected_slot_display" invisible="not start_time and not end_time"/>
                             <field name="checked_in_at" invisible="not checked_in_at"/>
+                            <field name="reminder_sent_at" invisible="not reminder_sent_at"/>
+                            <field name="customer_coming" invisible="not customer_coming"/>
+                            <field name="released_at" invisible="not released_at"/>
                         </group>
                         <group string="Price">
                             <field name="currency_id" invisible="1"/>
@@ -94,7 +100,7 @@
                        decoration-info="state == 'draft'"
                        decoration-primary="state == 'confirmed'"
                        decoration-success="state in ('checked_in', 'done')"
-                       decoration-warning="state == 'no_show'"
+                       decoration-warning="state in ('no_show', 'released')"
                        decoration-muted="state == 'cancelled'"/>
             </list>
         </field>
@@ -130,6 +136,7 @@
                 <filter name="filter_confirmed" string="Confirmed" domain="[('state', '=', 'confirmed')]"/>
                 <filter name="filter_checked_in" string="Checked In" domain="[('state', '=', 'checked_in')]"/>
                 <filter name="filter_no_show" string="No-show" domain="[('state', '=', 'no_show')]"/>
+                <filter name="filter_released" string="Released" domain="[('state', '=', 'released')]"/>
                 <group>
                     <filter name="groupby_desk" string="Hot Desk" context="{'group_by': 'desk_id'}"/>
                     <filter name="groupby_date" string="Date" context="{'group_by': 'booking_date'}"/>
@@ -150,12 +157,5 @@
             <p>Hot desks are booked by the hour, by tenants or walk-ins.</p>
         </field>
     </record>
-
-    <!-- MENU: replace PARENT_BOOKINGS_MENU with the parent of the meeting room bookings menu -->
-    <menuitem id="menu_business_center_desk_booking"
-              name="Hot Desks"
-              parent="bc_booking_menu"
-              action="action_business_center_desk_booking"
-              sequence="20"/>
 
 </odoo>

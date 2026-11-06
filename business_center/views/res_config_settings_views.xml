@@ -28,11 +28,20 @@
                                 help="Booking dates and times are compared in this timezone, including for portal users.">
                             <field name="bc_timezone" class="w-100"/>
                         </setting>
-                        <setting string="Hot Desk No-shows"
-                                help="A booking nobody checks in to is released after the grace period and charged as set here.">
+                        <setting string="Hot Desk Attendance"
+                                help="When a hot desk booking starts and nobody checks in: remind the customer, then release the desk.">
                             <div class="mt-2">
-                                <field name="bc_hot_desk_checkin_grace" class="oe_inline"/> minutes grace,
-                                charge: <field name="bc_hot_desk_no_show_charge" class="oe_inline"/>
+                                Send a reminder after
+                                <field name="bc_hot_desk_reminder_minutes" class="oe_inline"/> minutes,
+                                release the desk after
+                                <field name="bc_hot_desk_checkin_grace" class="oe_inline"/> minutes.
+                            </div>
+                        </setting>
+                        <setting string="Hot Desk Charges"
+                                help="What a booking released by the customer, or nobody showed up for, is charged.">
+                            <div class="mt-2">
+                                <div>Released by the customer: <field name="bc_hot_desk_late_release_charge" class="oe_inline"/></div>
+                                <div>No-show: <field name="bc_hot_desk_no_show_charge" class="oe_inline"/></div>
                             </div>
                         </setting>
                     </block>

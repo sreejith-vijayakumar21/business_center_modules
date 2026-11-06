@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- "Still coming?" reminder; the portal module swaps in one with buttons. -->
+        <record id="mail_template_hot_desk_reminder" model="mail.template">
+            <field name="name">Hot Desk: Still Coming?</field>
+            <field name="model_id" ref="model_business_center_desk_booking"/>
+            <field name="subject">Your hot desk {{ object.desk_id.name }} has started</field>
+            <field name="partner_to">{{ object.partner_id.id }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="body_html" type="html">
+<div>
+    <p>Dear <t t-out="object.partner_id.name"/>,</p>
+    <p>Your hot desk booking <strong t-out="object.name"/> for
+       <strong t-out="object.desk_id.name"/> started at
+       <strong t-out="object.selected_slot_display"/>, and you have not checked in yet.</p>
+    <p>If you are not coming, please let reception know so we can release the desk.
+       Unattended desks are released shortly and may be charged as a no-show.</p>
+    <p>Kind regards,<br/><t t-out="object.company_id.name"/></p>
+</div>
+            </field>
+            <field name="auto_delete" eval="True"/>
+        </record>
+
+    </data>
+</odoo>

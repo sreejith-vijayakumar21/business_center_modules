@@ -16,6 +16,8 @@ class BusinessCenterTimeFormatMixin(models.AbstractModel):
            
         if value is None or value is False:
             return ''
+        if value >= 24:
+            return _('12:00 AM (midnight)')
         total = int(round(value * 60))
         hours, minutes = divmod(total, 60)
         period = 'AM' if hours % 24 < 12 else 'PM'
