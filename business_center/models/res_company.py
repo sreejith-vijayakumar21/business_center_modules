@@ -1,7 +1,9 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from odoo import fields, models
+from odoo import _, api, fields, models
+
+from odoo.exceptions import ValidationError 
 
 
 class ResCompany(models.Model):
@@ -23,3 +25,28 @@ class ResCompany(models.Model):
                 help="When the monthly billing run creates a contract invoice, confirm "
              "it and email it to the tenant. Leave off to review drafts first. "
              "A contract can opt out with Review Invoices Manually.")
+    bc_hot_desk_reminder_minutes = fields.Integer(
+        string='Send Reminder After (min)', default=10,
+        help="Minutes after a hot desk booking starts, without check-in, before "
+             "the customer is asked whether they are still coming.")
+    bc_hot_desk_checkin_grace = fields.Integer(
+        string='Release Unattended Desk After (min)', default=30,
+        help="Minutes after the start, without check-in or an answer, before "
+             "the desk is released and the booking becomes a no-show.")
+    
+    # ------------------------------------------------------------------------------
+    #   MARK: CONSTRAINT/ONCHANGE METHODS
+    # ------------------------------------------------------------------------------
+    @api.constrains('bc_hot_desk_reminder_minutes', 'bc_hot_desk_checkin_grace')
+    def _check_hot_desk_policy(self):
+        """The reminder must go out before the desk is released."""
+
+        for company in self:
+            if company.bc_hot_desk_reminder_minutes < 0 or company.bc_hot_desk_checkin_grace <= 0:
+                raise ValidationError(_("Hot desk reminder and release times must be positive."))
+            if company.bc_hot_desk_reminder_minutes >= company.bc_hot_desk_checkin_grace:
+                raise ValidationError(_(
+                    "The hot desk reminder (%(reminder)s min) must come before the "
+                    "release (%(release)s min).",
+                    reminder=company.bc_hot_desk_reminder_minutes,
+                    release=company.bc_hot_desk_checkin_grace))

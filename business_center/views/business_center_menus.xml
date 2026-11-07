@@ -17,6 +17,11 @@
                 name="Bookings"
                 sequence="10"
                 action="action_business_center_booking"/>
+
+        <menuitem id="business_center_desk_booking_menu"
+              name="Hot Desks"
+              action="action_business_center_desk_booking"
+              sequence="20"/>
     </menuitem>
 
     <!--Business Center-->

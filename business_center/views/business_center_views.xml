@@ -125,20 +125,6 @@
                                 </list>
                             </field>
                         </page>
-                        <page string="Spaces" name="spaces">
-                            <div class="alert alert-info d-flex align-items-center"
-                                 role="alert" invisible="id">
-                                <i class="fa fa-info-circle fa-lg me-2"/>
-                                <span>
-                                    Save this business center before adding spaces —
-                                    spaces are numbered from the center code and floor.
-                                </span>
-                            </div>
-                            <field name="space_ids" readonly="not id" mode="kanban"
-                            context="{'default_center_id': id,
-                                    'kanban_view_ref': 'business_center.business_center_space_view_kanban',
-                                    'form_view_ref': 'business_center.business_center_space_view_form'}"/>
-                        </page>
                         <page string="Gallery">
                             <field name="gallery_attachment_ids" mode="kanban" nolabel="1">
                                 <kanban>

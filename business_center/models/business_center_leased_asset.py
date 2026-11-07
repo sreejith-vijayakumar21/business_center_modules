@@ -143,6 +143,7 @@ class BusinessCenterLeasedAsset(models.Model):
                 ('id', 'not in', taken_space_ids),
             ]
             base_desk_domain = [
+                ('desk_type', '=', 'dedicated'),
                 ('state', 'in', self._LEASABLE_STATES),
                 ('id', 'not in', taken_desk_ids),
             ]
@@ -437,6 +438,16 @@ class BusinessCenterLeasedAsset(models.Model):
                     "Each space or desk can only be added once.",
                     name=resource.display_name,
                 ))
+                
+    @api.constrains('desk_id')
+    def _check_desk_is_dedicated(self):
+        """Hot desks are booked by the hour and never leased on a contract."""
+
+        for rec in self:
+            if rec.desk_id.desk_type == 'hot':
+                raise ValidationError(_(
+                    "%s is a hot desk; only dedicated desks can be leased on a contract.",
+                    rec.desk_id.display_name))
                 
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS

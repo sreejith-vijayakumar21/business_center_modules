@@ -6,12 +6,25 @@ from markupsafe import Markup
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError
 
+# Booking models the wizard settles; each implements _bc_check_settle and
+# _apply_cancellation(outcome, reason, used_until).
+BOOKING_MODELS = [
+    ('business.center.booking', 'Meeting Room Booking'),
+    ('business.center.desk.booking', 'Hot Desk Booking'),
+]
+
 
 class BusinessCenterBookingCancelWizard(models.TransientModel):
-    """Manager decision for cancelling a booking that has already started."""
+    """Manager's charge decision for a booking: cancelling one that has
+    already started, or settling a hot desk released or not shown up for.
+
+    The wizard only collects the decision; the booking applies it through
+    its own _apply_cancellation, so meeting rooms (wallet, overage) and hot
+    desks (contract charge, invoice) each settle their own way.
+    """
 
     _name = 'business.center.booking.cancel.wizard'
-    _description = 'Cancel a Started Booking'
+    _description = 'Booking Charge Decision'
     _inherit = ['business.center.time.format.mixin']
 
     # ------------------------------------------------------------------------------
@@ -27,21 +40,30 @@ class BusinessCenterBookingCancelWizard(models.TransientModel):
     billable_hours_display = fields.Char(string='Billable Time',
                                          compute='_compute_billable_hours_display')
 
-    booking_id = fields.Many2one('business.center.booking', string='Booking',
-                                 required=True, readonly=True, ondelete='cascade')
-    booking_date = fields.Date(related='booking_id.booking_date')
-    booked_slot_display = fields.Char(related='booking_id.selected_slot_display',
-                                      string='Booked Slot')
+    booking_ref = fields.Reference(BOOKING_MODELS, string='Booking', required=True, readonly=True)
+    booking_date = fields.Date(string='Date', compute='_compute_booking_info')
+    booked_slot_display = fields.Char(string='Booked Slot', compute='_compute_booking_info')
 
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
     # ------------------------------------------------------------------------------
-    @api.depends('outcome', 'used_until', 'booking_id')
+    @api.depends('booking_ref')
+    def _compute_booking_info(self):
+        """Date and slot of the booking being settled."""
+
+        for wiz in self:
+            wiz.booking_date = wiz.booking_ref.booking_date if wiz.booking_ref else False
+            wiz.booked_slot_display = wiz.booking_ref.selected_slot_display if wiz.booking_ref else False
+
+    @api.depends('outcome', 'used_until', 'booking_ref')
     def _compute_billable_hours_display(self):
         """Preview how much of the booked slot will be billed for the chosen outcome."""
 
         for wiz in self:
-            booking = wiz.booking_id
+            booking = wiz.booking_ref
+            if not booking:
+                wiz.billable_hours_display = False
+                continue
             if wiz.outcome == 'full':
                 hours = booking._booking_hours()
             elif wiz.outcome == 'used':
@@ -54,16 +76,14 @@ class BusinessCenterBookingCancelWizard(models.TransientModel):
     #   MARK: BUTTON ACTION METHODS
     # ------------------------------------------------------------------------------
     def action_confirm(self):
-        """Cancel the booking with the chosen outcome and log the decision."""
+        """Apply the decision to the booking and log it."""
 
         self.ensure_one()
         if not self.env.user.has_group('business_center.group_bc_manager'):
-            raise UserError(_("Only a Business Center Manager can cancel a started booking."))
-        booking = self.booking_id
-        if booking.state != 'confirmed':
-            raise UserError(_("Only a confirmed booking can be cancelled here."))
-        if self.outcome == 'used' and not (
-                booking.start_time < self.used_until < booking.end_time):
+            raise UserError(_("Only a Business Center Manager can decide a booking's charge."))
+        booking = self.booking_ref
+        booking._bc_check_settle()
+        if self.outcome == 'used' and not (booking.start_time < self.used_until < booking.end_time):
             raise UserError(_(
                 "'Used Until' must fall inside the booked slot (%(start)s - %(end)s). "
                 "For nothing used choose 'Waive all charges'; for the whole slot "
@@ -79,7 +99,7 @@ class BusinessCenterBookingCancelWizard(models.TransientModel):
             outcome_label = _("%(label)s (until %(time)s)", label=outcome_label,
                               time=self._float_to_ampm(self.used_until))
         booking.message_post(body=Markup("<p><b>%s</b> %s</p><p>%s %s</p>") % (
-            _("Cancelled after start:"), outcome_label,
+            _("Charge decision:"), outcome_label,
             _("Reason:"), self.reason,
         ))
         return {'type': 'ir.actions.act_window_close'}

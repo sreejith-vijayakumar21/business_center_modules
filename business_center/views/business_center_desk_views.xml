@@ -11,29 +11,45 @@
                 <button name="action_set_occupied" type="object"
                         string="Set Occupied" class="btn-primary"
                         groups="business_center.group_bc_manager"
-                        invisible="state == 'occupied' or not current_contract_id"/>
+                        invisible="state == 'occupied' or not current_contract_id or desk_type == 'hot'"/>
                 <button name="action_set_available" type="object"
                         string="Set Available"
                         groups="business_center.group_bc_manager"
                         invisible="state in ('available', 'occupied')"/>
-                <button name="action_set_maintenance" type="object"
-                        string="Maintenance"
+                <button name="action_open_out_of_service_wizard" type="object" string="Maintenance"
+                        context="{'bc_target_state': 'maintenance'}"
                         groups="business_center.group_bc_manager"
                         invisible="state in ('draft', 'maintenance')"/>
-                <button name="action_set_draft" type="object"
-                        string="Reset to Draft" class="btn-secondary"
+                <button name="action_open_out_of_service_wizard" type="object" string="Reset to Draft"
+                        context="{'bc_target_state': 'draft'}"
                         groups="business_center.group_bc_manager"
                         invisible="state == 'draft'"/>
+                <button name="action_toggle_bookable" type="object" string="Withdraw from Booking"
+                        groups="business_center.group_bc_manager"
+                        invisible="desk_type != 'hot' or not is_bookable or state != 'available'"/>
+                <button name="action_toggle_bookable" type="object" string="Open for Booking" class="btn-primary"
+                        groups="business_center.group_bc_manager"
+                        invisible="desk_type != 'hot' or is_bookable or state != 'available'"/>
                 <field name="state" widget="statusbar" statusbar_visible="draft,available,occupied,maintenance"/>
+                <field name="desk_type" invisible="1"/>
             </header>
-                <sheet readonly="state != 'draft'">
+                <sheet>
+                    <field name="out_of_service_since" invisible="1"/>
+                    <div class="alert alert-warning" role="alert" invisible="not out_of_service_since">
+                        Out of service since <field name="out_of_service_since" readonly="1" class="oe_inline"/>
+                        by <field name="out_of_service_by_id" readonly="1" class="oe_inline"/>:
+                        <field name="out_of_service_reason" readonly="1" class="oe_inline"/>.
+                        Set it Available when finished.
+                    </div>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
                     <div class="oe_button_box" name="button_box">
                         <button name="action_open_desk_contracts"
                                 type="object"
                                 class="oe_stat_button"
-                                icon="fa-file-text-o">
-                            <field name="desk_contract_count" 
-                                   widget="statinfo" 
+                                icon="fa-file-text-o"
+                                invisible="desk_type == 'hot'">
+                            <field name="desk_contract_count"
+                                   widget="statinfo"
                                    string="Contracts"/>
                         </button>
                     </div>
@@ -45,19 +61,22 @@
 
                     <group>
                         <group string="Location &amp; Setup">
+                            <field name="desk_type" widget="radio" options="{'horizontal': True}"
+                                   readonly="state != 'draft' or context.get('bc_from_floor_layout')"
+                                   force_save="1"/>
                             <field name="space_id"
-                                   readonly="context.get('default_space_id', False)"
+                                   readonly="state != 'draft' or context.get('default_space_id', False)"
                                    force_save="1"
                                    options="{'no_create': True}"/>
                             <field name="center_id"/>
                             <field name="floor_id"/>
-                            <field name="row_label"/>
-                            <field name="position"/>
+                            <field name="row_label" readonly="state != 'draft'"/>
+                            <field name="position" readonly="state != 'draft'"/>
                             <field name="company_id"/>
                             <field name="active"/>
                         </group>
 
-                        <group string="Occupancy &amp; Status">
+                        <group string="Occupancy &amp; Status" invisible="desk_type == 'hot'">
                             <field name="occupant_id" readonly="1"/>
                             <field name="current_contract_id" readonly="1"/>
                             <field name="contract_period_display" readonly="1"/>
@@ -66,9 +85,18 @@
 
                     <group>
                         <group string="Pricing &amp; Booking">
-                            <field name="monthly_rent" widget="monetary"/>
+                            <!-- Managers edit rates; everyone else sees them read-only -->
+                            <field name="monthly_rent" widget="monetary" invisible="desk_type == 'hot'"
+                                   groups="business_center.group_bc_manager"/>
+                            <field name="monthly_rent" widget="monetary" invisible="desk_type == 'hot'"
+                                   readonly="1" groups="!business_center.group_bc_manager"/>
+                            <field name="hourly_rate" widget="monetary" invisible="desk_type != 'hot'"
+                                   groups="business_center.group_bc_manager"/>
+                            <field name="hourly_rate" widget="monetary" invisible="desk_type != 'hot'"
+                                   readonly="1" groups="!business_center.group_bc_manager"/>
+                            <field name="is_bookable" invisible="desk_type != 'hot'" readonly="1"/>
                         </group>
-                        <group string="Contract Terms">
+                        <group string="Contract Terms" invisible="desk_type == 'hot'">
                             <field name="is_lock_period"/>
                             <label for="min_lock_period" string="Min Contract Lock Period" invisible="not is_lock_period"/>
                             <div class="o_row">
@@ -90,12 +118,16 @@
         <field name="arch" type="xml">
             <list create="0">
                 <field name="name" string="Desk"/>
+                <field name="desk_type" optional="show" widget="badge"
+                       decoration-danger="desk_type == 'hot'"
+                       decoration-muted="desk_type == 'dedicated'"/>
                 <field name="center_id" string="Center"/>
                 <field name="space_id" string="Space"/>
                 <field name="floor_id" string="Floor" optional="show"/>
                 <field name="occupant_id" string="Occupant" optional="show"/>
                 <field name="current_contract_id" string="Contract" optional="hide"/>
                 <field name="monthly_rent" widget="monetary" sum="Total Rent"/>
+                <field name="hourly_rate" widget="monetary" optional="show"/>
                 <field name="currency_id" column_invisible="1"/>
                 <field name="state" widget="badge"
                     decoration-success="state == 'available'"
@@ -112,10 +144,12 @@
         <field name="arch" type="xml">
             <kanban default_group_by="state" create="0">
                 <field name="name"/>
+                <field name="desk_type"/>
                 <field name="center_id"/>
                 <field name="space_id"/>
                 <field name="occupant_id"/>
                 <field name="monthly_rent"/>
+                <field name="hourly_rate"/>
                 <field name="state"/>
                 <field name="contract_period_display"/>
                 <templates>
@@ -123,9 +157,14 @@
                         <div class="d-flex">
                             <!-- Icon avatar (desktop for Desk) -->
                             <aside class="me-2">
+                                <!-- Pastel badge per desk type: purple dedicated, red hot desk -->
+                                <t t-set="is_hot" t-value="record.desk_type.raw_value == 'hot'"/>
                                 <div class="d-flex align-items-center justify-content-center rounded-3"
-                                    style="width:48px; height:48px; background-color:#F1E4F7; color:#7B2A93; font-size:20px;">
-                                    <i class="fa fa-desktop" title="Desk"/>
+                                     t-att-style="'width:48px; height:48px; font-size:20px; ' + (is_hot
+                                        ? 'background-color:#FDE4E4; color:#B23A3A;'
+                                        : 'background-color:#F1E4F7; color:#7B2A93;')"
+                                     t-att-title="is_hot ? 'Hot desk' : 'Dedicated desk'">
+                                    <i class="fa fa-desktop"/>
                                 </div>
                             </aside>
 
@@ -155,10 +194,15 @@
                                         <field name="space_id"/>
                                     </span>
                                     <!-- RIGHT: monthly rent -->
-                                    <span class="small">
+                                    <span class="small" invisible="desk_type == 'hot'">
                                         <i class="fa fa-money fa-fw me-2 text-success" title="Monthly Rent"/>
                                         <field name="monthly_rent" widget="monetary"/>
                                         <span class="text-muted">/ month</span>
+                                    </span>
+                                    <span class="small" invisible="desk_type != 'hot'">
+                                        <i class="fa fa-money fa-fw me-2 text-success" title="Hourly Rate"/>
+                                        <field name="hourly_rate" widget="monetary"/>
+                                        <span class="text-muted">/ hour</span>
                                     </span>
                                 </div>
 
@@ -194,9 +238,13 @@
                 <filter name="filter_occupied" string="Occupied" domain="[('state', '=', 'occupied')]"/>
                 <filter name="filter_maintenance" string="Maintenance" domain="[('state', '=', 'maintenance')]"/>
                 <separator/>
+                <filter name="filter_dedicated" string="Dedicated Desks" domain="[('desk_type', '=', 'dedicated')]"/>
+                <filter name="filter_hot" string="Hot Desks" domain="[('desk_type', '=', 'hot')]"/>
+                <separator/>
                 <filter name="filter_archived" string="Archived" domain="[('active', '=', False)]"/>
 
                 <group>
+                    <filter name="groupby_desk_type" string="Desk Type" context="{'group_by': 'desk_type'}"/>
                     <filter name="groupby_center" string="Business Center" context="{'group_by': 'center_id'}"/>
                     <filter name="groupby_floor" string="Floor" context="{'group_by': 'floor_id'}"/>
                     <filter name="groupby_space" string="Coworking Space" context="{'group_by': 'space_id'}"/>

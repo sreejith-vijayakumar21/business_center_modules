@@ -11,6 +11,10 @@ from odoo.addons.workspace_floor_planner.models.floor_plan_object import (
     STYLE_FIELDS,
 )
 
+import logging
+
+_logger = logging.getLogger(__name__)
+
 PLAN_FIELDS = (
     "name", "code", "site", "floor_level", "canvas_width", "canvas_height", "units_per_meter",
     "grid_size", "show_grid", "snap_to_grid", "status_refresh_interval", "layout_version",
@@ -27,7 +31,7 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
     _description = "Floor Plan Layout Service"
 
     # ------------------------------------------------------------------
-    # Load
+    # MARK: LOAD
     # ------------------------------------------------------------------
     @api.model
     def _load(self, plan):
@@ -75,7 +79,7 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
         return data
 
     # ------------------------------------------------------------------
-    # Save
+    # MARK: SAVE
     # ------------------------------------------------------------------
     @api.model
     def _save(self, plan, payload):
@@ -101,9 +105,11 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
         Object = self.env["workspace.floor.plan.object"]
         existing = {obj.id: obj for obj in plan.object_ids}
         kept_ids = {vals["id"] for vals in clean["objects"] if vals.get("id")}
+        drawn_before = self._drawn_records(plan)
 
         # Delete first so a link can move from a removed object to a new one.
         to_delete = plan.object_ids.filtered(lambda o: o.id not in kept_ids)
+        self._check_removable(plan, to_delete)
         to_delete.unlink()
 
         updates = []
@@ -118,6 +124,9 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
         relinked = Object.browse([
             obj.id for obj, changes, _vals in updates if "link_key" in changes or "link_res_id" in changes
         ])
+        # Unlinking or relinking takes a unit off the floor just like deleting
+        # its shape, so the providers decide for the records being released.
+        self._check_removable(plan, relinked.filtered("link_res_id"))
         if relinked:
             relinked.write({"link_key": False, "link_res_id": False})
         for obj, changes, vals in updates:
@@ -135,10 +144,56 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
                 })
         created = Object.create(create_vals) if create_vals else Object
 
+        # Records drawn before this save and nowhere on the plan after it.
+        plan.invalidate_recordset(["object_ids"])
+        drawn_after = self._drawn_records(plan)
+        self._release_records(plan, drawn_before - drawn_after)
+
         plan.write({**clean["plan"], "layout_version": plan.layout_version + 1})
         result = self._load(plan)
         result["id_map"] = dict(zip(client_keys, created.ids))
         return result
+    
+    def _check_removable(self, plan, objects):
+        """Let each link provider refuse the removal of the shapes linked
+        through it, before anything is deleted."""
+
+        registry = self.env["workspace.floor.link.registry"]
+        for link_key in set(objects.filtered("link_key").mapped("link_key")):
+            try:
+                provider = registry._get_provider(link_key)
+            except UserError:
+                continue  # provider no longer installed: nothing to protect
+            if provider is None:
+                continue
+            linked = objects.filtered(lambda o: o.link_key == link_key and o.link_res_id)
+            records = provider._fp_target().sudo().browse(linked.mapped("link_res_id")).exists()
+            if records:
+                provider._fp_check_remove(plan, records)
+                
+    def _drawn_records(self, plan):
+        """(link_key, record id) of every record a shape on ``plan`` draws."""
+
+        return {(o.link_key, o.link_res_id) for o in plan.object_ids
+                if o.link_key and o.link_res_id}
+
+    def _release_records(self, plan, pairs):
+        """Hand each provider the records no longer drawn on ``plan``."""
+
+        registry = self.env["workspace.floor.link.registry"]
+        by_key = {}
+        for link_key, res_id in pairs:
+            by_key.setdefault(link_key, []).append(res_id)
+        for link_key, res_ids in by_key.items():
+            try:
+                provider = registry._get_provider(link_key)
+            except UserError:
+                continue
+            if provider is None:
+                continue
+            records = provider._fp_target().sudo().browse(res_ids).exists()
+            if records:
+                provider._fp_release(plan, records)
 
     @api.model
     def _diff(self, obj, vals):

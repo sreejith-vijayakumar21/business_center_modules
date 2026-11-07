@@ -18,6 +18,13 @@ from odoo.exceptions import UserError
 
 from odoo.addons.workspace_floor_planner.tools.geometry import center_of, point_in_rotated_rect
 
+from odoo.addons.workspace_floor_planner_business_bridge.models.business_center_space import (
+    DESK_LINK_KEYS,
+    release_floor_links,
+)
+
+import logging
+
 # Business Center state -> floor planner status. Draft units are not ready to
 # rent yet, so they show as unknown.
 # Business Center state -> floor planner status.
@@ -82,6 +89,42 @@ class BusinessCenterProviderMixin(models.AbstractModel):
         """Business Center records can be created from their shape."""
 
         return True
+    
+    @api.model
+    def _fp_check_remove(self, plan, records):
+        """Only shapes of Draft units may be removed: a space or desk that is
+        available, occupied or under maintenance keeps its place on the floor.
+        Reset it to Draft first to redraw it."""
+
+        in_use = records.filtered(lambda r: r.state != "draft")
+        if not in_use:
+            return
+        unit = in_use[0]
+        states = dict(unit._fields["state"]._description_selection(self.env))
+        raise UserError(self.env._(
+            "Only Draft spaces can be removed from or unlinked on the layout. "
+            "“%(name)s” is %(state)s.",
+            name=unit.display_name,
+            state=states.get(unit.state, unit.state),
+        ))
+
+    @api.model
+    def _fp_release(self, plan, records):
+        """A Draft unit taken off its floor layout is deleted when it has no
+        history, and archived when it has. Providers extend
+        ``_fp_archive_released`` for what else must follow an archived unit."""
+
+        drafts = records.filtered(lambda r: r.state == "draft")
+        kept = drafts.filtered(lambda r: r._bc_has_history())
+        (drafts - kept).unlink()
+        if kept:
+            self._fp_archive_released(kept)
+
+    @api.model
+    def _fp_archive_released(self, records):
+        """Archive released units that have history."""
+
+        records.write({"active": False})
 
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
@@ -99,6 +142,49 @@ class BusinessCenterProviderMixin(models.AbstractModel):
             "default_floor_id": floor.id,
             "bc_from_floor_layout": True,
         }
+        
+    @api.model
+    def _bc_floor_records(self, floor):
+        """This provider's rentable units on ``floor``, for the floor totals.
+        Spaces by default; desk providers override it."""
+
+        return floor.space_ids.filtered_domain(self._fp_target_domain())
+    
+    @api.model
+    def _local_moment(self, at):
+        """Convert ``at`` (naive UTC, or None for now) to the user's local
+        date and float hour, the way bookings store their times."""
+
+        tz = pytz.timezone(self.env.user.tz or "UTC")
+        local = pytz.utc.localize(at or fields.Datetime.now()).astimezone(tz)
+        return local.date(), local.hour + local.minute / 60.0
+
+    @api.model
+    def _bc_booking_statuses(self, records, at, booking_model, resource_field, holding_states):
+        """Statuses of bookable units at ``at``: draft and maintenance come
+        from the unit; otherwise a holding booking running then makes it
+        occupied, one later the same day reserved, none available."""
+
+        statuses = {rec.id: STATE_MAP.get(rec.state, "unknown") for rec in records}
+        bookable = records.filtered(lambda r: r.state in ("available", "occupied"))
+        if not bookable:
+            return statuses
+        day, hour = self._local_moment(at)
+        bookings = self.env[booking_model].sudo().search([
+            (resource_field, "in", bookable.ids),
+            ("state", "in", holding_states),
+            ("booking_date", "=", day),
+            ("end_time", ">", hour),
+        ])
+        for rec in bookable:
+            mine = bookings.filtered(lambda b: b[resource_field] == rec)
+            if mine.filtered(lambda b: b.start_time <= hour):
+                statuses[rec.id] = "occupied"
+            elif mine:
+                statuses[rec.id] = "reserved"
+            else:
+                statuses[rec.id] = "available"
+        return statuses
 
 
 class BusinessCenterOfficeProvider(models.AbstractModel):
@@ -131,29 +217,39 @@ class BusinessCenterOfficeProvider(models.AbstractModel):
 
 
 class BusinessCenterDeskProvider(models.AbstractModel):
-    """Desks of coworking spaces."""
+    """Dedicated desks of coworking spaces, leased on contracts."""
 
     _name = "workspace.floor.link.provider.bc_desk"
     _inherit = "workspace.floor.link.provider.bc_mixin"
-    _description = "Floor link: Business Center desks"
+    _description = "Floor link: Business Center dedicated desks"
 
     _fp_link_key = "bc_desk"
     _fp_link_label = "Desk"
     _fp_target_model = "business.center.desk"
-    _fp_object_types = frozenset({"hot_desk", "dedicated_desk"})
+    _fp_object_types = frozenset({"dedicated_desk"})
+    # Desk type of the records this provider draws; subclasses change only this.
+    _fp_desk_type = "dedicated"
 
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
     # ------------------------------------------------------------------------------
     @api.model
-    def _fp_get_create_context(self, plan, obj):
-        """Put the new desk in the coworking space it is drawn in; a linked
-        coworking area wins over an unlinked one, the topmost over the rest.
+    def _fp_target_domain(self):
+        """Accept only desks of this provider's type."""
 
-        A desk always belongs to a coworking space, so creating one is
-        refused until the desk sits inside a coworking area whose coworking
-        space exists.
-        """
+        return [("desk_type", "=", self._fp_desk_type)]
+
+    @api.model
+    def _bc_floor_records(self, floor):
+        """Desks of this type in the floor's coworking spaces."""
+
+        return floor.space_ids.filtered("is_coworking").desk_ids.filtered_domain(self._fp_target_domain())
+
+    @api.model
+    def _fp_get_create_context(self, plan, obj):
+        """Put the new desk in the coworking space it is drawn in, with this
+        provider's desk type; a linked coworking area wins over an unlinked
+        one, the topmost over the rest."""
 
         point = center_of(obj._read_geometry())
         areas = plan.object_ids.filtered(
@@ -162,13 +258,46 @@ class BusinessCenterDeskProvider(models.AbstractModel):
         ).sorted("z_index", reverse=True)
         linked = areas.filtered(lambda a: a.link_key == "bc_coworking" and a.link_res_id)[:1]
         if linked:
-            return {"default_space_id": linked.link_res_id}
+            return {
+                "default_space_id": linked.link_res_id,
+                "default_desk_type": self._fp_desk_type,
+                "bc_from_floor_layout": True,
+            }
         if areas:
             raise UserError(self.env._(
                 "Create the coworking space first, then create the desk."))
         raise UserError(self.env._(
             "Place the desk inside a coworking space on the layout first, "
             "then create the desk."))
+
+
+class BusinessCenterHotDeskProvider(models.AbstractModel):
+    """Hot desks: shared desks of coworking spaces, booked by the hour."""
+
+    _name = "workspace.floor.link.provider.bc_hot_desk"
+    _inherit = "workspace.floor.link.provider.bc_desk"
+    _description = "Floor link: Business Center hot desks"
+
+    _fp_link_key = "bc_hot_desk"
+    _fp_link_label = "Hot Desk"
+    _fp_object_types = frozenset({"hot_desk"})
+    _fp_desk_type = "hot"
+    
+    # ------------------------------------------------------------------------------
+    #   MARK: COMPUTE/OVERRIDDEN METHODS
+    # ------------------------------------------------------------------------------
+    @api.model
+    def _fp_is_time_dependent(self):
+        """Hot desk statuses depend on bookings, so on the selected moment."""
+
+        return True
+
+    @api.model
+    def _fp_get_statuses(self, records, at=None):
+        """Hot desk statuses from their state and bookings at ``at``."""
+
+        return self._bc_booking_statuses(records, at, "business.center.desk.booking",
+                                         "desk_id", ("confirmed", "checked_in"))
 
 
 class BusinessCenterCoworkingProvider(models.AbstractModel):
@@ -198,6 +327,23 @@ class BusinessCenterCoworkingProvider(models.AbstractModel):
 
         return {**self._fp_floor_defaults(plan),
                 "default_space_type": "office", "default_is_coworking": True}
+        
+    @api.model
+    def _fp_archive_released(self, records):
+        """An archived coworking space takes its desks along, and their shapes
+        are freed: desks cannot be used without their space."""
+
+        desks = records.desk_ids
+        if desks:
+            release_floor_links(self.env, DESK_LINK_KEYS, desks.ids)
+            desks.write({"active": False})
+        super()._fp_archive_released(records)
+        
+    @api.model
+    def _bc_floor_records(self, floor):
+        """A coworking space is not counted itself; its desks are."""
+
+        return self._fp_target().browse()
 
 
 class BusinessCenterMeetingRoomProvider(models.AbstractModel):
@@ -235,42 +381,10 @@ class BusinessCenterMeetingRoomProvider(models.AbstractModel):
 
     @api.model
     def _fp_get_statuses(self, records, at=None):
-        """Maintenance and draft come from the room; otherwise a confirmed
-        booking running at that moment makes it occupied, and one later the
-        same day makes it reserved."""
+        """Room statuses from their state and confirmed bookings at ``at``."""
 
-        statuses = super()._fp_get_statuses(records, at)
-        bookable = records.filtered(lambda r: r.state in ("available", "occupied"))
-        if not bookable:
-            return statuses
-        day, hour = self._local_moment(at)
-        bookings = self.env["business.center.booking"].search([
-            ("meeting_room_id", "in", bookable.ids),
-            ("state", "=", "confirmed"),
-            ("booking_date", "=", day),
-            ("end_time", ">", hour),
-        ])
-        for room in bookable:
-            room_bookings = bookings.filtered(lambda b: b.meeting_room_id == room)
-            if room_bookings.filtered(lambda b: b.start_time <= hour):
-                statuses[room.id] = "occupied"
-            elif room_bookings:
-                statuses[room.id] = "reserved"
-            else:
-                statuses[room.id] = "available"
-        return statuses
-
-    # ------------------------------------------------------------------------------
-    #   MARK: HELPER METHODS
-    # ------------------------------------------------------------------------------
-    @api.model
-    def _local_moment(self, at):
-        """Convert ``at`` (naive UTC, or None for now) to the user's local
-        date and float hour, the way bookings store their times."""
-
-        tz = pytz.timezone(self.env.user.tz or "UTC")
-        local = pytz.utc.localize(at or fields.Datetime.now()).astimezone(tz)
-        return local.date(), local.hour + local.minute / 60.0
+        return self._bc_booking_statuses(records, at, "business.center.booking",
+                                         "meeting_room_id", ("confirmed",))
 
 
 class WorkspaceFloorLinkRegistry(models.AbstractModel):
@@ -290,4 +404,5 @@ class WorkspaceFloorLinkRegistry(models.AbstractModel):
             "workspace.floor.link.provider.bc_desk",
             "workspace.floor.link.provider.bc_meeting_room",
             "workspace.floor.link.provider.bc_coworking",
+            "workspace.floor.link.provider.bc_hot_desk",
         ]

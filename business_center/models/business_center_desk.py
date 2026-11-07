@@ -10,7 +10,8 @@ class BusinessCenterDesk(models.Model):
     
     _name = 'business.center.desk'
     _description = 'A central registry of business center desks'
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.search.panel.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.search.panel.mixin', 
+                'business.center.service.mixin']
     _order = 'id desc'
     
     # ------------------------------------------------------------------------------
@@ -20,6 +21,17 @@ class BusinessCenterDesk(models.Model):
                        index='trigram', default=lambda self: _('New'))
     row_label = fields.Char(string='Seat Rows')
     position = fields.Integer(string='Position')
+    desk_type = fields.Selection([
+        ('dedicated', 'Dedicated Desk'),
+        ('hot', 'Hot Desk'),
+    ], string='Desk Type', required=True, default='dedicated', tracking=True,
+        help="Dedicated desks are leased on contracts; hot desks are shared "
+             "and booked by the hour.")
+    hourly_rate = fields.Monetary(string='Hourly Rate', currency_field='currency_id', tracking=True,
+                                  help="Price per hour of a hot desk booking.")
+    is_bookable = fields.Boolean(
+        string='Open for Booking', default=True, tracking=True,
+        help="Hot desks only: untick to stop new bookings while existing ones continue.")
     state = fields.Selection([
         ('draft', 'Draft'),
         ('available', 'Available'),
@@ -61,10 +73,18 @@ class BusinessCenterDesk(models.Model):
         'CHECK (monthly_rent >= 0)',
          'Monthly rent cannot be negative!'
     )
+    _hourly_rate_positive = models.Constraint(
+        'CHECK (hourly_rate >= 0)',
+        'Hourly rate cannot be negative!'
+    )
     _NON_DRAFT_EDITABLE_FIELDS = {
         'state', 'occupant_id', 'current_contract_id',
         'contract_start_date', 'contract_end_date',
-        'message_main_attachment_id', 'active',
+        'message_main_attachment_id', 'active', 'is_bookable',
+        'out_of_service_since', 'out_of_service_reason', 'out_of_service_by_id',
+        # commercial: applies to new contracts and bookings only
+        'monthly_rent', 'hourly_rate',
+        'is_lock_period', 'min_lock_period', 'min_lock_period_unit',
     }
 
     # ------------------------------------------------------------------------------
@@ -83,12 +103,15 @@ class BusinessCenterDesk(models.Model):
                     "Use 'Reset to Draft' first.",
                     desk=non_draft[0].name,
                 ))
+        if {'monthly_rent', 'hourly_rate'} & set(vals) \
+                and not self.env.user.has_group('business_center.group_bc_manager'):
+            raise UserError(_("Only a Business Center Manager can change desk rates."))
         if 'active' in vals and not vals['active']:
-            busy = self.filtered(lambda d: d.state == 'occupied' or d.leased_asset_ids.filtered(
-                lambda a: a.contract_id.state in ('draft', 'upcoming', 'active')))
+            busy = self.filtered(lambda d: d.state == 'occupied' or d._bc_upcoming_commitments()
+                                 or d.leased_asset_ids.filtered(lambda a: a.contract_id.state == 'draft'))
             if busy:
                 raise UserError(_(
-                    "Desk %s is occupied or part of a live contract and "
+                    "Desk %s is occupied, booked or part of a live contract and "
                     "cannot be archived.", busy[0].name))
         res = super().write(vals)
         if {'state', 'active'} & set(vals):
@@ -118,26 +141,23 @@ class BusinessCenterDesk(models.Model):
                 row_label = vals.get('row_label') or ''
                 position = vals.get('position')
                 position = str(position) if position else ''
-                sequence = 'D' + row_label + position
+                desk_type = vals.get('desk_type') or self.env.context.get('default_desk_type')
+                prefix = 'H' if desk_type == 'hot' else 'D'
+                sequence = prefix + row_label + position
                 parts = [part for part in (center.code, floor.name, sequence) if part]
                 vals['name'] = '/'.join(parts)
         return super().create(vals_list)
     
     @api.ondelete(at_uninstall=False)
-    def _unlink_except_live_contract(self):
-        """Prevent deleting a desk while it still belongs to a draft or active contract"""
-        
+    def _unlink_except_has_history(self):
+        """A desk that was ever on a contract, in any state, keeps its record:
+        those contracts and their invoices refer to it. Archive it instead."""
+
         for rec in self:
-            live = rec.leased_asset_ids.filtered(
-                lambda a: a.contract_id.state in ('draft', 'upcoming', 'active')
-            )
-            if live:
+            if rec._bc_has_history():
                 raise UserError(_(
-                    "Desk %(desk)s is part of contract(s) %(contracts)s. "
-                    "Cancel or amend the contract before deleting the space.",
-                    desk=rec.name,
-                    contracts=", ".join(live.mapped('contract_id.name')),
-                ))
+                    "Desk %s has contracts or bookings in its history and cannot be "
+                    "deleted. Archive it instead to stop using it.", rec.name))
             
     @api.depends('leased_asset_ids')
     def _compute_desk_contract_count(self):
@@ -172,13 +192,16 @@ class BusinessCenterDesk(models.Model):
     #   MARK: BUTTON ACTION METHODS
     # ------------------------------------------------------------------------------
     def action_set_maintenance(self):
-        """Put the desk under maintenance"""
-        
+        """Put the desk under maintenance, only while nothing holds it."""
+
+        self._bc_check_no_commitments()
         self.write({'state': 'maintenance'})
 
     def action_set_occupied(self):
         """Mark the desk as occupied, refusing if no active contract is linked"""
         
+        if self.filtered(lambda d: d.desk_type == 'hot'):
+            raise UserError(_("Hot desks are booked by the hour, not occupied through a contract."))
         for rec in self:
             if not rec.current_contract_id:
                 raise UserError(_(
@@ -187,22 +210,11 @@ class BusinessCenterDesk(models.Model):
         self.write({'state': 'occupied'})
         
     def action_set_draft(self):
-        """Reset the desk to draft, refusing while a live contract holds it.
+        """Reset the desk to draft, only while nothing holds it (running or
+        upcoming contracts, current or future bookings). Past history is
+        left as it is."""
 
-        Writing state alone would leave occupant_id and current_contract_id
-        pointing at a running contract while the space vanished from every
-        'occupied' filter — the kanban, the occupancy rate, and the centre's
-        delete guard.
-        """
-
-        for rec in self:
-            if rec.current_contract_id.state in ('upcoming', 'active'):
-                raise UserError(_(
-                    "%(desk)s is held by contract %(contract)s. Cancel or "
-                    "amend the contract before resetting the space.",
-                    desk=rec.display_name,
-                    contract=rec.current_contract_id.name,
-                ))
+        self._bc_check_no_commitments()
         self.write({'state': 'draft'})
         
     def action_set_available(self):
@@ -216,7 +228,12 @@ class BusinessCenterDesk(models.Model):
                     desk=rec.display_name,
                     space=rec.space_id.display_name,
                 ))
+            if rec.desk_type == 'hot' and rec.hourly_rate <= 0:
+                raise UserError(_(
+                    "Set the hourly rate of hot desk %s before making it available.",
+                    rec.display_name))
         self.write({'state': 'available'})
+        self._bc_back_in_service()
         
     def action_open_desk_contracts(self):
         """Open the list of contracts that lease this desk"""
@@ -232,3 +249,42 @@ class BusinessCenterDesk(models.Model):
             'order': 'state asc',
 
         }
+        
+    def action_toggle_bookable(self):
+        """Stop new bookings on a hot desk, or open it back up; existing
+        bookings continue either way, and the chatter lists them on
+        withdrawal."""
+
+        if self.filtered(lambda d: d.desk_type != 'hot'):
+            raise UserError(_("Only hot desks are booked; dedicated desks are leased."))
+        for rec in self:
+            rec.is_bookable = not rec.is_bookable
+            if not rec.is_bookable:
+                upcoming = rec._bc_upcoming_commitments()
+                if upcoming:
+                    rec.message_post(body=_(
+                        "Withdrawn from booking. Existing bookings continue: %s.",
+                        ", ".join(upcoming[:5])))
+        
+    # ------------------------------------------------------------------------------
+    #   MARK: HELPER METHODS
+    # ------------------------------------------------------------------------------
+    def _bc_has_history(self):
+        """True when the desk was ever on a contract or ever booked."""
+
+        self.ensure_one()
+        return bool(self.sudo().leased_asset_ids) or bool(
+            self.env['business.center.desk.booking'].sudo().search_count(
+                [('desk_id', '=', self.id)], limit=1))
+        
+    def _bc_upcoming_commitments(self):
+        """Running or upcoming contracts and current or future bookings that
+        hold this desk."""
+
+        self.ensure_one()
+        items = self.sudo().leased_asset_ids.contract_id.filtered(
+            lambda c: c.state in ('upcoming', 'active')).mapped('name')
+        items += self.env['business.center.desk.booking'].sudo().search([
+            ('desk_id', '=', self.id), ('state', 'in', ('confirmed', 'checked_in')),
+            ('booking_date', '>=', fields.Date.context_today(self))]).mapped('name')
+        return items

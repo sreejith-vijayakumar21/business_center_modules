@@ -3,3 +3,4 @@
 
 from . import res_partner
 from . import ir_rule
+from . import business_center_desk_booking

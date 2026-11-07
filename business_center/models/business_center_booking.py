@@ -4,7 +4,6 @@
 from odoo import _, api, fields, models
 from odoo.exceptions import ValidationError, UserError
 from odoo.tools import float_is_zero, format_date
-from markupsafe import escape, Markup
 import logging
 
 _logger = logging.getLogger(__name__)
@@ -15,8 +14,13 @@ class BusinessCenterBooking(models.Model):
     
     _name = 'business.center.booking'
     _description = 'A central registry of business center bookings'
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.time.format.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.slot.booking.mixin']
     _order = 'name desc'
+
+    # What the shared slot rules book: the meeting room, open per its own hours.
+    _slot_resource_field = 'meeting_room_id'
+    _slot_hours_path = 'meeting_room_id'
+    _slot_blocking_states = ('confirmed',)
     
     # ------------------------------------------------------------------------------
     #   MARK: FIELDS
@@ -33,20 +37,9 @@ class BusinessCenterBooking(models.Model):
     ], default='draft', tracking=True)
     total_wallet_credits = fields.Float(string='Wallet Credit (hrs)', compute='_compute_total_wallet_credits')
     balance_wallet_credits = fields.Float(string='Balance Credits', compute='_compute_balance_wallet_credits')
-    start_time = fields.Float(string='Start Time')
-    end_time = fields.Float(string='End Time')
-    selected_slot_display = fields.Char(string='Selected Slot', compute='_compute_selected_slot_display', 
-                                         store=True)
     operating_time = fields.Char(related='meeting_room_id.operating_hours_display', string='Available Time')
-    room_open_hour = fields.Float(related='meeting_room_id.min_booking_hour',
-                                  string='Room Opens')
-    room_close_hour = fields.Float(related='meeting_room_id.max_booking_hour',
-                                   string='Room Closes')
-    booked_ranges = fields.Json(string='Booked Slots', compute='_compute_booked_ranges',
-                                help="[start, end] hours of the room's other confirmed "
-                                     "bookings that day, for the time pickers.")
-    booking_date = fields.Date(string='Date', required=True)
-    charge_per_hr = fields.Monetary(string='Hourly Rate', related='meeting_room_id.hourly_rate')
+    charge_per_hr = fields.Monetary(string='Hourly Rate', compute='_compute_charge_per_hr', store=True,
+        help="The room's rate when it was picked; later rate changes do not reprice this booking.")
     chargeable_hours = fields.Float(string='Chargeable Hours', compute='_compute_chargeable_hours', store=True)
     wallet_balance_at_booking = fields.Float(string='Wallet Snapshot', copy=False)
     wallet_period_date = fields.Date(string='Wallet Period', copy=False, readonly=True, 
@@ -66,8 +59,6 @@ class BusinessCenterBooking(models.Model):
                                           "shortened the booking.")
     overage_amount = fields.Monetary(string='Extra Charge', compute='_compute_overage_amount',
                                  currency_field='currency_id')
-    slot_availability_html = fields.Html(string='Slot Availability', compute='_compute_slot_availability_html', 
-                                         sanitize=False)
     chargeable_hours_display = fields.Char(string='Chargeable Time',
                                            compute='_compute_chargeable_hours_display')
     
@@ -121,6 +112,13 @@ class BusinessCenterBooking(models.Model):
                 booking.total_wallet_credits = booking.contract_id.wallet_balance
             else:
                 booking.total_wallet_credits = 0.0
+                
+    @api.depends('meeting_room_id')
+    def _compute_charge_per_hr(self):
+        """Take the room's rate when it is picked, and keep it."""
+
+        for rec in self:
+            rec.charge_per_hr = rec.meeting_room_id.hourly_rate
             
     @api.depends('chargeable_hours', 'charge_per_hr')
     def _compute_overage_amount(self):
@@ -144,95 +142,6 @@ class BusinessCenterBooking(models.Model):
                 used = rec.end_time - rec.start_time if rec.end_time > rec.start_time else 0.0
                 remaining = rec.total_wallet_credits - used
                 rec.balance_wallet_credits = remaining if remaining >= 0 else 0.0
-            
-    @api.depends('meeting_room_id', 'booking_date')
-    def _compute_slot_availability_html(self):
-        """Render the day's booking timeline as coloured slot boxes, splitting the
-        operating window at every booking edge and marking each segment busy or free."""
-        
-        for rec in self:
-            room = rec.meeting_room_id
-            if not room or not rec.booking_date or not room.max_booking_hour:
-                rec.slot_availability_html = False
-                continue
-
-            open_h = room.min_booking_hour or 0.0
-            close_h = room.max_booking_hour
-
-            domain = [
-                ('meeting_room_id', '=', room.id),
-                ('state', '=', 'confirmed'),
-                ('booking_date', '=', rec.booking_date),
-            ]
-            if rec._origin.id:
-                domain.append(('id', '!=', rec._origin.id))
-            existing = self.search(domain)
-
-            # 1. Build boundary points from the day edges + every booking edge,
-            #    clamped to operating hours and de-duplicated.
-            points = {open_h, close_h}
-            for b in existing:
-                if b.start_time > open_h and b.start_time < close_h:
-                    points.add(b.start_time)
-                if b.end_time > open_h and b.end_time < close_h:
-                    points.add(b.end_time)
-            points = sorted(points)
-
-            # 2. Each consecutive pair is one segment; colour by whether a
-            #    booking covers its midpoint.
-            boxes = []
-            for seg_start, seg_end in zip(points, points[1:]):
-                if seg_end - seg_start < 0.001:
-                    continue
-                mid = (seg_start + seg_end) / 2.0
-                booked = existing.filtered(
-                    lambda b: b.start_time <= mid and b.end_time > mid
-                )
-                occupied = bool(booked)
-                color = '#e74c8b' if occupied else '#7ed957'
-                # Staff see the booking reference; portal users only see that
-                # the slot is taken, not another tenant's booking number.
-                if not occupied:
-                    title = _('Available')
-                elif self.env.user.share:
-                    title = _('Booked')
-                else:
-                    title = booked[:1].name
-                label = "%s – %s" % (
-                    rec._float_to_ampm(seg_start),
-                    rec._float_to_ampm(seg_end),
-                )
-                boxes.append(
-                    "<div class='o_bc_slot %s' data-start='%s' data-end='%s' "
-                    "title='%s' style='background:%s;color:#111;"
-                    "padding:5px 8px;border-radius:5px;font-size:11px;"
-                    "text-align:center;white-space:nowrap;'>%s</div>"
-                    % ('o_bc_slot_busy' if occupied else 'o_bc_slot_free',
-                       seg_start, seg_end, escape(title), color, label)
-                )
-
-            rec.slot_availability_html = (
-                "<div style='display:flex;flex-wrap:wrap;gap:6px;'>%s</div>"
-                % "".join(boxes)
-            )
-            
-    @api.depends('meeting_room_id', 'booking_date')
-    def _compute_booked_ranges(self):
-        """List the room's other confirmed bookings that day as [start, end]
-        hour pairs, so the time pickers can grey out times already taken."""
-
-        for rec in self:
-            if not (rec.meeting_room_id and rec.booking_date):
-                rec.booked_ranges = []
-                continue
-            domain = [
-                ('meeting_room_id', '=', rec.meeting_room_id.id),
-                ('state', '=', 'confirmed'),
-                ('booking_date', '=', rec.booking_date),
-            ]
-            if rec._origin.id:
-                domain.append(('id', '!=', rec._origin.id))
-            rec.booked_ranges = [[b.start_time, b.end_time] for b in self.search(domain)]
             
     @api.depends('total_wallet_credits', 'start_time', 'end_time', 'state',
                  'wallet_balance_at_booking', 'cancel_outcome')
@@ -317,16 +226,6 @@ class BusinessCenterBooking(models.Model):
                     raise UserError(_("A confirmed booking can only be cancelled."))
         return super().write(vals)
     
-    @api.depends('start_time', 'end_time')
-    def _compute_selected_slot_display(self):
-        """Builds a human-readable selected slot time.For Meeting Rooms, 
-        formats time slots in AM/PM notation"""
-            
-        for rec in self:
-                rec.selected_slot_display = (
-                    f"{rec._float_to_ampm(rec.start_time)} – {rec._float_to_ampm(rec.end_time)}"
-                )
-            
     # ------------------------------------------------------------------------------
     #   MARK: CONSTRAINT/ONCHANGE METHODS
     # ------------------------------------------------------------------------------
@@ -356,18 +255,6 @@ class BusinessCenterBooking(models.Model):
                     center=center.display_name,
                 ))    
                      
-    @api.constrains('start_time', 'end_time')
-    def _check_booking_times(self):
-        """Reject bookings that end before they start. How long a booking
-        may run is bounded by the room's opening hours
-        (_check_within_operating_hours), not by a fixed limit."""
-
-        for rec in self:
-            if not rec.start_time and not rec.end_time:
-                continue
-            if rec.end_time <= rec.start_time:
-                raise ValidationError(_('End time must be after start time.'))
-            
     @api.constrains('meeting_room_id')
     def _check_employee_meeting_room_only(self):
         """Only spaces flagged as bookable meeting rooms may be booked. The
@@ -386,84 +273,12 @@ class BusinessCenterBooking(models.Model):
                     room=room.display_name,
                 ))
         
-    @api.constrains('meeting_room_id', 'start_time', 'end_time', 'state', 'booking_date')
-    def _check_no_overlap(self):
-        """Block confirming a booking that overlaps another confirmed booking of the same room."""
-        
-        for rec in self:
-            if rec.state != 'confirmed' or not (rec.meeting_room_id and rec.booking_date and rec.end_time > rec.start_time):
-                continue
-            overlapping = self.search([
-                ('id', '!=', rec.id),
-                ('meeting_room_id', '=', rec.meeting_room_id.id),
-                ('state', '=', 'confirmed'),
-                ('booking_date', '=', rec.booking_date),
-                ('start_time', '<', rec.end_time),
-                ('end_time', '>', rec.start_time),
-            ], limit=1)
-            if overlapping:
-                raise ValidationError(_(
-                    "This room is already booked from %(start)s to %(end)s.",
-                    start=self._float_to_ampm(overlapping.start_time),
-                    end=self._float_to_ampm(overlapping.end_time),
-                ))
-                
-    @api.onchange('meeting_room_id', 'start_time', 'end_time', 'booking_date')
-    def _onchange_check_availability(self):
-        """Warn in the UI when the chosen room and slot clash with a confirmed booking."""
-        
-        if self.meeting_room_id and self.booking_date and self.end_time > self.start_time:
-            clash = self.search([
-                ('id', '!=', self._origin.id),
-                ('meeting_room_id', '=', self.meeting_room_id.id),
-                ('state', '=', 'confirmed'),
-                ('booking_date', '=', self.booking_date),
-                ('start_time', '<', self.end_time),
-                ('end_time', '>', self.start_time),
-            ], limit=1)
-            if clash:
-                return {'warning': {
-                    'title': _('Room Unavailable'),
-                    'message': _('This room is booked for that slot. Please choose another time.'),
-                }}
-                
-    @api.constrains('meeting_room_id', 'start_time', 'end_time')
-    def _check_within_operating_hours(self):
-        """Reject bookings that start before the room opens or end after it closes."""
-        
-        for rec in self:
-            room = rec.meeting_room_id
-            if not room or rec.end_time <= rec.start_time:
-                continue
-            if room.min_booking_hour and rec.start_time < room.min_booking_hour:
-                raise ValidationError(_(
-                    "Booking cannot start before the room opens at %s.",
-                    rec._float_to_ampm(room.min_booking_hour),
-                ))
-            if room.max_booking_hour and rec.end_time > room.max_booking_hour:
-                raise ValidationError(_(
-                    "Booking cannot end after the room closes at %s.",
-                    rec._float_to_ampm(room.max_booking_hour),
-                ))
+    @api.onchange('meeting_room_id')
+    def _onchange_meeting_room_slot(self):
+        """Re-check the slot against the newly picked room."""
 
-    @api.onchange('start_time', 'end_time')
-    def _onchange_warn_outside_hours(self):
-        """Warn in the UI when the picked times fall outside the room's operating window."""
-        
-        room = self.meeting_room_id
-        if not room or self.end_time <= self.start_time:
-            return
-        if (room.min_booking_hour and self.start_time < room.min_booking_hour) or \
-           (room.max_booking_hour and self.end_time > room.max_booking_hour):
-            return {'warning': {
-                'title': _('Outside Operating Hours'),
-                'message': _(
-                    "This room is open %(open)s–%(close)s. Please pick a time within that window.",
-                    open=self._float_to_ampm(room.min_booking_hour),
-                    close=self._float_to_ampm(room.max_booking_hour),
-                ),
-            }}
-            
+        return self._slot_onchange_warning()
+
     # ------------------------------------------------------------------------------
     #   MARK: BUTTON ACTION METHODS
     # ------------------------------------------------------------------------------
@@ -523,6 +338,7 @@ class BusinessCenterBooking(models.Model):
             (contract.id,))
         contract.invalidate_recordset(['wallet_balance'])
 
+        self._slot_check_free()
         hours = self._booking_hours()
         available = contract.wallet_balance if contract.is_wallet_eligible else 0.0
         self.wallet_balance_at_booking = available
@@ -568,29 +384,6 @@ class BusinessCenterBooking(models.Model):
                     "to cancel this booking.", self.name))
         self._apply_cancellation()
 
-    def action_open_cancel_wizard(self):
-        """Open the manager's wizard for cancelling a booking that has started,
-        with 'used until' defaulting to now, kept within the booked slot."""
-
-        self.ensure_one()
-        now = self._local_now()
-        if self.booking_date == now.date():
-            now_hours = now.hour + now.minute / 60.0
-            used_until = min(max(now_hours, self.start_time), self.end_time)
-        else:
-            used_until = self.end_time
-        return {
-            'type': 'ir.actions.act_window',
-            'name': _('Cancel Started Booking'),
-            'res_model': 'business.center.booking.cancel.wizard',
-            'view_mode': 'form',
-            'target': 'new',
-            'context': {
-                'default_booking_id': self.id,
-                'default_used_until': used_until,
-            },
-        }
-        
     def action_reset_to_draft(self):
         """Reset to draft, reversing any wallet draw and overage charge first."""
 
@@ -634,6 +427,13 @@ class BusinessCenterBooking(models.Model):
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
+    def _bc_check_settle(self):
+        """The charge decision wizard cancels a confirmed booking that has started."""
+
+        self.ensure_one()
+        if self.state != 'confirmed':
+            raise UserError(_("Only a confirmed booking can be cancelled here."))
+        
     def _apply_cancellation(self, outcome=False, reason=False, used_until=False):
         """Cancel the booking and settle its wallet hours and overage.
 
@@ -734,32 +534,3 @@ class BusinessCenterBooking(models.Model):
             'quantity': overage_hours,
             'unit_price': self.charge_per_hr,
         })
-
-    def _booking_hours(self):
-        """Return the booking duration in hours, or 0 if the times are invalid."""
-        
-        self.ensure_one()
-        if self.end_time > self.start_time:
-            return self.end_time - self.start_time
-        return 0.0
-    
-    def _local_now(self):
-        """Current date and time at the business centre. Booking dates and
-        times are local to the building, so use the company's timezone, then
-        the user's; portal users often have none set."""
-
-        company = self[:1].company_id or self.env.company
-        tz = company.partner_id.tz or self.env.user.tz or 'UTC'
-        return fields.Datetime.context_timestamp(
-            self.with_context(tz=tz), fields.Datetime.now())
-
-    def _is_in_past(self):
-        """True if the booking starts before now at the business centre."""
-
-        self.ensure_one()
-        now = self._local_now()
-        today = now.date()
-        if self.booking_date < today:
-            return True
-        return self.booking_date == today and \
-            self.start_time < now.hour + now.minute / 60.0

@@ -28,6 +28,19 @@
                                 help="Booking dates and times are compared in this timezone, including for portal users.">
                             <field name="bc_timezone" class="w-100"/>
                         </setting>
+                        <setting string="Hot Desk Attendance"
+                                 help="When a hot desk booking starts and nobody checks in: remind the customer, then release the desk.">
+                            <div class="mt-2">
+                                Send a reminder after
+                                <field name="bc_hot_desk_reminder_minutes" class="oe_inline" style="width: 4rem;"/>
+                                minutes
+                            </div>
+                            <div class="mt-1">
+                                Release the desk after
+                                <field name="bc_hot_desk_checkin_grace" class="oe_inline" style="width: 4rem;"/>
+                                minutes
+                            </div>
+                        </setting>
                     </block>
                 </app>
             </xpath>

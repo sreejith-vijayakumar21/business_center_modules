@@ -124,14 +124,15 @@ class TestBusinessCenterLayout(TransactionCase):
             lambda o: o.link_res_id == self.office_free.id and o.link_key == "bc_office")
         self.assertEqual(status[obj.id], "maintenance")
 
-    def test_unplaced_units_are_counted(self):
-        """Units removed from the drawing still count in the totals, as unplaced."""
+    def test_unplaced_units_are_reported_not_counted(self):
+        """Units removed from the drawing leave the totals and are reported
+        as unplaced."""
 
         self.floor.action_open_floor_layout()
         plan = self.floor.floor_plan_id
         plan.object_ids.filtered(lambda o: o.link_key == "bc_desk")[:2].unlink()
         result, _status = self.statuses(plan)
-        self.assertEqual(result["summary"]["total"], 7)
+        self.assertEqual(result["summary"]["total"], 5)
         self.assertEqual(result["summary"]["unplaced"], 2)
 
     def test_link_rules(self):

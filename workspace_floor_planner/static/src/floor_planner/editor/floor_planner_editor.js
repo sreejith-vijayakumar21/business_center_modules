@@ -16,6 +16,7 @@ import { Palette } from "../palette/palette";
 import { PropertiesPanel } from "../properties/properties_panel";
 import { Toolbar } from "../toolbar/toolbar";
 
+
 /**
  * Client action "workspace_floor_planner.editor".
  *
@@ -53,6 +54,8 @@ export class FloorPlannerEditor extends Component {
 
         onWillStart(async () => {
             this.state.store = LayoutStore.create(await this.api.load());
+            // Edits the store refuses (e.g. unlinking an in-use unit) are explained here.
+            this.state.store.notify = (message) => this.notification.add(message, { type: "warning" });
             await this.refreshStatuses();
         });
         onMounted(() => this.startAutoRefresh());
@@ -102,12 +105,19 @@ export class FloorPlannerEditor extends Component {
         if (!obj || this.readonly) {
             return;
         }
+        const status = this.store.statusOf(obj).status;
+        if (!this.store.canRelease(obj)) {
+            this.store.notify(this.store.releaseRefusal(obj));
+            return;
+        }
         const remove = () => this.store.remove(obj.key);
         // Removing a linked unit loses its placement: ask first.
         if (obj.link_key || obj.category === "zone") {
             this.dialog.add(ConfirmationDialog, {
                 title: _t("Delete object"),
-                body: _t("Delete “%s” from this floor plan? The business record itself is not deleted.", obj.name || obj.object_type),
+                body: status === "draft"
+                    ? _t("Delete “%s” from this floor plan? On save, its Draft record is deleted, or archived if it has contracts or bookings.", obj.name || obj.object_type)
+                    : _t("Delete “%s” from this floor plan? The business record itself is not deleted.", obj.name || obj.object_type),
                 confirmLabel: _t("Delete"),
                 confirmClass: "btn-danger",
                 confirm: remove,
