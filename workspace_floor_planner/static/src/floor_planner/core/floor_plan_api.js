@@ -34,6 +34,10 @@ export class FloorPlanApi {
         return this._call("fp_open_linked_record", [objectId]);
     }
 
+    unitDetails(objectId) {
+        return this._call("fp_get_unit_details", [objectId]);
+    }
+
     prepareCreate(objectId, linkKey) {
         return this._call("fp_prepare_create", [objectId, linkKey]);
     }

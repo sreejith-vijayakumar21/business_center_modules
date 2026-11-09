@@ -67,20 +67,17 @@
                         No floor of this site has a layout yet. Use the dropdown instead.
                     </div>
                 </div>
+                <!-- Details of the clicked unit -->
+                <FloorUnitDetails details="state.details" loading="state.detailsLoading"
+                                  selected="!!selected" status="selectedStatus"/>
             </div>
 
             <t t-set-slot="footer">
-                <div class="o_fp_picker_selection me-auto">
-                    <t t-if="selected">
-                        <span class="fw-bold" t-esc="selected.link_name or selected.name"/>
-                        <span t-if="isChosen(selected)" class="text-muted">
-                            · already on this contract
-                        </span>
-                        <span t-elif="!selectedPickable" class="text-muted">
-                            · not available for this record
-                        </span>
-                    </t>
-                    <span t-else="" class="text-muted">Click a green unit on the plan.</span>
+                <div class="o_fp_picker_selection me-auto text-muted">
+                    <t t-if="!selected">Click a green unit on the plan.</t>
+                    <t t-elif="isChosen(selected)">Already on this contract.</t>
+                    <t t-elif="!selectedPickable">Not available for this record.</t>
+                    <t t-else="">Ready to select.</t>
                 </div>
                 <button type="button" class="btn btn-primary" t-att-disabled="!selectedPickable"
                         t-on-click="confirm">
@@ -89,6 +86,60 @@
                 <button type="button" class="btn btn-secondary" t-on-click="props.close">Cancel</button>
             </t>
         </Dialog>
+    </t>
+    <t t-name="workspace_floor_planner.FloorUnitDetails">
+        <aside class="o_fp_details" aria-live="polite">
+            <div t-if="props.loading" class="o_fp_details_empty">
+                <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"/>
+                <span class="visually-hidden">Loading</span>
+            </div>
+            <t t-elif="props.details">
+                <!-- On its own so a click can later open the full gallery. -->
+                <div class="o_fp_details_media">
+                    <img t-if="props.details.image_url" class="o_fp_details_photo"
+                         t-att-src="props.details.image_url" t-att-alt="props.details.title"/>
+                    <div t-else="" class="o_fp_details_photo_empty">
+                        <i class="fa fa-picture-o" aria-hidden="true"/>
+                    </div>
+                </div>
+
+                <div class="o_fp_details_head">
+                    <div class="o_fp_details_subtitle" t-esc="props.details.subtitle"/>
+                    <div class="o_fp_details_title" t-esc="props.details.title"/>
+                    <span t-if="props.status" class="o_fp_details_status"
+                          t-attf-class="o_fp_details_status_{{ props.status.tone }}"
+                          t-esc="props.status.label"/>
+                </div>
+
+                <dl t-if="props.details.facts.length" class="o_fp_details_facts">
+                    <t t-foreach="props.details.facts" t-as="fact" t-key="fact_index">
+                        <dt t-esc="fact.label"/>
+                        <dd t-esc="fact.value"/>
+                    </t>
+                </dl>
+
+                <section t-foreach="props.details.sections" t-as="section" t-key="section_index"
+                         class="o_fp_details_block">
+                    <div class="o_fp_details_label" t-esc="section.title"/>
+                    <dl t-if="section.facts and section.facts.length" class="o_fp_details_facts">
+                        <t t-foreach="section.facts" t-as="fact" t-key="fact_index">
+                            <dt t-esc="fact.label"/>
+                            <dd t-esc="fact.value"/>
+                        </t>
+                    </dl>
+                    <div t-if="section.tags and section.tags.length" class="o_fp_details_tags">
+                        <span t-foreach="section.tags" t-as="tag" t-key="tag_index"
+                              class="o_fp_details_tag" t-esc="tag"/>
+                    </div>
+                </section>
+            </t>
+            <div t-elif="props.selected" class="o_fp_details_empty">
+                No details for this unit.
+            </div>
+            <div t-else="" class="o_fp_details_empty">
+                Click a unit on the plan to see its details.
+            </div>
+        </aside>
     </t>
 
 </templates>

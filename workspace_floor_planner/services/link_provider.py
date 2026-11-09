@@ -198,3 +198,29 @@ class WorkspaceFloorLinkProvider(models.AbstractModel):
             "target": "current",
             "name": record.display_name,
         }
+
+    # ------------------------------------------------------------------------------
+    #   MARK: SIDE PANEL DETAILS
+    # ------------------------------------------------------------------------------
+    @api.model
+    def _fp_get_details(self, record):
+        """Return what a side panel shows about an already-resolved
+        ``record``, or False to show nothing (the default)::
+
+            {
+                "title": str,
+                "subtitle": str,
+                "image_url": str or False,
+                "facts": [{"label": str, "value": str}],
+                "sections": [{
+                    "title": str,
+                    "facts": [{"label": str, "value": str}],  # optional
+                    "tags": [str],                            # optional
+                }],
+            }
+
+        Values are display-ready text: the core only renders them, so a
+        bridge decides what a unit's details are.
+        """
+
+        return False

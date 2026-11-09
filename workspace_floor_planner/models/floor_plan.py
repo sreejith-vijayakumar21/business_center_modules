@@ -194,10 +194,18 @@ class WorkspaceFloorPlan(models.Model):
 
         self.ensure_one()
         self.check_access("read")
-        obj = self.env["workspace.floor.plan.object"].browse(int(object_id)).exists()
-        if not obj or obj.plan_id != self:
-            return False
-        return self.env["workspace.floor.link.registry"]._get_open_action(obj)
+        obj = self._fp_find_object(object_id)
+        return self.env["workspace.floor.link.registry"]._get_open_action(obj) if obj else False
+
+    def fp_get_unit_details(self, object_id):
+        """Return the side panel details of an object's linked record, or
+        False when the object is not on this plan, the record is not
+        accessible or its provider shows no details."""
+
+        self.ensure_one()
+        self.check_access("read")
+        obj = self._fp_find_object(object_id)
+        return self.env["workspace.floor.link.registry"]._get_details(obj) if obj else False
 
     def fp_prepare_create(self, object_id, link_key):
         """Return the form model, title and defaults for creating the business
@@ -245,13 +253,20 @@ class WorkspaceFloorPlan(models.Model):
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
+    def _fp_find_object(self, object_id):
+        """Return the object ``object_id`` if it is on this plan, else an
+        empty recordset."""
+
+        self.ensure_one()
+        obj = self.env["workspace.floor.plan.object"].browse(int(object_id)).exists()
+        return obj if obj.plan_id == self else obj.browse()
+
     def _fp_own_object(self, object_id):
         """Return the object ``object_id`` if it is on this plan, else raise a
         clear error asking the user to reload."""
 
-        self.ensure_one()
-        obj = self.env["workspace.floor.plan.object"].browse(int(object_id)).exists()
-        if not obj or obj.plan_id != self:
+        obj = self._fp_find_object(object_id)
+        if not obj:
             raise UserError(self.env._(
                 "This object is no longer on the floor plan. Reload the layout."))
         return obj

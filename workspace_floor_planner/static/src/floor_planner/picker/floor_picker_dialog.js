@@ -21,6 +21,23 @@ function pointInRect(point, rect) {
 }
 
 /**
+ * Side panel describing the clicked unit. Renders what the link provider
+ * returned; it knows nothing about the business records themselves.
+ */
+export class FloorUnitDetails extends Component {
+    static template = "workspace_floor_planner.FloorUnitDetails";
+    static props = {
+        // provider details, or false when the unit has none
+        details: [Object, Boolean],
+        loading: Boolean,
+        // whether any shape is selected, to pick the empty-state text
+        selected: Boolean,
+        // {label, tone}; tone is "pickable", "chosen" or "unpickable"
+        status: { type: Object, optional: true },
+    };
+}
+
+/**
  * Pick a linked record from a floor plan instead of a dropdown.
  *
  * Generic on purpose: the caller says which sites and plans to show and
@@ -31,7 +48,7 @@ function pointInRect(point, rect) {
  */
 export class FloorPickerDialog extends Component {
     static template = "workspace_floor_planner.FloorPickerDialog";
-    static components = { Dialog, FloorCanvas };
+    static components = { Dialog, FloorCanvas, FloorUnitDetails };
     static props = {
         title: String,
         // [{id, name, note?, plans: [{key, id, name, pickable}]}]; a plan
@@ -55,8 +72,13 @@ export class FloorPickerDialog extends Component {
             planId: this.firstPlanId(site),
             store: null,
             loading: false,
+            details: false,
+            detailsLoading: false,
         });
         this.canvas = null;
+        this.api = null;
+        // Details per object id, so clicking back and forth costs one call.
+        this.detailsCache = new Map();
         this.canvasArea = useRef("canvasArea");
         onWillStart(() => this.loadPlan());
         // The plan area only gets its real size once the dialog has opened,
@@ -76,10 +98,17 @@ export class FloorPickerDialog extends Component {
             },
             () => [this.state.store, this.state.store && this.state.store.selectedKey],
         );
+        // Load the details of whichever unit is selected.
+        useEffect(
+            () => {
+                this.loadDetails(this.selected);
+            },
+            () => [this.state.store, this.state.store && this.state.store.selectedKey],
+        );
     }
 
     // ------------------------------------------------------------------
-    // Getters
+    // MARK: Getters
     // ------------------------------------------------------------------
     get site() {
         return this.props.sites.find((s) => s.id === this.state.siteId) || null;
@@ -97,8 +126,23 @@ export class FloorPickerDialog extends Component {
         return Boolean(this.selected && this.isPickable(this.selected));
     }
 
+    /** Why the selected unit can or cannot be picked, for the side panel. */
+    get selectedStatus() {
+        const obj = this.selected;
+        if (!obj || obj.category !== "rentable") {
+            return undefined;
+        }
+        if (this.isChosen(obj)) {
+            return { label: _t("On this contract"), tone: "chosen" };
+        }
+        if (this.isPickable(obj)) {
+            return { label: _t("Available to pick"), tone: "pickable" };
+        }
+        return { label: _t("Not available here"), tone: "unpickable" };
+    }
+
     // ------------------------------------------------------------------
-    // Loading
+    // MARK: LOADING
     // ------------------------------------------------------------------
     /** The first floor with something to pick, else the first floor with a layout. */
     firstPlanId(site) {
@@ -116,8 +160,8 @@ export class FloorPickerDialog extends Component {
         }
         this.state.loading = true;
         try {
-            const api = new FloorPlanApi(this.orm, this.state.planId);
-            const store = LayoutStore.create(await api.load());
+            this.api = new FloorPlanApi(this.orm, this.state.planId);
+            const store = LayoutStore.create(await this.api.load());
             this.applyPickability(store);
             this.state.store = store;
         } finally {
@@ -175,7 +219,40 @@ export class FloorPickerDialog extends Component {
     }
 
     // ------------------------------------------------------------------
-    // Canvas
+    // MARK: Details
+    // ------------------------------------------------------------------
+    /** Only saved, linked units have a record to describe. */
+    hasDetails(obj) {
+        return Boolean(obj && obj.id && obj.link_key && obj.category === "rentable");
+    }
+
+    async loadDetails(obj) {
+        if (!this.hasDetails(obj)) {
+            this.state.details = false;
+            this.state.detailsLoading = false;
+            return;
+        }
+        if (this.detailsCache.has(obj.id)) {
+            this.state.details = this.detailsCache.get(obj.id);
+            this.state.detailsLoading = false;
+            return;
+        }
+        this.state.detailsLoading = true;
+        let details = false;
+        try {
+            details = await this.api.unitDetails(obj.id);
+            this.detailsCache.set(obj.id, details);
+        } finally {
+            // Ignore an answer that arrives after another unit was clicked.
+            if (this.selected && this.selected.id === obj.id) {
+                this.state.details = details;
+                this.state.detailsLoading = false;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // MARK: Canvas
     // ------------------------------------------------------------------
     get zoomPercent() {
         return this.state.store ? Math.round(this.state.store.view.zoom * 100) : 100;
