@@ -15,6 +15,7 @@ import pytz
 
 from odoo import api, fields, models
 from odoo.exceptions import UserError
+from odoo.tools import format_amount, format_date, formatLang
 
 from odoo.addons.workspace_floor_planner.tools.geometry import center_of, point_in_rotated_rect
 
@@ -66,6 +67,7 @@ class BusinessCenterProviderMixin(models.AbstractModel):
     _name = "workspace.floor.link.provider.bc_mixin"
     _inherit = "workspace.floor.link.provider"
     _description = "Floor link: Business Center (shared)"
+    _bc_has_details = False
 
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
@@ -125,6 +127,33 @@ class BusinessCenterProviderMixin(models.AbstractModel):
         """Archive released units that have history."""
 
         records.write({"active": False})
+        
+    @api.model
+    def _fp_get_details(self, record):
+        """Describe ``record`` for the floor picker's side panel: photo,
+        facts, amenities and, when occupied, the current lease. Providers
+        opt in with ``_bc_has_details`` and fill in the ``_bc_detail_*``
+        hooks; the layout of the panel stays the same for all of them."""
+
+        if not self._bc_has_details:
+            return False
+        sections = []
+        amenities = self._bc_detail_amenities(record)
+        if amenities:
+            sections.append({
+                "title": self.env._("Amenities"),
+                "tags": amenities.sorted("name").mapped("name"),
+            })
+        lease = self._bc_lease_section(record)
+        if lease:
+            sections.append(lease)
+        return {
+            "title": record.display_name,
+            "subtitle": self._fp_link_label,
+            "image_url": self._bc_image_url(self._bc_detail_photo_record(record)),
+            "facts": [fact for fact in self._bc_detail_facts(record) if fact["value"]],
+            "sections": sections,
+        }
 
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
@@ -185,6 +214,61 @@ class BusinessCenterProviderMixin(models.AbstractModel):
             else:
                 statuses[rec.id] = "available"
         return statuses
+    
+    @api.model
+    def _bc_detail_facts(self, record):
+        """``[{"label", "value"}]`` describing the unit; empty values are
+        dropped. Providers that show details override it."""
+
+        return []
+
+    @api.model
+    def _bc_detail_amenities(self, record):
+        """Amenities of the unit; desks override it."""
+
+        return record.amenity_ids
+
+    @api.model
+    def _bc_detail_photo_record(self, record):
+        """Record whose photo represents the unit; desks override it."""
+
+        return record
+
+    @api.model
+    def _bc_image_url(self, record):
+        """URL of ``record``'s main photo, resized for the panel, or False."""
+
+        if not record or "image_1920" not in record._fields or not record.image_1920:
+            return False
+        return f"/web/image/{record._name}/{record.id}/image_1920/480x360"
+
+    @api.model
+    def _bc_rent_fact(self, record):
+        return {
+            "label": self.env._("Monthly rent"),
+            "value": record.monthly_rent and format_amount(
+                self.env, record.monthly_rent, record.currency_id),
+        }
+
+    @api.model
+    def _bc_lease_section(self, record):
+        """Tenant, contract and period of an occupied unit, else False."""
+
+        if record.state != "occupied" or not record.occupant_id:
+            return False
+        period = " – ".join(filter(None, (
+            record.contract_start_date and format_date(self.env, record.contract_start_date),
+            record.contract_end_date and format_date(self.env, record.contract_end_date),
+        )))
+        facts = [
+            {"label": self.env._("Leased to"), "value": record.occupant_id.display_name},
+            {"label": self.env._("Contract"), "value": record.current_contract_id.display_name},
+            {"label": self.env._("Period"), "value": period},
+        ]
+        return {
+            "title": self.env._("Current lease"),
+            "facts": [fact for fact in facts if fact["value"]],
+        }
 
 
 class BusinessCenterOfficeProvider(models.AbstractModel):
@@ -198,6 +282,7 @@ class BusinessCenterOfficeProvider(models.AbstractModel):
     _fp_link_label = "Private Office"
     _fp_target_model = "business.center.space"
     _fp_object_types = frozenset({"private_office"})
+    _bc_has_details = True
 
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
@@ -214,6 +299,19 @@ class BusinessCenterOfficeProvider(models.AbstractModel):
 
         return {**self._fp_floor_defaults(plan),
                 "default_space_type": "office", "default_is_coworking": False}
+        
+    @api.model
+    def _bc_detail_facts(self, record):
+        """Seats, floor area and monthly rent of the office."""
+
+        area = record.area_sqm and self.env._(
+            "%s m²", formatLang(self.env, record.area_sqm, digits=1))
+        return [
+            {"label": self.env._("Capacity"),
+             "value": record.capacity and self.env._("%s seat(s)", record.capacity)},
+            {"label": self.env._("Floor area"), "value": area},
+            self._bc_rent_fact(record),
+        ]
 
 
 class BusinessCenterDeskProvider(models.AbstractModel):
@@ -229,6 +327,7 @@ class BusinessCenterDeskProvider(models.AbstractModel):
     _fp_object_types = frozenset({"dedicated_desk"})
     # Desk type of the records this provider draws; subclasses change only this.
     _fp_desk_type = "dedicated"
+    _bc_has_details = True
 
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
@@ -269,6 +368,29 @@ class BusinessCenterDeskProvider(models.AbstractModel):
         raise UserError(self.env._(
             "Place the desk inside a coworking space on the layout first, "
             "then create the desk."))
+        
+    @api.model
+    def _bc_detail_facts(self, record):
+        """The coworking space the desk sits in, one seat, and its rent."""
+
+        return [
+            {"label": self.env._("Coworking space"), "value": record.space_id.display_name},
+            {"label": self.env._("Capacity"), "value": self.env._("1 seat")},
+            self._bc_rent_fact(record),
+        ]
+
+    @api.model
+    def _bc_detail_amenities(self, record):
+        """A desk offers its coworking space's amenities, as on the lease
+        agreement."""
+
+        return record.space_id.amenity_ids
+
+    @api.model
+    def _bc_detail_photo_record(self, record):
+        """A desk shows its coworking space's photo."""
+
+        return record.space_id
 
 
 class BusinessCenterHotDeskProvider(models.AbstractModel):
@@ -282,6 +404,7 @@ class BusinessCenterHotDeskProvider(models.AbstractModel):
     _fp_link_label = "Hot Desk"
     _fp_object_types = frozenset({"hot_desk"})
     _fp_desk_type = "hot"
+    _bc_has_details = False
     
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
