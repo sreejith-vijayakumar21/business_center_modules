@@ -61,7 +61,8 @@ class BusinessCenterDesk(models.Model):
     floor_id = fields.Many2one('business.center.floor', related='space_id.floor_id', store=True)
     occupant_id = fields.Many2one('res.partner', copy=False, tracking=True)
     current_contract_id = fields.Many2one('business.center.contract', copy=False, string='Contract')
-    currency_id = fields.Many2one('res.currency', string='Currency')
+    currency_id = fields.Many2one('res.currency', string='Currency',
+                                  related='space_id.currency_id', store=True)
     company_id = fields.Many2one('res.company', related='center_id.company_id', store=True)
     leased_asset_ids = fields.One2many('business.center.leased.asset', 'desk_id', string='Leased Asset Lines')
 
