@@ -243,12 +243,36 @@ class BusinessCenterProviderMixin(models.AbstractModel):
         return f"/web/image/{record._name}/{record.id}/image_1920/480x360"
 
     @api.model
+    def _bc_amount(self, record, amount):
+        """``amount`` formatted in the unit's currency, or False when zero."""
+
+        currency = record.currency_id or self.env.company.currency_id
+        return amount and format_amount(self.env, amount, currency)
+
+    @api.model
     def _bc_rent_fact(self, record):
-        return {
-            "label": self.env._("Monthly rent"),
-            "value": record.monthly_rent and format_amount(
-                self.env, record.monthly_rent, record.currency_id),
-        }
+        return {"label": self.env._("Monthly rent"),
+                "value": self._bc_amount(record, record.monthly_rent)}
+
+    @api.model
+    def _bc_hourly_rate_fact(self, record):
+        return {"label": self.env._("Hourly rate"),
+                "value": self._bc_amount(record, record.hourly_rate)}
+
+    @api.model
+    def _bc_seats_fact(self, seats):
+        return {"label": self.env._("Capacity"),
+                "value": seats and self.env._("%s seat(s)", seats)}
+
+    @api.model
+    def _bc_area_fact(self, space):
+        return {"label": self.env._("Floor area"),
+                "value": space.area_sqm and self.env._(
+                    "%s m²", formatLang(self.env, space.area_sqm, digits=1))}
+
+    @api.model
+    def _bc_space_fact(self, desk):
+        return {"label": self.env._("Coworking space"), "value": desk.space_id.display_name}
 
     @api.model
     def _bc_lease_section(self, record):
@@ -304,14 +328,8 @@ class BusinessCenterOfficeProvider(models.AbstractModel):
     def _bc_detail_facts(self, record):
         """Seats, floor area and monthly rent of the office."""
 
-        area = record.area_sqm and self.env._(
-            "%s m²", formatLang(self.env, record.area_sqm, digits=1))
-        return [
-            {"label": self.env._("Capacity"),
-             "value": record.capacity and self.env._("%s seat(s)", record.capacity)},
-            {"label": self.env._("Floor area"), "value": area},
-            self._bc_rent_fact(record),
-        ]
+        return [self._bc_seats_fact(record.capacity), self._bc_area_fact(record),
+                self._bc_rent_fact(record)]
 
 
 class BusinessCenterDeskProvider(models.AbstractModel):
@@ -373,11 +391,7 @@ class BusinessCenterDeskProvider(models.AbstractModel):
     def _bc_detail_facts(self, record):
         """The coworking space the desk sits in, one seat, and its rent."""
 
-        return [
-            {"label": self.env._("Coworking space"), "value": record.space_id.display_name},
-            {"label": self.env._("Capacity"), "value": self.env._("1 seat")},
-            self._bc_rent_fact(record),
-        ]
+        return [self._bc_space_fact(record), self._bc_seats_fact(1), self._bc_rent_fact(record)]
 
     @api.model
     def _bc_detail_amenities(self, record):
@@ -404,7 +418,7 @@ class BusinessCenterHotDeskProvider(models.AbstractModel):
     _fp_link_label = "Hot Desk"
     _fp_object_types = frozenset({"hot_desk"})
     _fp_desk_type = "hot"
-    _bc_has_details = False
+    _bc_has_details = True
     
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
@@ -421,6 +435,12 @@ class BusinessCenterHotDeskProvider(models.AbstractModel):
 
         return self._bc_booking_statuses(records, at, "business.center.desk.booking",
                                          "desk_id", ("confirmed", "checked_in"))
+        
+    @api.model
+    def _bc_detail_facts(self, record):
+        """The coworking space and hourly rate of the hot desk."""
+
+        return [self._bc_space_fact(record), self._bc_hourly_rate_fact(record)]
 
 
 class BusinessCenterCoworkingProvider(models.AbstractModel):
@@ -434,6 +454,7 @@ class BusinessCenterCoworkingProvider(models.AbstractModel):
     _fp_link_label = "Coworking Space"
     _fp_target_model = "business.center.space"
     _fp_object_types = frozenset({"coworking_zone"})
+    _bc_has_details = True
 
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
@@ -467,6 +488,12 @@ class BusinessCenterCoworkingProvider(models.AbstractModel):
         """A coworking space is not counted itself; its desks are."""
 
         return self._fp_target().browse()
+    
+    @api.model
+    def _bc_detail_facts(self, record):
+        """Floor area of the coworking space; its desks are picked one by one."""
+
+        return [self._bc_area_fact(record)]
 
 
 class BusinessCenterMeetingRoomProvider(models.AbstractModel):
@@ -480,6 +507,7 @@ class BusinessCenterMeetingRoomProvider(models.AbstractModel):
     _fp_link_label = "Meeting Room"
     _fp_target_model = "business.center.space"
     _fp_object_types = frozenset({"meeting_room"})
+    _bc_has_details = True
 
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
@@ -508,6 +536,16 @@ class BusinessCenterMeetingRoomProvider(models.AbstractModel):
 
         return self._bc_booking_statuses(records, at, "business.center.booking",
                                          "meeting_room_id", ("confirmed",))
+        
+    @api.model
+    def _bc_detail_facts(self, record):
+        """Seats, hourly rate and opening hours of the meeting room."""
+
+        return [
+            self._bc_seats_fact(record.capacity),
+            self._bc_hourly_rate_fact(record),
+            {"label": self.env._("Opening hours"), "value": record.operating_hours_display},
+        ]
 
 
 class WorkspaceFloorLinkRegistry(models.AbstractModel):

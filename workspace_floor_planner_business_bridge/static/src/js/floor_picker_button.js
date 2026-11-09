@@ -16,6 +16,8 @@ import { FloorPickerDialog } from "@workspace_floor_planner/floor_planner/picker
  *                  may be picked, and other values to set with it
  *   title          dialog title
  *   chosen_fields  {link_key: x2many} of records already chosen elsewhere
+ *   unavailable_notes  {link_key: text} why units of that kind cannot be
+ *                  picked here, shown when one is clicked
  */
 export class BcFloorPickerButton extends Component {
     static template = "workspace_floor_planner_business_bridge.FloorPickerButton";
@@ -24,6 +26,7 @@ export class BcFloorPickerButton extends Component {
         targets: Object,
         title: { type: String, optional: true },
         chosenFields: { type: Object, optional: true },
+        unavailableNotes: { type: Object, optional: true },
     };
 
     setup() {
@@ -103,6 +106,7 @@ export class BcFloorPickerButton extends Component {
             siteId: (sites.find((s) => s.plans.some((p) => p.pickable)) || sites[0]).id,
             allowed,
             chosen: this.chosen,
+            notes: this.props.unavailableNotes || {},
             onPick: (pick) => this.applyPick(pick),
         });
     }
@@ -128,5 +132,6 @@ registry.category("view_widgets").add("bc_floor_picker", {
         targets: options.targets,
         title: options.title,
         chosenFields: options.chosen_fields,
+        unavailableNotes: options.unavailable_notes,
     }),
 });
