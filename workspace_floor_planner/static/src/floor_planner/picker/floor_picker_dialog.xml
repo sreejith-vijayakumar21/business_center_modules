@@ -67,9 +67,8 @@
                         No floor of this site has a layout yet. Use the dropdown instead.
                     </div>
                 </div>
-                <!-- Details of the clicked unit -->
                 <FloorUnitDetails details="state.details" loading="state.detailsLoading"
-                                  selected="!!selected" status="selectedStatus"/>
+                                  selected="!!selected" status="selectedStatus" note="selectedNote"/>
             </div>
 
             <t t-set-slot="footer">
@@ -110,6 +109,10 @@
                           t-attf-class="o_fp_details_status_{{ props.status.tone }}"
                           t-esc="props.status.label"/>
                 </div>
+                    <p t-if="props.note" class="o_fp_details_note">
+                        <i class="fa fa-info-circle" aria-hidden="true"/>
+                        <span t-esc="props.note"/>
+                    </p>
 
                 <dl t-if="props.details.facts.length" class="o_fp_details_facts">
                     <t t-foreach="props.details.facts" t-as="fact" t-key="fact_index">
@@ -134,7 +137,8 @@
                 </section>
             </t>
             <div t-elif="props.selected" class="o_fp_details_empty">
-                No details for this unit.
+                <t t-if="props.note" t-esc="props.note"/>
+                <t t-else="">No details for this unit.</t>
             </div>
             <div t-else="" class="o_fp_details_empty">
                 Click a unit on the plan to see its details.

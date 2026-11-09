@@ -34,6 +34,8 @@ export class FloorUnitDetails extends Component {
         selected: Boolean,
         // {label, tone}; tone is "pickable", "chosen" or "unpickable"
         status: { type: Object, optional: true },
+        // why the unit cannot be picked here, as given by the caller
+        note: { type: String, optional: true },
     };
 }
 
@@ -59,6 +61,9 @@ export class FloorPickerDialog extends Component {
         allowed: Object,
         // {link_key: [res_id, ...]} already chosen elsewhere (shown, not pickable)
         chosen: { type: Object, optional: true },
+        // {link_key: text} explaining why units of that kind cannot be
+        // picked here, shown in the details panel
+        notes: { type: Object, optional: true },
         // ({link_key, res_id, name}) => void
         onPick: Function,
         close: Function,
@@ -141,6 +146,15 @@ export class FloorPickerDialog extends Component {
         return { label: _t("Not available here"), tone: "unpickable" };
     }
 
+    /** The caller's explanation for a unit that cannot be picked here. */
+    get selectedNote() {
+        const obj = this.selected;
+        if (!obj || !obj.link_key || this.isPickable(obj) || this.isChosen(obj)) {
+            return undefined;
+        }
+        return (this.props.notes || {})[obj.link_key];
+    }
+
     // ------------------------------------------------------------------
     // MARK: LOADING
     // ------------------------------------------------------------------
@@ -221,9 +235,9 @@ export class FloorPickerDialog extends Component {
     // ------------------------------------------------------------------
     // MARK: Details
     // ------------------------------------------------------------------
-    /** Only saved, linked units have a record to describe. */
+    /** Saved, linked units and zones have a record to describe. */
     hasDetails(obj) {
-        return Boolean(obj && obj.id && obj.link_key && obj.category === "rentable");
+        return Boolean(obj && obj.id && obj.link_key && ["rentable", "zone"].includes(obj.category));
     }
 
     async loadDetails(obj) {

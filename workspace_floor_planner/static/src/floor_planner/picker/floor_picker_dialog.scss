@@ -242,6 +242,21 @@
         color: #6E7389;
     }
 
+    .o_fp_details_note {
+        display: flex;
+        gap: .45rem;
+        margin: 0;
+        padding: .5rem .65rem;
+        border-radius: 8px;
+        background: #FFF6E5;
+        color: #8A5A00;
+        font-size: .8rem;
+
+        .fa {
+            margin-top: .15rem;
+        }
+    }
+
     .o_fp_details_facts {
         display: grid;
         grid-template-columns: auto minmax(0, 1fr);
