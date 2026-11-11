@@ -154,9 +154,9 @@
                         </page>
                         <page string="Charges" name="charges">
                             <field name="charge_ids" mode="list"
-                            options="{'create': False}"
-                            context="{'default_center_id': id,
-                                    'list_view_ref': 'business_center.business_center_contract_charge_view_list'}"/>
+                                   readonly="state in ('draft', 'cancelled')"
+                                   context="{'list_view_ref': 'business_center.business_center_contract_charge_view_list',
+                                             'form_view_ref': 'business_center.business_center_contract_charge_view_form'}"/>
                         </page>
 
                         <page string="Terms &amp; Conditions" name="terms">

@@ -1032,7 +1032,15 @@ class BusinessCenterContract(models.Model):
             'view_mode': 'form',
             'target': 'new',
             'context': {'default_contract_id': self.id},
-        }     
+        }
+        
+    def _bc_billable_charges(self):
+        """Pending charges the next invoice can carry: booking charges with a
+        booked resource, and manual charges with a product."""
+
+        self.ensure_one()
+        return self.charge_ids.filtered(
+            lambda c: c.state == 'pending' and c._bc_is_invoiceable())     
                 
     def _create_rent_invoice(self):
         """Build one draft customer invoice for the next billing period plus any
@@ -1046,8 +1054,7 @@ class BusinessCenterContract(models.Model):
         self.ensure_one()
 
         period_start, period_end = self._get_billing_period()
-        pending = self.charge_ids.filtered(
-            lambda c: c.state == 'pending' and c._bc_invoice_resource())
+        pending = self._bc_billable_charges()
         if not period_start and not pending:
             raise UserError(_("Nothing to invoice: this contract is billed up to "
                               "its end date and has no pending charges."))
@@ -1089,7 +1096,8 @@ class BusinessCenterContract(models.Model):
         # One line per booked resource (meeting room or hot desk) for the exact
         # amount: billing hours as the quantity would round them (50 min = 0.83 h).
         by_resource = {}
-        for charge in pending:
+        manual = pending.filtered(lambda c: not c._bc_invoice_resource())
+        for charge in pending - manual:
             resource = charge._bc_invoice_resource()
             key = (resource._name, resource.id)
             by_resource.setdefault(key, self.env['business.center.contract.charge'])
@@ -1109,6 +1117,15 @@ class BusinessCenterContract(models.Model):
                 'quantity': 1.0,
                 'price_unit': self.currency_id.round(sum(charges.mapped('amount'))),
             }, charges))
+
+        # Manual charges: one line each, at their own quantity and price.
+        for charge in manual:
+            line_specs.append(({
+                'product_id': charge._bc_invoice_product().id,
+                'name': charge.description,
+                'quantity': charge.quantity,
+                'price_unit': charge.unit_price,
+            }, charge))
 
         if not line_specs:
             raise UserError(_("Nothing to invoice: no rent or pending charges found."))
@@ -1174,8 +1191,7 @@ class BusinessCenterContract(models.Model):
             if not period_start or period_start > today:
                 break
             has_rent = self.leased_asset_ids.filtered(lambda a: a.monthly_rent_total)
-            has_charges = self.charge_ids.filtered(
-                lambda c: c.state == 'pending' and c._bc_invoice_resource())
+            has_charges = self._bc_billable_charges()
             if not has_rent and not has_charges:
                 self.next_invoice_date = period_end + relativedelta(days=1)
                 continue
@@ -1184,8 +1200,7 @@ class BusinessCenterContract(models.Model):
             _logger.warning(
                 "Billing cron: %s hit the 24-period catch-up limit; it may "
                 "still owe invoices.", self.name)
-        if self.state == 'expired' and self.charge_ids.filtered(
-                lambda c: c.state == 'pending' and c._bc_invoice_resource()):
+        if self.state == 'expired' and self._bc_billable_charges():
             moves |= self._create_rent_invoice()
         return moves
     

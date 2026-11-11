@@ -19,14 +19,21 @@
 
                     <group>
                         <group string="Charge Details">
-                            <field name="description"/>
-                            <field name="booking_id" readonly="1"/>
-                            <field name="date" readonly="1"/>
+                            <field name="is_manual" invisible="1"/>
+                            <field name="description" readonly="state != 'pending'"/>
+                            <field name="product_id"
+                                   invisible="not is_manual"
+                                   required="is_manual"
+                                   readonly="state != 'pending'"/>
+                            <field name="booking_id" readonly="1" invisible="is_manual"/>
+                            <field name="desk_booking_id" readonly="1" invisible="is_manual"/>
+                            <field name="date" readonly="not is_manual or state != 'pending'"/>
                         </group>
 
                         <group string="Pricing">
-                            <field name="quantity" readonly="1"/>
-                            <field name="unit_price" widget="monetary" readonly="1"/>
+                            <field name="quantity" readonly="not is_manual or state != 'pending'"/>
+                            <field name="unit_price" widget="monetary"
+                                   readonly="not is_manual or state != 'pending'"/>
                             <field name="amount" widget="monetary"/>
                             <field name="currency_id" invisible="1"/>
                         </group>
@@ -54,7 +61,9 @@
         <field name="arch" type="xml">
             <list>
                 <field name="contract_id"/>
+                <field name="description"/>
                 <field name="booking_id"/>
+                <field name="product_id" optional="show"/>
                 <field name="invoice_line_id"/>
                 <field name="date"/>
                 <field name="quantity"/>
