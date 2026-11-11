@@ -473,7 +473,11 @@ class BusinessCenterContract(models.Model):
         ACTIVE contract covers today. Draft/future/expired contracts never win, so
         confirming a future contract won't steal 'current' from the live one, and
         resetting/cancelling one contract won't free a resource another active
-        contract still occupies. `exclude` drops contracts being deleted."""
+        contract still occupies. `exclude` drops contracts being deleted.
+
+        Only a unit this sync marked Occupied is freed. Draft and Maintenance
+        are set by staff, so a unit taken out of service keeps that state when
+        a contract listing it is cancelled, reset or deleted."""
         
         today = self._bc_today()
         exclude = exclude or self.env['business.center.contract']
@@ -488,13 +492,17 @@ class BusinessCenterContract(models.Model):
                 and c.date_start and c.date_end
                 and c.date_start <= today <= c.date_end
             ).sorted('date_start')[:1]
-            resource.write({
-                'state': 'occupied' if current else 'available',
+            vals = {
                 'occupant_id': current.partner_id.id if current else False,
                 'current_contract_id': current.id if current else False,
                 'contract_start_date': current.date_start if current else False,
                 'contract_end_date': current.date_end if current else False,
-            })
+            }
+            if current:
+                vals['state'] = 'occupied'
+            elif resource.state == 'occupied':
+                vals['state'] = 'available'
+            resource.write(vals)
             
     def _seed_wallet(self):
         """Fill the contract's shared free-hour wallet at confirmation.
