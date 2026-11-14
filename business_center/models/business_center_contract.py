@@ -1028,6 +1028,7 @@ class BusinessCenterContract(models.Model):
         Agreement Sent."""
 
         self.ensure_one()
+        self._check_bc_manager()
         if self.state not in ('upcoming', 'active'):
             raise UserError(_("Only a confirmed contract can be sent to the tenant."))
         template = self.env.ref(
@@ -1338,6 +1339,7 @@ class BusinessCenterContract(models.Model):
         purpose, so staff can resend after a bounce or a wording change."""
 
         self.ensure_one()
+        self._check_bc_manager()
         if self.state != 'active':
             raise UserError(_(
                 "Only a running contract can be sent an expiry reminder."))

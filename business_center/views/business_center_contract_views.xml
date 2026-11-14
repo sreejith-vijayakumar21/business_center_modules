@@ -10,8 +10,10 @@
                 <header>
                     <button name="action_send_contract" type="object" string="Send Contract"
                             class="btn-primary"
+                            groups="business_center.group_bc_manager"
                             invisible="state not in ('upcoming', 'active') or agreement_state != 'not_sent'"/>
                     <button name="action_send_contract" type="object" string="Send by Email"
+                            groups="business_center.group_bc_manager"
                             invisible="state not in ('upcoming', 'active')"/>
                     <button name="action_mark_agreement_signed" type="object" string="Mark as Signed"
                             groups="business_center.group_bc_manager"
@@ -28,6 +30,7 @@
                             invisible="state != 'active' or renewal_contract_id"/>
                     <button name="action_send_expiry_reminder" type="object"
                             string="Send Expiry Reminder"
+                            groups="business_center.group_bc_manager"
                             invisible="state != 'active' or not send_expiry_reminder"
                             confirm="Send the renewal reminder to this tenant now?"/>
                     <field name="send_expiry_reminder" invisible="1"/>
