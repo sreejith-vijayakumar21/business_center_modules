@@ -46,11 +46,8 @@ function initBookingForm() {
             setSummary('o_bc_summary_bad', 'The end time must be after the start time.');
             return;
         }
+        // Length is limited only by the room's opening hours, checked on the server.
         const used = e - s;
-        if (used > 8) {
-            setSummary('o_bc_summary_bad', 'Bookings cannot run longer than 8 hours.');
-            return;
-        }
         const fmt = (n) => (Math.round(n * 100) / 100).toString();
         if (used <= walletHours) {
             setSummary('o_bc_summary_ok',

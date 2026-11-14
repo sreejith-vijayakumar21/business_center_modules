@@ -20,8 +20,8 @@ function toAmPm(value) {
  *
  * Offers every step (30 min by default) inside the room's opening hours.
  * Start times inside a confirmed booking are disabled; end times are
- * disabled when they are not after the start, exceed the 8-hour limit, or
- * would run into another booking. The server constraints still decide.
+ * disabled when they are not after the start or would run into another
+ * booking. The server constraints still decide.
  *
  * Options: role ("start" | "end"), step (minutes), open_field, close_field,
  * busy_field (list of [start, end] pairs), start_field (for the end time),
