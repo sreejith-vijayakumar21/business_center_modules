@@ -49,4 +49,5 @@ Tenant portal for Business Center.
     'installable': True,
     'application': True,
     'license': 'Other proprietary',
+    'uninstall_hook': 'uninstall_hook',
 }
