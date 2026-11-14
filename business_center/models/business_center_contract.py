@@ -779,7 +779,7 @@ class BusinessCenterContract(models.Model):
         self.ensure_one()
         if self.deposit_refund_id:
             return False
-        if self.renewal_contract_id and self.renewal_contract_id.state != 'cancelled':
+        if self._bc_deposit_moves_to_renewal():
             return False
         deposit_invoice = self.sudo().deposit_invoice_id
         if deposit_invoice.state == 'draft':
@@ -819,6 +819,40 @@ class BusinessCenterContract(models.Model):
             user_id=self.create_uid.id,
         )
         return refund
+    
+    def _bc_check_renewable(self):
+        """Only a running contract can be renewed: once it has expired or
+        been cancelled the tenant needs a new contract for the space."""
+
+        self.ensure_one()
+        if self.state != 'active':
+            raise UserError(_(
+                "%(contract)s is %(state)s, so it can no longer be renewed. Create a "
+                "new contract for the tenant if the space is still free.",
+                contract=self.name,
+                state=dict(self._fields['state'].selection).get(self.state, self.state)))
+
+    def _bc_check_renewal_still_open(self):
+        """A renewal continues a running contract, so it cannot be confirmed
+        once the contract it renews has expired or been cancelled."""
+
+        self.ensure_one()
+        previous = self.previous_contract_id
+        if previous and previous.state in ('expired', 'cancelled'):
+            raise UserError(_(
+                "%(renewal)s renews %(previous)s, which has already ended. Cancel "
+                "this renewal and create a new contract for the tenant if the "
+                "space is still free.",
+                renewal=self.name, previous=previous.name))
+
+    def _bc_deposit_moves_to_renewal(self):
+        """Whether the deposit is carried to a confirmed successor instead of
+        being refunded. A draft or cancelled renewal never starts, so it keeps
+        nothing back."""
+
+        self.ensure_one()
+        return self.renewal_contract_id.state in ('upcoming', 'active', 'expired')
+
     
     def _create_renewal(self):
         """Create the draft successor of this contract: same term length,
@@ -899,6 +933,7 @@ class BusinessCenterContract(models.Model):
 
         self.ensure_one()
         self._check_bc_manager()
+        self._bc_check_renewal_still_open()
         if not self.leased_asset_ids:
             raise UserError(_(
                 "Add at least one leased asset before confirming. If the customer "
@@ -1301,8 +1336,7 @@ class BusinessCenterContract(models.Model):
 
         self.ensure_one()
         self._check_bc_manager()
-        if self.state not in ('active', 'expired'):
-            raise UserError(_("Only a running or expired contract can be renewed."))
+        self._bc_check_renewable()
         renewal = self._create_renewal()
         return {
             'type': 'ir.actions.act_window',

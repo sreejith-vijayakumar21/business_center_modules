@@ -25,7 +25,7 @@
                             invisible="state not in ('active', 'expired')"/>
                     <button name="action_renew" type="object" string="Renew"
                             groups="business_center.group_bc_manager"
-                            invisible="state not in ('active', 'expired') or renewal_contract_id"/>
+                            invisible="state != 'active' or renewal_contract_id"/>
                     <button name="action_send_expiry_reminder" type="object"
                             string="Send Expiry Reminder"
                             invisible="state != 'active' or not send_expiry_reminder"
