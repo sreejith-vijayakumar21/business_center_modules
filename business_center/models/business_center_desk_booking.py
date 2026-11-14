@@ -453,6 +453,45 @@ class BusinessCenterDeskBooking(models.Model):
         if self.booking_date < today:
             return float('inf')
         return (hour - self.start_time) * 60.0
+    
+    @api.model
+    def _bc_company_clocks(self):
+        """Every company's local (date, hour), read once per cron run, so a
+        booking is judged by its own centre's time, not the cron user's."""
+
+        return {company: company._bc_clock()
+                for company in self.env['res.company'].sudo().search([])}
+
+    def _bc_clock_of(self, clocks):
+        """This booking's centre clock from ``clocks``."""
+
+        self.ensure_one()
+        company = self.company_id or self.env.company
+        return clocks.get(company) or company._bc_clock()
+
+    def _bc_hot_desk_action(self, today, hour):
+        """What the cron should do with this confirmed booking at its local
+        ``today``/``hour``: 'remind', 'no_show', or False for nothing yet."""
+
+        self.ensure_one()
+        minutes = self._bc_minutes_since_start(today, hour)
+        if minutes < 0:
+            return False
+        if self.customer_coming:
+            # On their way: keep the desk until the slot is over.
+            return 'no_show' if self._bc_has_ended(today, hour) else False
+        policy = self.company_id or self.env.company
+        if minutes >= policy.bc_hot_desk_checkin_grace:
+            return 'no_show'
+        if minutes >= policy.bc_hot_desk_reminder_minutes and not self.reminder_sent_at:
+            return 'remind'
+        return False
+
+    def _bc_has_ended(self, today, hour):
+        """Whether the slot is over at the local ``today``/``hour``."""
+
+        self.ensure_one()
+        return self.booking_date < today or self.end_time <= hour
 
     def _bc_reminder_template(self):
         """Mail template of the "still coming?" reminder. The portal module
@@ -541,32 +580,26 @@ class BusinessCenterDeskBooking(models.Model):
     # ------------------------------------------------------------------------------
     @api.model
     def _cron_process_hot_desk_bookings(self):
-        """Run every few minutes, using each booking's company policy:
-        remind customers who have not checked in, release unattended desks
-        as no-shows (or at the end of the slot for customers on their way),
-        and complete finished stays."""
+        """Run every few minutes, using each booking's company policy and
+        local time: remind customers who have not checked in, release
+        unattended desks as no-shows (or at the end of the slot for customers
+        on their way), and complete finished stays."""
 
-        now = self._local_now()
-        today, hour = now.date(), now.hour + now.minute / 60.0
+        clocks = self._bc_company_clocks()
+        latest_day = max(day for day, _hour in clocks.values())
 
-        started = self.search([('state', '=', 'confirmed'), ('booking_date', '<=', today)])
+        started = self.search([('state', '=', 'confirmed'), ('booking_date', '<=', latest_day)])
         to_remind, no_shows = self.browse(), self.browse()
         for booking in started:
-            company = booking.company_id
-            minutes = booking._bc_minutes_since_start(today, hour)
-            if minutes < 0:
-                continue
-            if booking.customer_coming:
-                if booking.booking_date < today or booking.end_time <= hour:
-                    no_shows |= booking
-            elif minutes >= company.bc_hot_desk_checkin_grace:
-                no_shows |= booking
-            elif minutes >= company.bc_hot_desk_reminder_minutes and not booking.reminder_sent_at:
+            action = booking._bc_hot_desk_action(*booking._bc_clock_of(clocks))
+            if action == 'remind':
                 to_remind |= booking
+            elif action == 'no_show':
+                no_shows |= booking
         to_remind._bc_send_reminder()
         no_shows._bc_mark_no_show()
 
-        ended = self.search([('state', '=', 'checked_in'), ('booking_date', '<=', today)]).filtered(
-            lambda b: b.booking_date < today or b.end_time <= hour)
-        for booking in ended:
-            booking.action_done()
+        checked_in = self.search([('state', '=', 'checked_in'), ('booking_date', '<=', latest_day)])
+        for booking in checked_in:
+            if booking._bc_has_ended(*booking._bc_clock_of(clocks)):
+                booking.action_done()

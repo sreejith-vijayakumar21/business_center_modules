@@ -76,3 +76,10 @@ class ResCompany(models.Model):
         context_today() is the user's day."""
 
         return self._bc_now().date()
+    
+    def _bc_clock(self):
+        """The centre's local date and hour as a float (10:30 -> 10.5), the
+        way bookings store their times."""
+
+        now = self._bc_now()
+        return now.date(), now.hour + now.minute / 60.0
