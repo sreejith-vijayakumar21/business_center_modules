@@ -150,21 +150,28 @@ class BusinessCenterBookingPortal(CustomerPortal):
             'search': search,
         })
         return request.render('business_center_portal.portal_my_bookings', values)
+    
+    def _bc_get_booking_sudo(self, booking_id):
+        """Return (booking_sudo, None) when the member may see the booking,
+        else (None, redirect response). Shared by the detail and cancel pages."""
+
+        denied = self._bc_booking_access_denied()
+        if denied:
+            return None, denied
+        try:
+            return self._document_check_access('business.center.booking', booking_id), None
+        except (AccessError, MissingError):
+            return None, request.redirect('/my')
+
 
     @http.route(['/my/bookings/<int:booking_id>'],
                 type='http', auth='user', website=True)
-    def portal_my_booking_detail(self, booking_id, access_token=None, **kw):
+    def portal_my_booking_detail(self, booking_id, **kw):
         """The detail page for one booking."""
-        
-        if not access_token:
-            denied = self._bc_booking_access_denied()
-            if denied:
-                return denied
-        try:
-            booking_sudo = self._document_check_access(
-                'business.center.booking', booking_id, access_token)
-        except (AccessError, MissingError):
-            return request.redirect('/my')
+
+        booking_sudo, redirect = self._bc_get_booking_sudo(booking_id)
+        if redirect:
+            return redirect
 
         values = {
             'booking': booking_sudo,
@@ -225,18 +232,13 @@ class BusinessCenterBookingPortal(CustomerPortal):
 
     @http.route(['/my/bookings/<int:booking_id>/cancel'], type='http',
                 auth='user', website=True, methods=['POST'])
-    def portal_booking_cancel(self, booking_id, access_token=None, **post):
+    def portal_booking_cancel(self, booking_id, **post):
         """Cancel one of the member's own bookings, releasing the slot and
         returning the wallet hours it drew."""
 
-        denied = self._bc_booking_access_denied()
-        if denied:
-            return denied
-        try:
-            booking_sudo = self._document_check_access(
-                'business.center.booking', booking_id, access_token)
-        except (AccessError, MissingError):
-            return request.redirect('/my')
+        booking_sudo, redirect = self._bc_get_booking_sudo(booking_id)
+        if redirect:
+            return redirect
 
         reason = self._booking_cancel_block_reason(booking_sudo)
         if reason:

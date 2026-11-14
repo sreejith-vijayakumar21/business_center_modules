@@ -85,7 +85,6 @@
             <t t-set="additional_title"><span t-field="contract.name"/></t>
 
             <!-- Header: title, status and downloads -->
-            <t t-set="token_param" t-value="access_token and ('access_token=%s' % access_token) or ''"/>
             <div class="row mt-4 mb-3 align-items-center g-2">
                 <div class="col">
                     <h5 class="mb-1">
@@ -107,7 +106,7 @@
                 </div>
                 <div class="col-12 col-md-auto d-flex flex-wrap gap-2">
                     <a t-if="contract.signed_attachment_id" class="btn btn-secondary"
-                       t-attf-href="/my/contracts/#{contract.id}/signed-agreement#{token_param and '?' + token_param or ''}"
+                       t-attf-href="/my/contracts/#{contract.id}/signed-agreement"
                        title="View the signed copy you returned">
                         <i class="fa fa-file-pdf-o me-1"/>Signed Copy
                     </a>

@@ -46,18 +46,16 @@ class BusinessCenterContractPortal(CustomerPortal):
             return request.redirect('/my')
         return False
     
-    def _bc_get_contract_sudo(self, contract_id, access_token):
+    def _bc_get_contract_sudo(self, contract_id):
         """Return (contract_sudo, None) when the visitor may see the contract,
-        else (None, redirect response). A shared link with an access token
-        skips the tenant-admin check, like invoices."""
+        else (None, redirect response): a tenant admin (or internal user)
+        whose record rules give read access."""
 
-        if not access_token:
-            denied = self._bc_contract_access_denied()
-            if denied:
-                return None, denied
+        denied = self._bc_contract_access_denied()
+        if denied:
+            return None, denied
         try:
-            return self._document_check_access(
-                'business.center.contract', contract_id, access_token), None
+            return self._document_check_access('business.center.contract', contract_id), None
         except (AccessError, MissingError):
             return None, request.redirect('/my')
 
@@ -162,13 +160,12 @@ class BusinessCenterContractPortal(CustomerPortal):
 
     @http.route(['/my/contracts/<int:contract_id>'],
                 type='http', auth='user', website=True)
-    def portal_my_contract_detail(self, contract_id, access_token=None,
-                                  report_type=None, download=False, **kw):
+    def portal_my_contract_detail(self, contract_id, report_type=None, download=False, **kw):
         """The detail page for one contract, or its lease agreement as a PDF
         (``report_type=pdf``, add ``download=true`` to save it), the same
         way an invoice page serves its report."""
 
-        contract_sudo, redirect = self._bc_get_contract_sudo(contract_id, access_token)
+        contract_sudo, redirect = self._bc_get_contract_sudo(contract_id)
         if redirect:
             return redirect
 
@@ -183,36 +180,34 @@ class BusinessCenterContractPortal(CustomerPortal):
         values = {
             'contract': contract_sudo,
             'page_name': 'contract',
-            'access_token': access_token,
             'can_download_agreement': contract_sudo.state in CONFIRMED_STATES,
         }
         return request.render('business_center_portal.portal_contract_page', values)
 
     @http.route(['/my/contracts/<int:contract_id>/signed-agreement'],
                 type='http', auth='user', website=True)
-    def portal_my_contract_signed_page(self, contract_id, access_token=None, **kw):
+    def portal_my_contract_signed_page(self, contract_id, **kw):
         """Show the signed copy inside the portal, the way an invoice page
         shows its document: details and actions on the left, the document
         on the right. Same access rules as the contract page."""
 
-        contract_sudo, redirect = self._bc_get_contract_sudo(contract_id, access_token)
+        contract_sudo, redirect = self._bc_get_contract_sudo(contract_id)
         if redirect:
             return redirect
 
         attachment = contract_sudo.signed_attachment_id
-        token_query = f'?access_token={access_token}' if access_token else ''
-        contract_url = f'/my/contracts/{contract_id}{token_query}'
+        contract_url = f'/my/contracts/{contract_id}'
         if not attachment:
             return request.redirect(contract_url)
 
-        file_url = f'/my/contracts/{contract_id}/signed-copy{token_query}'
+        file_url = f'/my/contracts/{contract_id}/signed-copy'
         mimetype = attachment.mimetype or ''
         values = {
             'contract': contract_sudo,
             'page_name': 'contract',
             'contract_url': contract_url,
             'file_url': file_url,
-            'download_url': file_url + ('&' if token_query else '?') + 'download=1',
+            'download_url': file_url + '?download=1',
             # Odoo's bundled PDF viewer, opened at page width without its outline.
             'viewer_url': ('/web/static/lib/pdfjs/web/viewer.html?file='
                            + quote(file_url, safe='') + '#pagemode=none&zoom=page-width'),
@@ -223,12 +218,11 @@ class BusinessCenterContractPortal(CustomerPortal):
 
     @http.route(['/my/contracts/<int:contract_id>/signed-copy'],
                 type='http', auth='user')
-    def portal_my_contract_signed_copy(self, contract_id, access_token=None,
-                                       download=False, **kw):
+    def portal_my_contract_signed_copy(self, contract_id, download=False, **kw):
         """Serve the signed copy file: shown in the browser by default (for
         the signed copy page), saved when ``download`` is set."""
 
-        contract_sudo, redirect = self._bc_get_contract_sudo(contract_id, access_token)
+        contract_sudo, redirect = self._bc_get_contract_sudo(contract_id)
         if redirect:
             return redirect
 
