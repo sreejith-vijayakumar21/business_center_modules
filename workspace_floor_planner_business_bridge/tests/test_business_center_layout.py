@@ -210,3 +210,22 @@ class TestBusinessCenterLayout(TransactionCase):
         self.assertFalse(layout["plan"]["can_edit"])
         with self.assertRaises(UserError):
             self.other_floor.with_user(user).action_open_floor_layout()
+            
+    
+    def test_hot_desk_follows_dedicated_desk_flow(self):
+        """A hot desk is drawn with its own shape and key, and its shape is
+        released when the desk is deleted, exactly like a dedicated desk."""
+
+        hot = self.env["business.center.desk"].create({
+            "name": "H1", "space_id": self.coworking.id, "desk_type": "hot",
+        })
+        self.floor.action_open_floor_layout()
+        plan = self.floor.floor_plan_id
+        shape = plan.object_ids.filtered(
+            lambda o: o.link_key == "bc_hot_desk" and o.link_res_id == hot.id)
+        self.assertEqual(len(shape), 1, "the hot desk is placed once")
+        self.assertEqual(shape.object_type, "hot_desk")
+
+        hot.unlink()
+        self.assertFalse(shape.link_key, "the shape is released like a dedicated desk's")
+        self.assertFalse(shape.link_res_id)
