@@ -175,6 +175,8 @@ class BusinessCenterContract(models.Model):
         'invoice_review_manually',
     }
     
+    _BC_CANCELLABLE_STATES = ('draft', 'upcoming', 'active')
+    
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
     # ------------------------------------------------------------------------------ 
@@ -968,11 +970,21 @@ class BusinessCenterContract(models.Model):
         self._mark_awaiting_signature()
         return True
 
+    def _bc_check_cancellable(self):
+        """Only a contract that has not ended can be cancelled."""
+        self.ensure_one()
+        if self.state not in self._BC_CANCELLABLE_STATES:
+            raise UserError(_(
+                "%(contract)s is %(state)s and cannot be cancelled.",
+                contract=self.name,
+                state=dict(self._fields['state'].selection).get(self.state, self.state)))
+
     def action_set_cancel(self):
         """Cancel the contract and mark its leased assets as available"""
 
         self.ensure_one()
         self._check_bc_manager()
+        self._bc_check_cancellable()
         self.state = 'cancelled'
         self._sync_leased_occupancy()
         self._create_deposit_refund()
