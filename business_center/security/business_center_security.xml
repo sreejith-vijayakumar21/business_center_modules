@@ -1,5 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <!-- Multi-company: a record is visible when it has no company or its
+         company is ticked in the company switcher. Global rules (no groups),
+         so they also narrow the portal tenant rules. -->
+
     <record id="rule_bc_contract_company" model="ir.rule">
         <field name="name">Contract: multi-company</field>
         <field name="model_id" ref="model_business_center_contract"/>
@@ -9,6 +13,54 @@
     <record id="rule_bc_booking_company" model="ir.rule">
         <field name="name">Booking: multi-company</field>
         <field name="model_id" ref="model_business_center_booking"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_bc_center_company" model="ir.rule">
+        <field name="name">Business Center: multi-company</field>
+        <field name="model_id" ref="model_business_center"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_bc_amenity_company" model="ir.rule">
+        <field name="name">Amenity: multi-company</field>
+        <field name="model_id" ref="model_business_center_amenity"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_bc_floor_company" model="ir.rule">
+        <field name="name">Floor: multi-company</field>
+        <field name="model_id" ref="model_business_center_floor"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_bc_space_company" model="ir.rule">
+        <field name="name">Space: multi-company</field>
+        <field name="model_id" ref="model_business_center_space"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_bc_desk_company" model="ir.rule">
+        <field name="name">Desk: multi-company</field>
+        <field name="model_id" ref="model_business_center_desk"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_bc_desk_booking_company" model="ir.rule">
+        <field name="name">Hot Desk Booking: multi-company</field>
+        <field name="model_id" ref="model_business_center_desk_booking"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_bc_leased_asset_company" model="ir.rule">
+        <field name="name">Leased Asset: multi-company</field>
+        <field name="model_id" ref="model_business_center_leased_asset"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <record id="rule_bc_charge_company" model="ir.rule">
+        <field name="name">Contract Charge: multi-company</field>
+        <field name="model_id" ref="model_business_center_contract_charge"/>
         <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
     </record>
 
