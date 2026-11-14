@@ -527,7 +527,7 @@ class BusinessCenterBooking(models.Model):
         if overage_hours <= 0:
             return
         self.env['business.center.contract.charge'].sudo().create({
-            'date': self.booking_date or fields.Date.context_today(self),
+            'date': self.booking_date or self.company_id._bc_today(),
             'description': 'Meeting room credits overage',
             'booking_id': self.id,
             'contract_id': self.contract_id.id,

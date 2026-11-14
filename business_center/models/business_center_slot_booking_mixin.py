@@ -329,8 +329,7 @@ class BusinessCenterSlotBookingMixin(models.AbstractModel):
 
         company = self[:1].company_id or self.env.company
         tz = company.partner_id.tz or self.env.user.tz or 'UTC'
-        return fields.Datetime.context_timestamp(
-            self.with_context(tz=tz), fields.Datetime.now())
+        return (self[:1].company_id or self.env.company)._bc_now()
 
     def _is_in_past(self):
         """True if the booking starts before now at the business centre."""

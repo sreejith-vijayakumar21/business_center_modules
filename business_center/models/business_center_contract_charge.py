@@ -17,7 +17,7 @@ class BusinessCenterContractCharge(models.Model):
     # ------------------------------------------------------------------------------
     description = fields.Char(string='Description', required=True)
     date = fields.Date(string='Charge Date', required=True,
-                       default=fields.Date.context_today)
+                       default=lambda self: self.env.company._bc_today())
     quantity = fields.Float(string='Quantity', default=1)
     unit_price = fields.Monetary(string='Unit Price', currency_field='currency_id', tracking=True)
     amount = fields.Monetary(string='Amount', compute='_compute_amount', store=True, 

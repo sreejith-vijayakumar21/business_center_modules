@@ -184,7 +184,8 @@ class TestBusinessCenterLayout(TransactionCase):
         """UTC moments are converted to the user's local date and hour."""
 
         provider = self.env["workspace.floor.link.provider.bc_meeting_room"]
-        self.env.user.tz = "Asia/Kolkata"
+        self.env.company.partner_id.tz = "Asia/Kolkata"
+        self.env.user.tz = "UTC"
         day, hour = provider._local_moment(datetime(2026, 1, 1, 4, 30))
         self.assertEqual((day, hour), (date(2026, 1, 1), 10.0))
         self.assertTrue(provider._fp_is_time_dependent())

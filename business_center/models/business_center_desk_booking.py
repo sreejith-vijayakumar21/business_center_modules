@@ -517,7 +517,7 @@ class BusinessCenterDeskBooking(models.Model):
         move = self.env['account.move'].sudo().with_company(self.company_id).create({
             'move_type': 'out_invoice',
             'partner_id': self.partner_id.id,
-            'invoice_date': fields.Date.context_today(self),
+            'invoice_date': self.company_id._bc_today(),
             'invoice_origin': self.name,
             'invoice_line_ids': [(0, 0, {
                 'product_id': product.id,

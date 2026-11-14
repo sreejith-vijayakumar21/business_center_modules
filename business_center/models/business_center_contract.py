@@ -466,7 +466,7 @@ class BusinessCenterContract(models.Model):
 
         company = self[:1].company_id or self.env.company
         tz = company.partner_id.tz or self.env.user.tz or 'UTC'
-        return fields.Date.context_today(self.with_context(tz=tz))
+        return (self[:1].company_id or self.env.company)._bc_today()
     
     def _sync_leased_occupancy(self, exclude=None):
         """Re-derive occupancy on this contract's spaces and desks from whichever
@@ -526,7 +526,7 @@ class BusinessCenterContract(models.Model):
         self.write({
             'wallet_balance': self.free_hours_monthly,
             'wallet_seeded': True,
-            'last_wallet_reset_date': fields.Date.context_today(self),
+            'last_wallet_reset_date': self._bc_today(),
         })
         
     def _get_billing_period(self):
@@ -651,7 +651,7 @@ class BusinessCenterContract(models.Model):
         agreement is (still) awaiting signature."""
 
         self.with_context(tracking_disable=True).write({
-            'contract_sent_date': fields.Date.context_today(self),
+            'contract_sent_date': self._bc_today(),
         })
         self._mark_awaiting_signature()
 
@@ -660,7 +660,7 @@ class BusinessCenterContract(models.Model):
         copy) and the portal Accept & Sign (drawn signature)."""
 
         self.ensure_one()
-        signed_on = signed_on or fields.Date.context_today(self)
+        signed_on = signed_on or self._bc_today()
         vals = {
             'agreement_state': 'signed',
             'signed_by': signed_by,
@@ -729,7 +729,7 @@ class BusinessCenterContract(models.Model):
             'move_type': 'out_invoice',
             'partner_id': self.partner_id.id,
             'currency_id': self.currency_id.id,
-            'invoice_date': fields.Date.context_today(self),
+            'invoice_date': self._bc_today(),
             'invoice_origin': self.name,
             'bc_contract_id': self.id,
             'invoice_line_ids': [Command.create({
@@ -798,7 +798,7 @@ class BusinessCenterContract(models.Model):
             'move_type': 'out_refund',
             'partner_id': self.partner_id.id,
             'currency_id': self.currency_id.id,
-            'invoice_date': fields.Date.context_today(self),
+            'invoice_date': self._bc_today(),
             'invoice_origin': self.name,
             'bc_contract_id': self.id,
             'invoice_line_ids': [Command.create({
@@ -886,7 +886,7 @@ class BusinessCenterContract(models.Model):
             subtype_xmlid='mail.mt_comment',
             email_layout_xmlid='mail.mail_notification_layout',
         )
-        self.expiry_reminder_sent_date = fields.Date.context_today(self)
+        self.expiry_reminder_sent_date = self._bc_today()
         
     # ------------------------------------------------------------------------------
     #   MARK: BUTTON ACTION METHODS
@@ -1155,7 +1155,7 @@ class BusinessCenterContract(models.Model):
             'move_type': 'out_invoice',
             'partner_id': self.partner_id.id,
             'currency_id': self.currency_id.id,
-            'invoice_date': fields.Date.context_today(self),
+            'invoice_date': self._bc_today(),
             'fiscal_position_id': fpos.id,
             'invoice_origin': self.name,
             'bc_contract_id': self.id,

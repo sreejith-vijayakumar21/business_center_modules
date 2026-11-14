@@ -181,10 +181,11 @@ class BusinessCenterProviderMixin(models.AbstractModel):
     
     @api.model
     def _local_moment(self, at):
-        """Convert ``at`` (naive UTC, or None for now) to the user's local
-        date and float hour, the way bookings store their times."""
+        """Convert ``at`` (naive UTC, or None for now) to the business
+        centre's local date and float hour, the way bookings store their
+        times, so every viewer sees the same status whatever their timezone."""
 
-        tz = pytz.timezone(self.env.user.tz or "UTC")
+        tz = pytz.timezone(self.env.company._bc_tz())
         local = pytz.utc.localize(at or fields.Datetime.now()).astimezone(tz)
         return local.date(), local.hour + local.minute / 60.0
 

@@ -16,7 +16,7 @@ class BusinessCenterContractSignWizard(models.TransientModel):
     # ------------------------------------------------------------------------------
     signed_by = fields.Char(string='Signed By', required=True)
     signed_on = fields.Date(string='Signed On', required=True,
-                            default=fields.Date.context_today)
+                            default=lambda self: self.env.company._bc_today())
     signed_file = fields.Binary(string='Signed Copy', required=True)
     signed_filename = fields.Char(string='File Name')
 
@@ -32,7 +32,7 @@ class BusinessCenterContractSignWizard(models.TransientModel):
         self.ensure_one()
         contract = self.contract_id
         contract._check_bc_manager()
-        if self.signed_on > fields.Date.context_today(self):
+        if self.signed_on > contract._bc_today():
             raise UserError(_("The signing date cannot be in the future."))
         attachment = self.env['ir.attachment'].create({
             'name': self.signed_filename or _(

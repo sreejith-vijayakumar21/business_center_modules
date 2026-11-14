@@ -1,6 +1,8 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+import pytz
+
 from odoo import _, api, fields, models
 
 from odoo.exceptions import ValidationError 
@@ -50,3 +52,27 @@ class ResCompany(models.Model):
                     "release (%(release)s min).",
                     reminder=company.bc_hot_desk_reminder_minutes,
                     release=company.bc_hot_desk_checkin_grace))
+
+
+    # ------------------------------------------------------------------------------
+    #   MARK: HELPER METHODS
+    # ------------------------------------------------------------------------------
+    def _bc_tz(self):
+        """Timezone of the business centre: the company's (Settings > Business
+        Centre Timezone), then the user's, then UTC. Portal users and OdooBot
+        often have none set, so the company's comes first."""
+
+        company = self[:1] or self.env.company
+        return company.partner_id.tz or self.env.user.tz or 'UTC'
+
+    def _bc_now(self):
+        """Current local date and time at the business centre (aware datetime)."""
+
+        tz = pytz.timezone(self._bc_tz())
+        return pytz.utc.localize(fields.Datetime.now()).astimezone(tz)
+
+    def _bc_today(self):
+        """Today's date at the business centre; fields.Date.today() is UTC and
+        context_today() is the user's day."""
+
+        return self._bc_now().date()

@@ -287,5 +287,5 @@ class BusinessCenterDesk(models.Model):
             lambda c: c.state in ('upcoming', 'active')).mapped('name')
         items += self.env['business.center.desk.booking'].sudo().search([
             ('desk_id', '=', self.id), ('state', 'in', ('confirmed', 'checked_in')),
-            ('booking_date', '>=', fields.Date.context_today(self))]).mapped('name')
+            ('booking_date', '>=', self.company_id._bc_today())]).mapped('name')
         return items
