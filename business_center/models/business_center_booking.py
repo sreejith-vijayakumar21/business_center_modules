@@ -399,13 +399,8 @@ class BusinessCenterBooking(models.Model):
                 "%s was cancelled with its charges kept, so it cannot be "
                 "reset. Create a new booking instead.", self.name))
         if self.state == 'confirmed':
-            contract = self.contract_id
-            wallet_used = self.wallet_balance_at_booking - self.wallet_balance_after_booking
-            if contract and wallet_used > 0:
-                contract.wallet_balance = min(
-                    contract.wallet_balance + wallet_used,
-                    contract.free_hours_monthly,
-                )
+            self._bc_refund_wallet_hours(
+                self.wallet_balance_at_booking - self.wallet_balance_after_booking)
             charges = self.contract_id.charge_ids.filtered(
                 lambda c: c.booking_id == self and c.state == 'pending')
             if self.contract_id.charge_ids.filtered(
@@ -417,6 +412,7 @@ class BusinessCenterBooking(models.Model):
         self.with_context(bc_state_from_action=True).write({
             'wallet_balance_at_booking': 0.0,
             'wallet_balance_after_booking': 0.0,
+            'wallet_period_date': False,
             'cancel_outcome': False,
             'cancel_reason': False,
             'cancelled_by_id': False,
@@ -433,6 +429,34 @@ class BusinessCenterBooking(models.Model):
         self.ensure_one()
         if self.state != 'confirmed':
             raise UserError(_("Only a confirmed booking can be cancelled here."))
+    
+    def _bc_refund_wallet_hours(self, hours):
+        """Give ``hours`` drawn by this booking back to the contract's wallet,
+        but only within the wallet period they came from: after the monthly
+        reset those hours have lapsed. Never fills the wallet above the
+        monthly allowance. Returns the hours actually refunded."""
+
+        self.ensure_one()
+        contract = self.contract_id
+        if not contract or hours <= 0:
+            return 0.0
+        same_period = (
+            self.wallet_period_date
+            and contract.last_wallet_reset_date == self.wallet_period_date
+        )
+        if not same_period:
+            _logger.info(
+                "Booking %s: %s hour(s) lapsed with the previous wallet period "
+                "and were not refunded.", self.name, hours)
+            return 0.0
+        self.env.cr.execute(
+            "SELECT id FROM business_center_contract WHERE id = %s FOR UPDATE",
+            (contract.id,))
+        contract.invalidate_recordset(['wallet_balance'])
+        before = contract.wallet_balance
+        contract.wallet_balance = min(before + hours, contract.free_hours_monthly)
+        return contract.wallet_balance - before
+
         
     def _apply_cancellation(self, outcome=False, reason=False, used_until=False):
         """Cancel the booking and settle its wallet hours and overage.
@@ -496,21 +520,7 @@ class BusinessCenterBooking(models.Model):
                     self._create_overage_charge(new_overage)
 
             wallet_used = self.wallet_balance_at_booking - self.wallet_balance_after_booking
-            refund = wallet_used - new_wallet_hours
-            same_period = (
-                self.wallet_period_date
-                and contract.last_wallet_reset_date == self.wallet_period_date
-            )
-            if refund > 0 and same_period:
-                contract.wallet_balance = min(
-                    contract.wallet_balance + refund,
-                    contract.free_hours_monthly,
-                )
-            elif refund > 0:
-                _logger.info(
-                    "Booking %s cancelled after a wallet reset; %s hour(s) "
-                    "lapsed with the previous period and were not refunded.",
-                    self.name, refund)
+            self._bc_refund_wallet_hours(wallet_used - new_wallet_hours)
 
             if outcome == 'used':
                 vals.update({
