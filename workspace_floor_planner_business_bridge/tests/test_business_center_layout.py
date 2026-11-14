@@ -23,6 +23,7 @@ class TestBusinessCenterLayout(TransactionCase):
         super().setUpClass()
         env = cls.env
         env.user.tz = "UTC"
+        env.company.partner_id.tz = "UTC"
         cls.center = env["business.center"].create({
             "name": "ABC Business Center", "code": "ABC", "email": "abc@example.com",
             "manager_id": env.user.id,
