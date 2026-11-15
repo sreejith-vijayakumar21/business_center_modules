@@ -81,16 +81,15 @@ function initBookingForm() {
 
             const ids = data.rooms.map((r) => String(r.id));
             if (!data.rooms.length) {
-                room.innerHTML = '';
+                room.replaceChildren();
                 slots.innerHTML =
                     '<span class="o_bc_dim small">No bookable meeting rooms in this centre.</span>';
                 updateSummary();
                 return;
             }
             if (!ids.includes(room.value)) {
-                room.innerHTML = data.rooms
-                    .map((r) => `<option value="${r.id}">${r.name}</option>`)
-                    .join('');
+                room.replaceChildren(
+                    ...data.rooms.map((r) => new Option(r.name, r.id)));
                 refresh();
                 return;
             }
