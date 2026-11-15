@@ -102,11 +102,6 @@ class BusinessCenterLeasedAsset(models.Model):
         'contract_id.leased_asset_ids.space_id',
         'contract_id.leased_asset_ids.desk_id',
     )
-    @api.depends(
-        'contract_id.date_start', 'contract_id.date_end',
-        'contract_id.leased_asset_ids.space_id',
-        'contract_id.leased_asset_ids.desk_id',
-    )
     def _compute_available_resources(self):
         """Compute the spaces and desks selectable on this line: ready to rent
         (not draft or under maintenance), in the same center as its siblings,

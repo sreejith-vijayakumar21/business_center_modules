@@ -164,8 +164,6 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
                 provider = registry._get_provider(link_key)
             except UserError:
                 continue  # provider no longer installed: nothing to protect
-            if provider is None:
-                continue
             linked = objects.filtered(lambda o: o.link_key == link_key and o.link_res_id)
             records = provider._fp_target().sudo().browse(linked.mapped("link_res_id")).exists()
             if records:
@@ -188,9 +186,7 @@ class WorkspaceFloorLayoutService(models.AbstractModel):
             try:
                 provider = registry._get_provider(link_key)
             except UserError:
-                continue
-            if provider is None:
-                continue
+                continue  # provider no longer installed: nothing to release
             records = provider._fp_target().sudo().browse(res_ids).exists()
             if records:
                 provider._fp_release(plan, records)

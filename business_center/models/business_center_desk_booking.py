@@ -168,7 +168,7 @@ class BusinessCenterDeskBooking(models.Model):
             if vals.get('state', 'draft') != 'draft':
                 raise UserError(_("A hot desk booking is created in Draft and confirmed with Confirm."))
             if vals.get('name', _("New")) == _("New"):
-                vals['name'] = self.env['ir.sequence'].next_by_code(
+                vals['name'] = self.env['ir.sequence'].sudo().next_by_code(
                     'business.center.desk.booking') or _("New")
         return super().create(vals_list)
 
