@@ -130,24 +130,65 @@ class BusinessCenterDesk(models.Model):
     
     @api.model_create_multi
     def create(self, vals_list):
-        """Assigns a unique sequence reference (e.g. BC01/F1/DA2) to new
-        business center desks at creation time, unless a name was explicitly provided."""
+        """Assigns a unique reference (e.g. BC01/F1/DA2) to new business center
+        desks at creation time, unless a name was explicitly provided."""
 
+        taken_by_space = {}
         for vals in vals_list:
             if vals.get('name', _("New")) == _("New"):
-                space_id = vals.get('space_id') or self.env.context.get('default_space_id')
-                space = self.env['business.center.space'].browse(space_id)
-                center = space.center_id
-                floor = space.floor_id
-                row_label = vals.get('row_label') or ''
-                position = vals.get('position')
-                position = str(position) if position else ''
-                desk_type = vals.get('desk_type') or self.env.context.get('default_desk_type')
-                prefix = 'H' if desk_type == 'hot' else 'D'
-                sequence = prefix + row_label + position
-                parts = [part for part in (center.code, floor.name, sequence) if part]
-                vals['name'] = '/'.join(parts)
+                vals['name'] = self._bc_new_desk_name(vals, taken_by_space)
         return super().create(vals_list)
+
+    @api.model
+    def _bc_new_desk_name(self, vals, taken_by_space):
+        """Name a new desk from its space, row and position. With no position,
+        take the next free number; refuse a row and position already used.
+        ``taken_by_space`` caches the names per space for this create call."""
+
+        space = self.env['business.center.space'].browse(
+            vals.get('space_id') or self.env.context.get('default_space_id'))
+        if space.id not in taken_by_space:
+            taken_by_space[space.id] = self._bc_space_desk_names(space)
+        taken = taken_by_space[space.id]
+        if not vals.get('position'):
+            vals['position'] = self._bc_next_free_position(space, vals, taken)
+        name = self._bc_compose_desk_name(space, vals)
+        if name in taken:
+            raise UserError(_(
+                "Desk %(desk)s already exists in %(space)s. Pick another row or "
+                "position, or leave the position empty to number it automatically.",
+                desk=name, space=space.display_name))
+        taken.add(name)
+        return name
+
+    @api.model
+    def _bc_space_desk_names(self, space):
+        """Names already used in ``space``, archived desks included."""
+
+        if not space:
+            return set()
+        return set(self.with_context(active_test=False).search(
+            [('space_id', '=', space.id)]).mapped('name'))
+
+    @api.model
+    def _bc_next_free_position(self, space, vals, taken):
+        """The lowest position from 1 up whose name is still free."""
+
+        position = 1
+        while self._bc_compose_desk_name(space, dict(vals, position=position)) in taken:
+            position += 1
+        return position
+
+    @api.model
+    def _bc_compose_desk_name(self, space, vals):
+        """centre code / floor / H or D + row + position."""
+
+        desk_type = vals.get('desk_type') or self.env.context.get('default_desk_type')
+        prefix = 'H' if desk_type == 'hot' else 'D'
+        position = str(vals['position']) if vals.get('position') else ''
+        sequence = prefix + (vals.get('row_label') or '') + position
+        parts = [part for part in (space.center_id.code, space.floor_id.name, sequence) if part]
+        return '/'.join(parts)
     
     @api.ondelete(at_uninstall=False)
     def _unlink_except_has_history(self):
