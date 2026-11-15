@@ -173,7 +173,7 @@ class BusinessCenterBooking(models.Model):
             
     @api.model_create_multi
     def create(self, vals_list):
-        """Assign a sequence reference (e.g. BK/2026/00001) to new bookings unless a
+        """Assign a sequence reference (e.g. B/2026/M00001) to new bookings unless a
         name was explicitly provided."""
         
         for vals in vals_list:

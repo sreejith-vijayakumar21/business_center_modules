@@ -27,8 +27,7 @@ from odoo.addons.workspace_floor_planner_business_bridge.models.business_center_
 import logging
 
 # Business Center state -> floor planner status. Draft units are not ready to
-# rent yet, so they show as unknown.
-# Business Center state -> floor planner status.
+# rent yet, so they keep their own "draft" status on the plan.
 STATE_MAP = {
     "available": "available",
     "occupied": "occupied",
