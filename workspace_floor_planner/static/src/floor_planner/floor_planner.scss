@@ -673,3 +673,10 @@
     height: 60vh;
     min-height: 360px;
 }
+
+// Shapes a caller has made inert: drawn faded, clicks pass through to
+// whatever lies underneath.
+.o_fp_inert {
+    opacity: .35;
+    pointer-events: none;
+}

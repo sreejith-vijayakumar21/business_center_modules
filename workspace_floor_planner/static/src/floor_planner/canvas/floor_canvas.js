@@ -17,6 +17,9 @@ export class FloorCanvas extends Component {
         store: Object,
         readonly: Boolean,
         onReady: { type: Function, optional: true },
+        // (obj) => true for shapes that are drawn faded and take no clicks;
+        // lets a picker offer only some kinds of units
+        isInert: { type: Function, optional: true },
     };
 
     setup() {
@@ -64,6 +67,11 @@ export class FloorCanvas extends Component {
     get gridPath() {
         const g = this.plan.grid_size;
         return `M ${g} 0 L 0 0 0 ${g}`;
+    }
+
+    /** Whether ``obj`` is shown faded and ignores the pointer. */
+    isInert(obj) {
+        return Boolean(this.props.isInert && this.props.isInert(obj));
     }
 
     // ------------------------------------------------------------------
