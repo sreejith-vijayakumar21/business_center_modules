@@ -7,17 +7,23 @@ from psycopg2 import IntegrityError
 
 from odoo import _, fields, http
 from odoo.exceptions import AccessError, MissingError, UserError, ValidationError
-from odoo.addons.portal.controllers.portal import CustomerPortal, pager as portal_pager
 from odoo.http import request
 
-import logging
+from odoo.addons.portal.controllers.portal import pager as portal_pager
 
-_logger = logging.getLogger(__name__)
+from .portal import BusinessCenterPortal
 
 
-class BusinessCenterBookingPortal(CustomerPortal):
-    """Everything the portal needs for showing meeting room bookings."""
+class BusinessCenterBookingPortal(BusinessCenterPortal):
+    """Everything the portal needs for showing meeting room bookings.
 
+    The tenant check and the date, time and id parsing come from
+    BusinessCenterPortal, shared with the hot desk pages.
+    """
+
+    # ------------------------------------------------------------------
+    #   MARK: HOME COUNTER
+    # ------------------------------------------------------------------
     def _prepare_home_portal_values(self, counters):
         values = super()._prepare_home_portal_values(counters)
         if 'booking_count' in counters:
@@ -28,6 +34,9 @@ class BusinessCenterBookingPortal(CustomerPortal):
             )
         return values
 
+    # ------------------------------------------------------------------
+    #   MARK: LIST AND DETAIL
+    # ------------------------------------------------------------------
     def _booking_searchbar_sortings(self):
         """The choices in the 'Sort By' dropdown on the booking list."""
         return {
@@ -42,7 +51,6 @@ class BusinessCenterBookingPortal(CustomerPortal):
         return {
             'all': {'label': _('All'), 'domain': []},
             'draft': {'label': _('Draft'), 'domain': [('state', '=', 'draft')]},
-            #'upcoming': {'label': _('Upcoming'), 'domain': [('state', '=', 'upcoming')]},
             'confirmed': {'label': _('Confirmed'), 'domain': [('state', '=', 'confirmed')]},
             'cancelled': {'label': _('Cancelled'), 'domain': [('state', '=', 'cancelled')]},
         }
@@ -70,38 +78,26 @@ class BusinessCenterBookingPortal(CustomerPortal):
                 ('name', 'ilike', search),
                 ('meeting_room_id.name', 'ilike', search),
                 ('contract_id.name', 'ilike', search)]
-        
+
     def _get_bookings_domain(self):
         """Bookings this member may see. An employee only sees their own; a
         corporate admin sees everything on the company's contracts. Stated
-        here explicitly because the portal now reads bookings with sudo(),
-        so the account.move-style record rules no longer do the filtering.
+        here explicitly because the portal reads bookings with sudo(), so
+        the record rules no longer do the filtering.
         """
         user = request.env.user
         partner = user.partner_id.commercial_partner_id
         domain = [('contract_id.partner_id', 'child_of', partner.id)]
-        if not user.has_group('business_center_portal.group_bc_tenant_admin'):
+        if not self._bc_is_tenant_admin():
             domain.append(('user_id', '=', user.id))
         return domain
-    
-    def _bc_booking_access_denied(self):
-        """Meeting-room booking is for Business Center tenants only.
-
-        ``user.share`` is True for portal logins only, so an internal user
-        browsing the portal is never blocked by this.
-        """
-        user = request.env.user
-        if user.share and not user.has_group(
-                'business_center_portal.group_bc_tenant_employee'):
-            return request.redirect('/my')
-        return False
 
     @http.route(['/my/bookings', '/my/bookings/page/<int:page>'],
                 type='http', auth='user', website=True)
     def portal_my_bookings(self, page=1, sortby=None, filterby=None,
                            search=None, search_in='all', **kw):
         """The list page showing all bookings of the logged-in member."""
-        
+
         denied = self._bc_booking_access_denied()
         if denied:
             return denied
@@ -109,13 +105,12 @@ class BusinessCenterBookingPortal(CustomerPortal):
         domain = self._get_bookings_domain()
 
         searchbar_sortings = self._booking_searchbar_sortings()
-        if not sortby:
-            sortby = 'date'
+        # An unknown value from the URL falls back instead of raising KeyError.
+        sortby = sortby if sortby in searchbar_sortings else 'date'
         order = searchbar_sortings[sortby]['order']
 
         searchbar_filters = self._booking_searchbar_filters()
-        if not filterby:
-            filterby = 'all'
+        filterby = filterby if filterby in searchbar_filters else 'all'
         domain += searchbar_filters[filterby]['domain']
 
         searchbar_inputs = self._booking_searchbar_inputs()
@@ -150,7 +145,7 @@ class BusinessCenterBookingPortal(CustomerPortal):
             'search': search,
         })
         return request.render('business_center_portal.portal_my_bookings', values)
-    
+
     def _bc_get_booking_sudo(self, booking_id):
         """Return (booking_sudo, None) when the member may see the booking,
         else (None, redirect response). Shared by the detail and cancel pages."""
@@ -162,7 +157,6 @@ class BusinessCenterBookingPortal(CustomerPortal):
             return self._document_check_access('business.center.booking', booking_id), None
         except (AccessError, MissingError):
             return None, request.redirect('/my')
-
 
     @http.route(['/my/bookings/<int:booking_id>'],
                 type='http', auth='user', website=True)
@@ -181,25 +175,10 @@ class BusinessCenterBookingPortal(CustomerPortal):
             'error': kw.get('error', ''),
         }
         return request.render('business_center_portal.portal_booking_page', values)
-    
+
     # ------------------------------------------------------------------
     #   MARK: BOOKING CANCELLATION
     # ------------------------------------------------------------------
-    @staticmethod
-    def _bc_today():
-        """Today's date at the business centre, not the server's UTC date."""
-
-        return request.env['business.center.booking'].sudo()._local_now().date()
-
-    @staticmethod
-    def _bc_to_int(value):
-        """An id from the form or URL, or 0 if it was tampered with."""
-
-        try:
-            return int(value or 0)
-        except (TypeError, ValueError):
-            return 0
-
     def _booking_cancel_block_reason(self, booking_sudo):
         """Why this member may not cancel this booking, or False if they may.
         An employee can only undo what they booked themselves; a corporate admin
@@ -212,8 +191,7 @@ class BusinessCenterBookingPortal(CustomerPortal):
             return _("This booking has already been cancelled.")
         if booking_sudo.state != 'confirmed':
             return _("Only a confirmed booking can be cancelled.")
-        if not user.has_group('business_center_portal.group_bc_tenant_admin') \
-                and booking_sudo.user_id != user:
+        if not self._bc_is_tenant_admin() and booking_sudo.user_id != user:
             return _("Only the person who made this booking, or your company's "
                      "administrator, can cancel it.")
         if booking_sudo._is_in_past():
@@ -254,7 +232,7 @@ class BusinessCenterBookingPortal(CustomerPortal):
                 booking_id, urlencode({'error': exc.args[0]})))
 
         return request.redirect('/my/bookings/%s' % booking_id)
-    
+
     # ------------------------------------------------------------------
     #   MARK: BOOKING CREATION
     # ------------------------------------------------------------------
@@ -272,7 +250,7 @@ class BusinessCenterBookingPortal(CustomerPortal):
             ('state', '=', 'active'),
             ('is_wallet_eligible', '=', True),
         ]
-        if not user.has_group('business_center_portal.group_bc_tenant_admin'):
+        if not self._bc_is_tenant_admin():
             domain.append(('contact_ids', 'in', [user.partner_id.id]))
         return request.env['business.center.contract'].sudo().search(domain)
 
@@ -301,19 +279,6 @@ class BusinessCenterBookingPortal(CustomerPortal):
         })
         return preview.slot_availability_html
 
-    @staticmethod
-    def _hhmm_to_float(value, label):
-        """Turn '09:30' from the form into the 9.5 float the model stores."""
-
-        try:
-            hours, minutes = value.split(':')
-            result = int(hours) + int(minutes) / 60.0
-        except (AttributeError, ValueError):
-            raise UserError(_("Please pick a valid %s.") % label)
-        if not 0.0 <= result <= 24.0:
-            raise UserError(_("Please pick a valid %s.") % label)
-        return result
-
     def _resolve_selection(self, contract_id, room_id, booking_date):
         """Pick the contract, room and date to show, falling back to the first
         available option. Ids are only used to look records up inside the
@@ -326,12 +291,8 @@ class BusinessCenterBookingPortal(CustomerPortal):
         rooms = self._rooms_for_center(contract.center_id)
         room = rooms.filtered(
             lambda r: r.id == self._bc_to_int(room_id))[:1] or rooms[:1]
-        try:
-            booking_date = fields.Date.to_string(
-                fields.Date.to_date(booking_date)) if booking_date else False
-        except ValueError:
-            booking_date = False
-        booking_date = booking_date or fields.Date.to_string(self._bc_today())
+        booking_date = fields.Date.to_string(
+            self._bc_parse_date(booking_date) or self._bc_today())
         return contracts, contract, rooms, room, booking_date
 
     def _booking_form_values(self, contract, contracts, rooms, room,
