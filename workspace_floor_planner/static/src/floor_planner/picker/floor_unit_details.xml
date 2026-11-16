@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="workspace_floor_planner.FloorUnitDetails">
+        <aside class="o_fp_details" aria-live="polite">
+            <div t-if="props.loading" class="o_fp_details_empty">
+                <i class="fa fa-circle-o-notch fa-spin" aria-hidden="true"/>
+                <span class="visually-hidden">Loading</span>
+            </div>
+            <t t-elif="props.details">
+                <!-- On its own so a click can later open the full gallery. -->
+                <div class="o_fp_details_media">
+                    <img t-if="props.details.image_url" class="o_fp_details_photo"
+                         t-att-src="props.details.image_url" t-att-alt="props.details.title"/>
+                    <div t-else="" class="o_fp_details_photo_empty">
+                        <i class="fa fa-picture-o" aria-hidden="true"/>
+                    </div>
+                </div>
+
+                <div class="o_fp_details_head">
+                    <div class="o_fp_details_subtitle" t-esc="props.details.subtitle"/>
+                    <div class="o_fp_details_title" t-esc="props.details.title"/>
+                    <span t-if="props.status" class="o_fp_details_status"
+                          t-attf-class="o_fp_details_status_{{ props.status.tone }}"
+                          t-esc="props.status.label"/>
+                </div>
+                    <p t-if="props.note" class="o_fp_details_note">
+                        <i class="fa fa-info-circle" aria-hidden="true"/>
+                        <span t-esc="props.note"/>
+                    </p>
+
+                <dl t-if="props.details.facts.length" class="o_fp_details_facts">
+                    <t t-foreach="props.details.facts" t-as="fact" t-key="fact_index">
+                        <dt t-esc="fact.label"/>
+                        <dd t-esc="fact.value"/>
+                    </t>
+                </dl>
+
+                <section t-foreach="props.details.sections" t-as="section" t-key="section_index"
+                         class="o_fp_details_block">
+                    <div class="o_fp_details_label" t-esc="section.title"/>
+                    <dl t-if="section.facts and section.facts.length" class="o_fp_details_facts">
+                        <t t-foreach="section.facts" t-as="fact" t-key="fact_index">
+                            <dt t-esc="fact.label"/>
+                            <dd t-esc="fact.value"/>
+                        </t>
+                    </dl>
+                    <div t-if="section.tags and section.tags.length" class="o_fp_details_tags">
+                        <span t-foreach="section.tags" t-as="tag" t-key="tag_index"
+                              class="o_fp_details_tag" t-esc="tag"/>
+                    </div>
+                </section>
+            </t>
+            <div t-elif="props.selected" class="o_fp_details_empty">
+                <t t-if="props.note" t-esc="props.note"/>
+                <t t-else="">No details for this unit.</t>
+            </div>
+            <div t-else="" class="o_fp_details_empty">
+                Click a unit on the plan to see its details.
+            </div>
+        </aside>
+    </t>
+
+</templates>

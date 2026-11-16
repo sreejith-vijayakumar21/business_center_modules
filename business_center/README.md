@@ -59,7 +59,7 @@ month requires Next Invoice Date to be set to the first period not yet
 billed. Otherwise the billing scheduler would invoice every month since the
 start date again.
 
-Six scheduled actions run daily at 01:00 UTC, in priority order:
+Seven scheduled actions run. Six run daily at 01:00 UTC, in priority order:
 
 - 10 — Activate upcoming contracts
 - 20 — Generate monthly invoices
@@ -68,7 +68,13 @@ Six scheduled actions run daily at 01:00 UTC, in priority order:
 - 40 — Expire contracts and prepare deposit refunds
 - 50 — Send expiry reminders
 
-Invoices are created as drafts and posted by hand after review.
+The seventh, "Business Center: hot desk no-shows and check-outs", runs every
+5 minutes. It sends check-in reminders, cancels no-shows and checks out
+bookings that have ended, using each company's own time zone.
+
+Invoices are created as drafts and reviewed by hand, unless the company turns
+on Post and Email Invoices Automatically in Settings. A contract can still opt
+out with Review Invoices Manually.
 
 ## Security deposit
 

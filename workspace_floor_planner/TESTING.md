@@ -10,7 +10,7 @@
 | Python tests (`--test-tags=/workspace_floor_planner`) | 25 / 25 pass |
 | JS unit tests (Hoot, `/web/tests?filter=@workspace_floor_planner`) | 12 / 12 pass |
 | Browser run-through (headless Chromium, details below) | OK, no console errors |
-| With `business_center`: fresh install of both (bridge auto-installs), core + bridge tests | 34 / 34 pass (11 bridge tests incl. real bookings) |
+| With `business_center`: fresh install of both (bridge auto-installs), core + bridge tests | 35 / 35 pass (10 bridge tests incl. real bookings) |
 | Business Center browser run: Floors tab cards → Create layout (pre-filled, 14 objects) → save → View layout (totals 12 / 4 / 6 / 2 match the records) | OK, no console errors |
 
 Browser run-through, done against a running Odoo 19 server with a small

@@ -6,20 +6,30 @@
         <field name="model">business.center.booking.cancel.wizard</field>
         <field name="arch" type="xml">
             <form string="Charge Decision">
-                <div class="alert alert-warning" role="alert">
+                <field name="has_cancel_request" invisible="1"/>
+                <div class="alert alert-warning" role="alert" invisible="has_cancel_request">
                     This booking has started (or was released, or nobody showed up).
                     Choose what the customer is charged and record why.
+                </div>
+                <div class="alert alert-info" role="alert" invisible="not has_cancel_request">
+                    The customer asked to cancel this booking after free cancellation ended.
+                    Cancel it (and choose the charge) or keep it. Your answer and reason are
+                    emailed to them.
                 </div>
                 <group>
                     <group>
                         <field name="booking_ref"/>
                         <field name="booking_date"/>
                         <field name="booked_slot_display"/>
+                        <field name="cancel_request_reason" invisible="not has_cancel_request"/>
                     </group>
                     <group>
-                        <field name="outcome" widget="radio"/>
+                        <field name="request_answer" widget="radio" invisible="not has_cancel_request"/>
+                        <field name="outcome" widget="radio"
+                               invisible="has_cancel_request and request_answer == 'reject'"/>
                         <field name="used_until" widget="bc_time_select"
-                               invisible="outcome != 'used'" required="outcome == 'used'"/>
+                               invisible="outcome != 'used' or (has_cancel_request and request_answer == 'reject')"
+                               required="outcome == 'used' and not (has_cancel_request and request_answer == 'reject')"/>
                         <field name="billable_hours_display"/>
                     </group>
                 </group>

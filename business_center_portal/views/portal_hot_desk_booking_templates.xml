@@ -1,0 +1,374 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- HOME TILE -->
+    <template id="portal_my_home_hot_desk" name="Portal My Home: Hot Desk Bookings"
+              inherit_id="portal.portal_my_home" priority="33">
+        <xpath expr="//div[@id='portal_common_category']" position="inside">
+            <t t-if="request.env.user.has_group('business_center_portal.group_bc_tenant_employee')">
+                <t t-call="portal.portal_docs_entry">
+                    <t t-set="icon" t-value="'/portal/static/src/img/portal-addresses.svg'"/>
+                    <t t-set="title">Hot Desk Bookings</t>
+                    <t t-set="text">Book a hot desk by the hour on your floor plan</t>
+                    <t t-set="url" t-value="'/my/hot-desks'"/>
+                    <t t-set="placeholder_count" t-value="'hot_desk_count'"/>
+                    <t t-set="config_card" t-value="True"/>
+                </t>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- STATUS BADGE, shared by the list and the detail page -->
+    <template id="portal_hot_desk_state_badge" name="Hot Desk: Status Badge">
+        <t t-set="bc_tones" t-value="{'draft': 'info', 'confirmed': 'success', 'checked_in': 'primary',
+                                      'done': 'secondary', 'no_show': 'danger', 'released': 'warning',
+                                      'cancelled': 'secondary'}"/>
+        <span t-attf-class="badge rounded-pill text-bg-#{bc_tones.get(booking.state, 'secondary')}"
+              t-field="booking.state"/>
+        <span t-if="booking.cancel_request_state == 'pending'"
+              class="badge rounded-pill text-bg-warning ms-1">Cancellation requested</span>
+    </template>
+
+    <!-- DESK USER, shared by the list and the detail page -->
+    <template id="portal_hot_desk_person" name="Hot Desk: Desk User">
+        <span class="o_bc_who">
+            <span class="o_bc_initial" t-esc="(person.name or '?')[:1].upper()"/>
+            <span t-esc="person.name"/>
+        </span>
+    </template>
+
+    <!-- LIST -->
+    <template id="portal_my_hot_desks" name="My Hot Desk Bookings">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True"/>
+            <t t-call="portal.portal_searchbar">
+                <t t-set="title">Hot Desk Bookings</t>
+            </t>
+            <div class="mb-3">
+                <a href="/my/hot-desks/new" class="btn btn-primary btn-sm">
+                    <i class="fa fa-plus me-1"/>Book a Hot Desk
+                </a>
+            </div>
+
+            <div t-if="not bookings" class="alert alert-warning" role="alert">
+                There are no hot desk bookings for your account yet.
+            </div>
+
+            <t t-if="bookings" t-call="portal.portal_table">
+                <thead>
+                    <tr class="active">
+                        <th>Booking</th>
+                        <th>Desk</th>
+                        <th>Desk User</th>
+                        <th class="text-end">Date</th>
+                        <th class="text-end">Slot</th>
+                        <th class="text-end">Amount</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="bookings" t-as="booking">
+                        <td><a t-attf-href="/my/hot-desks/#{booking.id}" t-esc="booking.name"/></td>
+                        <td><span t-esc="booking.desk_id.name"/></td>
+                        <td>
+                            <t t-call="business_center_portal.portal_hot_desk_person">
+                                <t t-set="person" t-value="booking.partner_id"/>
+                            </t>
+                        </td>
+                        <td class="text-end"><span t-field="booking.booking_date"/></td>
+                        <td class="text-end"><span t-esc="booking.selected_slot_display"/></td>
+                        <td class="text-end"><span t-field="booking.amount"/></td>
+                        <td class="text-center">
+                            <t t-call="business_center_portal.portal_hot_desk_state_badge"/>
+                        </td>
+                    </tr>
+                </tbody>
+            </t>
+        </t>
+    </template>
+
+    <!-- DETAIL -->
+    <template id="portal_hot_desk_page" name="Hot Desk Booking Page">
+        <t t-call="portal.portal_layout">
+            <t t-set="additional_title"><t t-esc="booking.name"/></t>
+
+            <div class="row mt-4 mb-3">
+                <div class="col-12 d-flex flex-wrap align-items-center justify-content-between gap-2">
+                    <h5 class="mb-0">
+                        Hot desk <t t-esc="booking.name"/>
+                        <t t-call="business_center_portal.portal_hot_desk_state_badge"/>
+                    </h5>
+                    <button t-if="booking.state == 'confirmed' and booking.cancel_request_state != 'pending'" type="button"
+                            t-attf-class="btn btn-sm #{'btn-outline-danger' if can_cancel else 'btn-outline-secondary'}"
+                            data-bs-toggle="modal" data-bs-target="#o_bc_cancel_hot_desk">
+                        <i class="fa fa-times me-1"/>Cancel booking
+                    </button>
+                </div>
+            </div>
+            <div t-if="error" class="alert alert-danger d-flex align-items-center" role="alert">
+                <i class="fa fa-exclamation-circle me-2"/><t t-esc="error"/>
+            </div>
+            <div t-if="booking.cancel_request_state == 'pending'" class="alert alert-warning" role="alert">
+                <i class="fa fa-hourglass-half me-2"/>
+                You asked to cancel this booking on <span t-field="booking.cancel_requested_at"/>.
+                The business centre will reply by email; until then the desk stays booked.
+                <div class="small mt-1"><strong>Your reason:</strong> <t t-esc="booking.cancel_request_reason"/></div>
+            </div>
+            <div t-elif="booking.cancel_request_state == 'rejected'" class="alert alert-info" role="alert">
+                <i class="fa fa-info-circle me-2"/>
+                The business centre kept this booking: your cancellation request was declined.
+                <div t-if="booking.cancel_reason" class="small mt-1"><strong>Note:</strong> <t t-esc="booking.cancel_reason"/></div>
+            </div>
+            <div t-elif="booking.cancel_request_state == 'accepted'" class="alert alert-info" role="alert">
+                <i class="fa fa-info-circle me-2"/>
+                Your cancellation request was accepted: <span t-field="booking.cancel_outcome"/>.
+                <div t-if="booking.cancel_reason" class="small mt-1"><strong>Note:</strong> <t t-esc="booking.cancel_reason"/></div>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <h6 class="text-muted text-uppercase small">Desk</h6>
+                    <div><strong>Hot desk:</strong> <t t-esc="booking.desk_id.name"/></div>
+                    <div><strong>Coworking space:</strong> <t t-esc="booking.space_id.name"/></div>
+                    <div>
+                        <strong>Desk user:</strong>
+                        <t t-call="business_center_portal.portal_hot_desk_person">
+                            <t t-set="person" t-value="booking.partner_id"/>
+                        </t>
+                    </div>
+                    <div t-if="booking.user_id.partner_id != booking.partner_id">
+                        <strong>Booked by:</strong> <t t-esc="booking.user_id.name"/>
+                    </div>
+                    <div t-if="booking.contract_id">
+                        <strong>Billed to:</strong>
+                        <a t-if="is_tenant_admin" t-attf-href="/my/contracts/#{booking.contract_id.id}"
+                           t-esc="booking.contract_id.name"/>
+                        <span t-else="" t-esc="booking.contract_id.name"/>
+                    </div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <h6 class="text-muted text-uppercase small">Schedule</h6>
+                    <div><strong>Date:</strong> <span t-field="booking.booking_date"/></div>
+                    <div><strong>Slot:</strong> <t t-esc="booking.selected_slot_display"/></div>
+                    <div><strong>Duration:</strong> <t t-esc="booking.duration_display"/></div>
+                </div>
+            </div>
+
+            <h6 class="mt-3 text-muted text-uppercase small">Charges</h6>
+            <table class="table table-sm">
+                <tbody>
+                    <tr>
+                        <td>Hourly rate</td>
+                        <td class="text-end"><span t-field="booking.hourly_rate"/></td>
+                    </tr>
+                    <tr class="fw-bold">
+                        <td>Amount</td>
+                        <td class="text-end"><span t-field="booking.amount"/></td>
+                    </tr>
+                </tbody>
+            </table>
+            <p class="text-muted small">
+                The amount is added to your contract's next monthly invoice once the booking is over.
+            </p>
+
+            <div t-if="booking.state == 'confirmed' and booking.cancel_request_state != 'pending'"
+                 class="modal fade" id="o_bc_cancel_hot_desk" tabindex="-1" aria-hidden="true"
+                 t-att-data-free-seconds="free_seconds_left if (can_cancel and can_cancel_free) else None">
+                <div class="modal-dialog modal-dialog-centered">
+
+                    <!-- Inside the free window: cancel at once -->
+                    <div t-if="can_cancel and can_cancel_free" class="modal-content o_bc_cancel_free">
+                        <div class="modal-header">
+                            <h5 class="modal-title">Cancel this booking?</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-1">
+                                <t t-esc="booking.desk_id.name"/> on <span t-field="booking.booking_date"/>,
+                                <t t-esc="booking.selected_slot_display"/>.
+                            </p>
+                            <p class="text-muted small mb-0">The desk is released and nothing is charged.</p>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep booking</button>
+                            <form method="post" class="d-inline" t-attf-action="/my/hot-desks/#{booking.id}/cancel">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <button type="submit" class="btn btn-danger">
+                                    <i class="fa fa-times me-1"/>Cancel booking
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+
+                    <!-- After the free window: ask the business centre -->
+                    <form t-if="can_cancel" method="post"
+                          t-attf-action="/my/hot-desks/#{booking.id}/request-cancel"
+                          t-attf-class="modal-content o_bc_cancel_request #{'d-none' if can_cancel_free else ''}">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <div class="modal-header">
+                            <h5 class="modal-title">Request cancellation</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-1">
+                                <t t-esc="booking.desk_id.name"/> on <span t-field="booking.booking_date"/>,
+                                <t t-esc="booking.selected_slot_display"/>.
+                            </p>
+                            <p class="text-muted small">
+                                <t t-if="free_cancel_minutes">
+                                    Free cancellation ends <t t-esc="free_cancel_minutes"/> minutes before the start.
+                                </t>
+                                <t t-else="">This booking has already started.</t>
+                                The business centre decides whether anything is charged and replies by email.
+                                Until then the desk stays booked.
+                            </p>
+                            <label class="o_bc_label" for="o_bc_cancel_reason">Why do you want to cancel?</label>
+                            <textarea name="reason" id="o_bc_cancel_reason" class="form-control" rows="3"
+                                      required="required" maxlength="1000"/>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep booking</button>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fa fa-paper-plane me-1"/>Send request
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Not allowed for this member -->
+                    <div t-if="not can_cancel" class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">This booking can't be cancelled here</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted small mb-0" t-esc="cancel_block_reason"/>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </t>
+    </template>
+
+    <!-- NO CONTRACT -->
+    <template id="portal_hot_desk_no_contract" name="Hot Desk: No Contract">
+        <t t-call="portal.portal_layout">
+            <div class="alert alert-info mt-4" role="alert">
+                Hot desks are booked against a running contract of your company.
+                Please contact the business centre to set one up.
+            </div>
+        </t>
+    </template>
+
+    <!-- BOOKING FORM -->
+    <template id="portal_hot_desk_form" name="Book a Hot Desk">
+        <t t-call="portal.portal_layout">
+            <t t-set="additional_title">Book a Hot Desk</t>
+
+            <div class="o_bc_book">
+                <div class="o_bc_book_head">
+                    <h4>Book a Hot Desk</h4>
+                    <a href="/my/hot-desks" class="o_bc_back">
+                        <i class="fa fa-angle-left me-1"/>All hot desk bookings
+                    </a>
+                </div>
+
+                <div t-if="error" class="alert alert-danger d-flex align-items-center" role="alert">
+                    <i class="fa fa-exclamation-circle me-2"/><t t-esc="error"/>
+                </div>
+
+                <form method="post" action="/my/hot-desks/new" id="o_bc_hot_desk_form"
+                      t-att-data-currency="currency.symbol">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+                    <!-- STEP 1 : WHO AND WHEN -->
+                    <section class="o_bc_card">
+                        <div class="o_bc_step"><span class="o_bc_num">1</span>Who and when</div>
+                        <div class="row g-3">
+                            <div class="col-md-4" t-if="len(contracts) &gt; 1">
+                                <label class="o_bc_label" for="hd_contract_id">Bill to contract</label>
+                                <select name="contract_id" id="hd_contract_id" class="form-select">
+                                    <option t-foreach="contracts" t-as="opt" t-att-value="opt.id"
+                                            t-att-selected="'selected' if opt == contract else None"
+                                            t-esc="opt.name"/>
+                                </select>
+                            </div>
+                            <div class="col-md-4" t-else="">
+                                <label class="o_bc_label">Bill to contract</label>
+                                <div class="form-control-plaintext" t-esc="contract.name"/>
+                                <input type="hidden" name="contract_id" id="hd_contract_id" t-att-value="contract.id"/>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="o_bc_label" for="hd_partner_id">Desk user</label>
+                                <select name="partner_id" id="hd_partner_id" class="form-select">
+                                    <option t-foreach="people" t-as="opt" t-att-value="opt.id"
+                                            t-att-selected="'selected' if opt.id == partner_id else None"
+                                            t-esc="opt.name"/>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="o_bc_label" for="hd_booking_date">Date</label>
+                                <input type="date" name="booking_date" id="hd_booking_date" class="form-control"
+                                       t-att-value="booking_date" t-att-min="today"/>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="o_bc_label" for="hd_start_time">From</label>
+                                <input type="time" name="start_time" id="hd_start_time"
+                                       class="form-control o_bc_time" t-att-value="start_hhmm" required="required"/>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="o_bc_label" for="hd_end_time">To</label>
+                                <input type="time" name="end_time" id="hd_end_time"
+                                       class="form-control o_bc_time" t-att-value="end_hhmm" required="required"/>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- STEP 2 : DESK -->
+                    <section class="o_bc_card">
+                        <div class="o_bc_step"><span class="o_bc_num">2</span>Pick a desk</div>
+                        <owl-component name="business_center_portal.HotDeskFloorPicker"/>
+                        <div class="row g-3 mt-1 align-items-end">
+                            <div class="col-md-6">
+                                <label class="o_bc_label" for="hd_desk_id">Or choose from the list</label>
+                                <select name="desk_id" id="hd_desk_id" class="form-select" required="required">
+                                    <option value="">Choose a desk…</option>
+                                    <option t-foreach="desk_options" t-as="opt" t-att-value="opt['id']"
+                                            t-att-data-rate="opt['rate']"
+                                            t-att-selected="'selected' if opt['id'] == desk_id else None"
+                                            t-esc="opt['name']"/>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <div id="o_bc_hd_desk_hint" class="text-muted small"/>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- STEP 3 : CONFIRM -->
+                    <section class="o_bc_card">
+                        <div class="o_bc_step"><span class="o_bc_num">3</span>Confirm</div>
+                        <div id="o_bc_hd_summary" class="o_bc_summary o_bc_summary_idle">
+                            Pick a desk and a time to see the cost.
+                        </div>
+                        <p class="text-muted small mt-2 mb-0">
+                            The cost goes on your contract's next monthly invoice.
+                            Cancelling is free until the booking starts.
+                        </p>
+                    </section>
+
+                    <div class="o_bc_actions">
+                        <a href="/my/hot-desks" class="btn btn-light">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="fa fa-check me-1"/>Confirm booking
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </t>
+    </template>
+
+</odoo>

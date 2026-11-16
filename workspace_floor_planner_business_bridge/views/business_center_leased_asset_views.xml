@@ -27,7 +27,11 @@
                                                     'values': {'lease_asset_type': 'office'}},
                                       'bc_desk': {'field': 'desk_id', 'options_field': 'available_desk_ids',
                                                   'values': {'lease_asset_type': 'desk'}}},
-                                  'chosen_fields': {'bc_office': 'contract_space_ids', 'bc_desk': 'contract_desk_ids'}}"/>
+                                      'chosen_fields': {'bc_office': 'contract_space_ids', 'bc_desk': 'contract_desk_ids'},
+                                      'unavailable_notes': {
+                                                'bc_meeting_room': 'Meeting rooms are booked by the hour and cannot be leased on a contract.',
+                                                'bc_hot_desk': 'Hot desks are booked by the hour and cannot be leased on a contract.',
+                                                'bc_coworking': 'Pick a desk inside this coworking space.'}}"/>
             </field>
         </field>
     </record>

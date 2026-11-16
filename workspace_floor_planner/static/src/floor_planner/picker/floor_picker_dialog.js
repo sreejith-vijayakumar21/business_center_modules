@@ -4,21 +4,13 @@ import { _t } from "@web/core/l10n/translation";
 import { useService } from "@web/core/utils/hooks";
 import { FloorCanvas } from "../canvas/floor_canvas";
 import { FloorPlanApi } from "../core/floor_plan_api";
-import { centerOf, fitView, rotateVector } from "../core/geometry";
+import { fitView } from "../core/geometry";
 import { LayoutStore } from "../core/layout_store";
+import { FloorUnitDetails } from "./floor_unit_details";
+import { colourByPickability } from "./pickability";
 
-const PICKABLE = "pickable";
 const ZOOM_STEP = 1.25;
-const UNPICKABLE = "unpickable";
-const PICKED = "picked";
-const CHOSEN = "chosen";
 
-/** True when ``point`` lies inside ``rect`` once the rect is rotated around its centre. */
-function pointInRect(point, rect) {
-    const c = centerOf(rect);
-    const local = rotateVector(point.x - c.x, point.y - c.y, -(rect.rotation || 0));
-    return Math.abs(local.x) <= rect.width / 2 && Math.abs(local.y) <= rect.height / 2;
-}
 
 /**
  * Pick a linked record from a floor plan instead of a dropdown.
@@ -31,7 +23,7 @@ function pointInRect(point, rect) {
  */
 export class FloorPickerDialog extends Component {
     static template = "workspace_floor_planner.FloorPickerDialog";
-    static components = { Dialog, FloorCanvas };
+    static components = { Dialog, FloorCanvas, FloorUnitDetails };
     static props = {
         title: String,
         // [{id, name, note?, plans: [{key, id, name, pickable}]}]; a plan
@@ -42,6 +34,9 @@ export class FloorPickerDialog extends Component {
         allowed: Object,
         // {link_key: [res_id, ...]} already chosen elsewhere (shown, not pickable)
         chosen: { type: Object, optional: true },
+        // {link_key: text} explaining why units of that kind cannot be
+        // picked here, shown in the details panel
+        notes: { type: Object, optional: true },
         // ({link_key, res_id, name}) => void
         onPick: Function,
         close: Function,
@@ -55,8 +50,13 @@ export class FloorPickerDialog extends Component {
             planId: this.firstPlanId(site),
             store: null,
             loading: false,
+            details: false,
+            detailsLoading: false,
         });
         this.canvas = null;
+        this.api = null;
+        // Details per object id, so clicking back and forth costs one call.
+        this.detailsCache = new Map();
         this.canvasArea = useRef("canvasArea");
         onWillStart(() => this.loadPlan());
         // The plan area only gets its real size once the dialog has opened,
@@ -76,10 +76,17 @@ export class FloorPickerDialog extends Component {
             },
             () => [this.state.store, this.state.store && this.state.store.selectedKey],
         );
+        // Load the details of whichever unit is selected.
+        useEffect(
+            () => {
+                this.loadDetails(this.selected);
+            },
+            () => [this.state.store, this.state.store && this.state.store.selectedKey],
+        );
     }
 
     // ------------------------------------------------------------------
-    // Getters
+    // MARK: Getters
     // ------------------------------------------------------------------
     get site() {
         return this.props.sites.find((s) => s.id === this.state.siteId) || null;
@@ -97,8 +104,32 @@ export class FloorPickerDialog extends Component {
         return Boolean(this.selected && this.isPickable(this.selected));
     }
 
+    /** Why the selected unit can or cannot be picked, for the side panel. */
+    get selectedStatus() {
+        const obj = this.selected;
+        if (!obj || obj.category !== "rentable") {
+            return undefined;
+        }
+        if (this.isChosen(obj)) {
+            return { label: _t("On this contract"), tone: "chosen" };
+        }
+        if (this.isPickable(obj)) {
+            return { label: _t("Available to pick"), tone: "pickable" };
+        }
+        return { label: _t("Not available here"), tone: "unpickable" };
+    }
+
+    /** The caller's explanation for a unit that cannot be picked here. */
+    get selectedNote() {
+        const obj = this.selected;
+        if (!obj || !obj.link_key || this.isPickable(obj) || this.isChosen(obj)) {
+            return undefined;
+        }
+        return (this.props.notes || {})[obj.link_key];
+    }
+
     // ------------------------------------------------------------------
-    // Loading
+    // MARK: LOADING
     // ------------------------------------------------------------------
     /** The first floor with something to pick, else the first floor with a layout. */
     firstPlanId(site) {
@@ -116,8 +147,8 @@ export class FloorPickerDialog extends Component {
         }
         this.state.loading = true;
         try {
-            const api = new FloorPlanApi(this.orm, this.state.planId);
-            const store = LayoutStore.create(await api.load());
+            this.api = new FloorPlanApi(this.orm, this.state.planId);
+            const store = LayoutStore.create(await this.api.load());
             this.applyPickability(store);
             this.state.store = store;
         } finally {
@@ -128,40 +159,10 @@ export class FloorPickerDialog extends Component {
     /** Colour every unit by whether it may be picked (the selected one
      * stands out), and summarise zones. */
     applyPickability(store) {
-        const palette = store.statusPalette;
-        store.statusPalette = {
-            ...palette,
-            [PICKABLE]: {
-                code: PICKABLE,
-                name: _t("Available to pick"),
-                color: palette.available ? palette.available.color : "#8EDCB0",
-            },
-            [UNPICKABLE]: { code: UNPICKABLE, name: _t("Not available here"), color: "#DCE0E8" },
-            [PICKED]: { code: PICKED, name: _t("Selected"), color: "#8E9BF5" },
-            [CHOSEN]: { code: CHOSEN, name: _t("On this contract"), color: "#C9D6FB" },
-        };
-        const selectedKey = store.selectedKey;
-        const objects = {};
-        const units = store.objects.filter((o) => o.category === "rentable");
-        for (const unit of units) {
-            let status = UNPICKABLE;
-            if (this.isChosen(unit)) {
-                status = CHOSEN;
-            } else if (this.isPickable(unit)) {
-                status = unit.key === selectedKey ? PICKED : PICKABLE;
-            }
-            objects[unit.id] = { status };
-        }
-        for (const zone of store.objects.filter((o) => o.category === "zone")) {
-            const inside = units.filter((u) => pointInRect(centerOf(u), zone));
-            const available = inside.filter((u) => this.isPickable(u)).length;
-            objects[zone.id] = {
-                status: available ? PICKABLE : UNPICKABLE,
-                available,
-                total: inside.length,
-            };
-        }
-        store.setStatuses({ objects, summary: {}, at: false, time_dependent: false, computed_at: false });
+        colourByPickability(store, {
+            isPickable: (obj) => this.isPickable(obj),
+            isChosen: (obj) => this.isChosen(obj),
+        });
     }
 
     isPickable(obj) {
@@ -175,7 +176,40 @@ export class FloorPickerDialog extends Component {
     }
 
     // ------------------------------------------------------------------
-    // Canvas
+    // MARK: Details
+    // ------------------------------------------------------------------
+    /** Saved, linked units and zones have a record to describe. */
+    hasDetails(obj) {
+        return Boolean(obj && obj.id && obj.link_key && ["rentable", "zone"].includes(obj.category));
+    }
+
+    async loadDetails(obj) {
+        if (!this.hasDetails(obj)) {
+            this.state.details = false;
+            this.state.detailsLoading = false;
+            return;
+        }
+        if (this.detailsCache.has(obj.id)) {
+            this.state.details = this.detailsCache.get(obj.id);
+            this.state.detailsLoading = false;
+            return;
+        }
+        this.state.detailsLoading = true;
+        let details = false;
+        try {
+            details = await this.api.unitDetails(obj.id);
+            this.detailsCache.set(obj.id, details);
+        } finally {
+            // Ignore an answer that arrives after another unit was clicked.
+            if (this.selected && this.selected.id === obj.id) {
+                this.state.details = details;
+                this.state.detailsLoading = false;
+            }
+        }
+    }
+
+    // ------------------------------------------------------------------
+    // MARK: Canvas
     // ------------------------------------------------------------------
     get zoomPercent() {
         return this.state.store ? Math.round(this.state.store.view.zoom * 100) : 100;

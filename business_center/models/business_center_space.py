@@ -277,8 +277,8 @@ class BusinessCenterSpace(models.Model):
         """Opening hours must make sense, and may not shut out a booking
         already made: future bookings must still fit the new hours."""
 
-        today = fields.Date.context_today(self)
         for rec in self:
+            today = rec.company_id._bc_today()
             open_h, close_h = rec.min_booking_hour, rec.max_booking_hour
             if (rec.space_type == 'meeting_room' or (rec.is_coworking and close_h)) \
                     and close_h <= open_h:
@@ -432,7 +432,7 @@ class BusinessCenterSpace(models.Model):
         hold this space, including those of its desks."""
 
         self.ensure_one()
-        today = fields.Date.context_today(self)
+        today = self.company_id._bc_today()
         items = self.sudo().leased_asset_ids.contract_id.filtered(
             lambda c: c.state in ('upcoming', 'active')).mapped('name')
         if self.space_type == 'meeting_room':

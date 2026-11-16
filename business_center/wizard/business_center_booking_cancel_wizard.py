@@ -39,6 +39,12 @@ class BusinessCenterBookingCancelWizard(models.TransientModel):
     used_until = fields.Float(string='Used Until')
     billable_hours_display = fields.Char(string='Billable Time',
                                          compute='_compute_billable_hours_display')
+    has_cancel_request = fields.Boolean(compute='_compute_cancel_request')
+    cancel_request_reason = fields.Text(string="Customer's Reason", compute='_compute_cancel_request')
+    request_answer = fields.Selection([
+        ('accept', 'Cancel the booking'),
+        ('reject', 'Keep the booking (decline the request)'),
+    ], string='Answer', default='accept')
 
     booking_ref = fields.Reference(BOOKING_MODELS, string='Booking', required=True, readonly=True)
     booking_date = fields.Date(string='Date', compute='_compute_booking_info')
@@ -54,8 +60,20 @@ class BusinessCenterBookingCancelWizard(models.TransientModel):
         for wiz in self:
             wiz.booking_date = wiz.booking_ref.booking_date if wiz.booking_ref else False
             wiz.booked_slot_display = wiz.booking_ref.selected_slot_display if wiz.booking_ref else False
+            
+    @api.depends('booking_ref')
+    def _compute_cancel_request(self):
+        """Whether the booking carries an open customer cancellation request.
+        Only hot desks have one; other booking models simply have none."""
 
-    @api.depends('outcome', 'used_until', 'booking_ref')
+        for wiz in self:
+            booking = wiz.booking_ref
+            pending = bool(booking) and 'cancel_request_state' in booking._fields \
+                and booking.cancel_request_state == 'pending' and booking.state == 'confirmed'
+            wiz.has_cancel_request = pending
+            wiz.cancel_request_reason = booking.cancel_request_reason if pending else False
+
+    @api.depends('outcome', 'used_until', 'booking_ref', 'request_answer', 'has_cancel_request')
     def _compute_billable_hours_display(self):
         """Preview how much of the booked slot will be billed for the chosen outcome."""
 
@@ -64,7 +82,9 @@ class BusinessCenterBookingCancelWizard(models.TransientModel):
             if not booking:
                 wiz.billable_hours_display = False
                 continue
-            if wiz.outcome == 'full':
+            if wiz.has_cancel_request and wiz.request_answer == 'reject':
+                hours = 0.0
+            elif wiz.outcome == 'full':
                 hours = booking._booking_hours()
             elif wiz.outcome == 'used':
                 hours = max(min(wiz.used_until, booking.end_time) - booking.start_time, 0.0)
@@ -83,6 +103,13 @@ class BusinessCenterBookingCancelWizard(models.TransientModel):
             raise UserError(_("Only a Business Center Manager can decide a booking's charge."))
         booking = self.booking_ref
         booking._bc_check_settle()
+        if self.has_cancel_request and self.request_answer == 'reject':
+            booking._bc_reject_cancel_request(self.reason)
+            booking.message_post(body=Markup("<p><b>%s</b></p><p>%s %s</p>") % (
+                _("Cancellation request declined: the booking is kept."),
+                _("Reason:"), self.reason,
+            ))
+            return {'type': 'ir.actions.act_window_close'}
         if self.outcome == 'used' and not (booking.start_time < self.used_until < booking.end_time):
             raise UserError(_(
                 "'Used Until' must fall inside the booked slot (%(start)s - %(end)s). "

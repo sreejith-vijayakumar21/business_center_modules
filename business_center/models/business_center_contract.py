@@ -175,6 +175,8 @@ class BusinessCenterContract(models.Model):
         'invoice_review_manually',
     }
     
+    _BC_CANCELLABLE_STATES = ('draft', 'upcoming', 'active')
+    
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
     # ------------------------------------------------------------------------------ 
@@ -466,14 +468,18 @@ class BusinessCenterContract(models.Model):
 
         company = self[:1].company_id or self.env.company
         tz = company.partner_id.tz or self.env.user.tz or 'UTC'
-        return fields.Date.context_today(self.with_context(tz=tz))
+        return (self[:1].company_id or self.env.company)._bc_today()
     
     def _sync_leased_occupancy(self, exclude=None):
         """Re-derive occupancy on this contract's spaces and desks from whichever
         ACTIVE contract covers today. Draft/future/expired contracts never win, so
         confirming a future contract won't steal 'current' from the live one, and
         resetting/cancelling one contract won't free a resource another active
-        contract still occupies. `exclude` drops contracts being deleted."""
+        contract still occupies. `exclude` drops contracts being deleted.
+
+        Only a unit this sync marked Occupied is freed. Draft and Maintenance
+        are set by staff, so a unit taken out of service keeps that state when
+        a contract listing it is cancelled, reset or deleted."""
         
         today = self._bc_today()
         exclude = exclude or self.env['business.center.contract']
@@ -488,13 +494,17 @@ class BusinessCenterContract(models.Model):
                 and c.date_start and c.date_end
                 and c.date_start <= today <= c.date_end
             ).sorted('date_start')[:1]
-            resource.write({
-                'state': 'occupied' if current else 'available',
+            vals = {
                 'occupant_id': current.partner_id.id if current else False,
                 'current_contract_id': current.id if current else False,
                 'contract_start_date': current.date_start if current else False,
                 'contract_end_date': current.date_end if current else False,
-            })
+            }
+            if current:
+                vals['state'] = 'occupied'
+            elif resource.state == 'occupied':
+                vals['state'] = 'available'
+            resource.write(vals)
             
     def _seed_wallet(self):
         """Fill the contract's shared free-hour wallet at confirmation.
@@ -518,7 +528,7 @@ class BusinessCenterContract(models.Model):
         self.write({
             'wallet_balance': self.free_hours_monthly,
             'wallet_seeded': True,
-            'last_wallet_reset_date': fields.Date.context_today(self),
+            'last_wallet_reset_date': self._bc_today(),
         })
         
     def _get_billing_period(self):
@@ -643,7 +653,7 @@ class BusinessCenterContract(models.Model):
         agreement is (still) awaiting signature."""
 
         self.with_context(tracking_disable=True).write({
-            'contract_sent_date': fields.Date.context_today(self),
+            'contract_sent_date': self._bc_today(),
         })
         self._mark_awaiting_signature()
 
@@ -652,7 +662,7 @@ class BusinessCenterContract(models.Model):
         copy) and the portal Accept & Sign (drawn signature)."""
 
         self.ensure_one()
-        signed_on = signed_on or fields.Date.context_today(self)
+        signed_on = signed_on or self._bc_today()
         vals = {
             'agreement_state': 'signed',
             'signed_by': signed_by,
@@ -721,7 +731,7 @@ class BusinessCenterContract(models.Model):
             'move_type': 'out_invoice',
             'partner_id': self.partner_id.id,
             'currency_id': self.currency_id.id,
-            'invoice_date': fields.Date.context_today(self),
+            'invoice_date': self._bc_today(),
             'invoice_origin': self.name,
             'bc_contract_id': self.id,
             'invoice_line_ids': [Command.create({
@@ -771,7 +781,7 @@ class BusinessCenterContract(models.Model):
         self.ensure_one()
         if self.deposit_refund_id:
             return False
-        if self.renewal_contract_id and self.renewal_contract_id.state != 'cancelled':
+        if self._bc_deposit_moves_to_renewal():
             return False
         deposit_invoice = self.sudo().deposit_invoice_id
         if deposit_invoice.state == 'draft':
@@ -790,7 +800,7 @@ class BusinessCenterContract(models.Model):
             'move_type': 'out_refund',
             'partner_id': self.partner_id.id,
             'currency_id': self.currency_id.id,
-            'invoice_date': fields.Date.context_today(self),
+            'invoice_date': self._bc_today(),
             'invoice_origin': self.name,
             'bc_contract_id': self.id,
             'invoice_line_ids': [Command.create({
@@ -811,6 +821,40 @@ class BusinessCenterContract(models.Model):
             user_id=self.create_uid.id,
         )
         return refund
+    
+    def _bc_check_renewable(self):
+        """Only a running contract can be renewed: once it has expired or
+        been cancelled the tenant needs a new contract for the space."""
+
+        self.ensure_one()
+        if self.state != 'active':
+            raise UserError(_(
+                "%(contract)s is %(state)s, so it can no longer be renewed. Create a "
+                "new contract for the tenant if the space is still free.",
+                contract=self.name,
+                state=dict(self._fields['state'].selection).get(self.state, self.state)))
+
+    def _bc_check_renewal_still_open(self):
+        """A renewal continues a running contract, so it cannot be confirmed
+        once the contract it renews has expired or been cancelled."""
+
+        self.ensure_one()
+        previous = self.previous_contract_id
+        if previous and previous.state in ('expired', 'cancelled'):
+            raise UserError(_(
+                "%(renewal)s renews %(previous)s, which has already ended. Cancel "
+                "this renewal and create a new contract for the tenant if the "
+                "space is still free.",
+                renewal=self.name, previous=previous.name))
+
+    def _bc_deposit_moves_to_renewal(self):
+        """Whether the deposit is carried to a confirmed successor instead of
+        being refunded. A draft or cancelled renewal never starts, so it keeps
+        nothing back."""
+
+        self.ensure_one()
+        return self.renewal_contract_id.state in ('upcoming', 'active', 'expired')
+
     
     def _create_renewal(self):
         """Create the draft successor of this contract: same term length,
@@ -878,7 +922,7 @@ class BusinessCenterContract(models.Model):
             subtype_xmlid='mail.mt_comment',
             email_layout_xmlid='mail.mail_notification_layout',
         )
-        self.expiry_reminder_sent_date = fields.Date.context_today(self)
+        self.expiry_reminder_sent_date = self._bc_today()
         
     # ------------------------------------------------------------------------------
     #   MARK: BUTTON ACTION METHODS
@@ -891,6 +935,7 @@ class BusinessCenterContract(models.Model):
 
         self.ensure_one()
         self._check_bc_manager()
+        self._bc_check_renewal_still_open()
         if not self.leased_asset_ids:
             raise UserError(_(
                 "Add at least one leased asset before confirming. If the customer "
@@ -925,11 +970,21 @@ class BusinessCenterContract(models.Model):
         self._mark_awaiting_signature()
         return True
 
+    def _bc_check_cancellable(self):
+        """Only a contract that has not ended can be cancelled."""
+        self.ensure_one()
+        if self.state not in self._BC_CANCELLABLE_STATES:
+            raise UserError(_(
+                "%(contract)s is %(state)s and cannot be cancelled.",
+                contract=self.name,
+                state=dict(self._fields['state'].selection).get(self.state, self.state)))
+
     def action_set_cancel(self):
         """Cancel the contract and mark its leased assets as available"""
 
         self.ensure_one()
         self._check_bc_manager()
+        self._bc_check_cancellable()
         self.state = 'cancelled'
         self._sync_leased_occupancy()
         self._create_deposit_refund()
@@ -973,6 +1028,7 @@ class BusinessCenterContract(models.Model):
         Agreement Sent."""
 
         self.ensure_one()
+        self._check_bc_manager()
         if self.state not in ('upcoming', 'active'):
             raise UserError(_("Only a confirmed contract can be sent to the tenant."))
         template = self.env.ref(
@@ -1032,7 +1088,15 @@ class BusinessCenterContract(models.Model):
             'view_mode': 'form',
             'target': 'new',
             'context': {'default_contract_id': self.id},
-        }     
+        }
+        
+    def _bc_billable_charges(self):
+        """Pending charges the next invoice can carry: booking charges with a
+        booked resource, and manual charges with a product."""
+
+        self.ensure_one()
+        return self.charge_ids.filtered(
+            lambda c: c.state == 'pending' and c._bc_is_invoiceable())     
                 
     def _create_rent_invoice(self):
         """Build one draft customer invoice for the next billing period plus any
@@ -1046,8 +1110,7 @@ class BusinessCenterContract(models.Model):
         self.ensure_one()
 
         period_start, period_end = self._get_billing_period()
-        pending = self.charge_ids.filtered(
-            lambda c: c.state == 'pending' and c._bc_invoice_resource())
+        pending = self._bc_billable_charges()
         if not period_start and not pending:
             raise UserError(_("Nothing to invoice: this contract is billed up to "
                               "its end date and has no pending charges."))
@@ -1089,7 +1152,8 @@ class BusinessCenterContract(models.Model):
         # One line per booked resource (meeting room or hot desk) for the exact
         # amount: billing hours as the quantity would round them (50 min = 0.83 h).
         by_resource = {}
-        for charge in pending:
+        manual = pending.filtered(lambda c: not c._bc_invoice_resource())
+        for charge in pending - manual:
             resource = charge._bc_invoice_resource()
             key = (resource._name, resource.id)
             by_resource.setdefault(key, self.env['business.center.contract.charge'])
@@ -1109,6 +1173,15 @@ class BusinessCenterContract(models.Model):
                 'quantity': 1.0,
                 'price_unit': self.currency_id.round(sum(charges.mapped('amount'))),
             }, charges))
+
+        # Manual charges: one line each, at their own quantity and price.
+        for charge in manual:
+            line_specs.append(({
+                'product_id': charge._bc_invoice_product().id,
+                'name': charge.description,
+                'quantity': charge.quantity,
+                'price_unit': charge.unit_price,
+            }, charge))
 
         if not line_specs:
             raise UserError(_("Nothing to invoice: no rent or pending charges found."))
@@ -1130,7 +1203,7 @@ class BusinessCenterContract(models.Model):
             'move_type': 'out_invoice',
             'partner_id': self.partner_id.id,
             'currency_id': self.currency_id.id,
-            'invoice_date': fields.Date.context_today(self),
+            'invoice_date': self._bc_today(),
             'fiscal_position_id': fpos.id,
             'invoice_origin': self.name,
             'bc_contract_id': self.id,
@@ -1174,8 +1247,7 @@ class BusinessCenterContract(models.Model):
             if not period_start or period_start > today:
                 break
             has_rent = self.leased_asset_ids.filtered(lambda a: a.monthly_rent_total)
-            has_charges = self.charge_ids.filtered(
-                lambda c: c.state == 'pending' and c._bc_invoice_resource())
+            has_charges = self._bc_billable_charges()
             if not has_rent and not has_charges:
                 self.next_invoice_date = period_end + relativedelta(days=1)
                 continue
@@ -1184,8 +1256,7 @@ class BusinessCenterContract(models.Model):
             _logger.warning(
                 "Billing cron: %s hit the 24-period catch-up limit; it may "
                 "still owe invoices.", self.name)
-        if self.state == 'expired' and self.charge_ids.filtered(
-                lambda c: c.state == 'pending' and c._bc_invoice_resource()):
+        if self.state == 'expired' and self._bc_billable_charges():
             moves |= self._create_rent_invoice()
         return moves
     
@@ -1268,6 +1339,7 @@ class BusinessCenterContract(models.Model):
         purpose, so staff can resend after a bounce or a wording change."""
 
         self.ensure_one()
+        self._check_bc_manager()
         if self.state != 'active':
             raise UserError(_(
                 "Only a running contract can be sent an expiry reminder."))
@@ -1278,8 +1350,7 @@ class BusinessCenterContract(models.Model):
 
         self.ensure_one()
         self._check_bc_manager()
-        if self.state not in ('active', 'expired'):
-            raise UserError(_("Only a running or expired contract can be renewed."))
+        self._bc_check_renewable()
         renewal = self._create_renewal()
         return {
             'type': 'ir.actions.act_window',

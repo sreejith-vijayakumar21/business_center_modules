@@ -113,11 +113,28 @@ class WorkspaceFloorLinkRegistry(models.AbstractModel):
         return groups
 
     @api.model
-    def _get_open_action(self, obj):
+    def _resolve_object_record(self, obj):
+        """``(provider, record)`` drawn by ``obj``, or ``(None, None)`` when
+        it is not linked, its provider is gone or the record is not
+        accessible to the current user."""
+
         if not obj.link_key:
-            return False
+            return None, None
         provider = self._get_providers().get(obj.link_key)
+        # Providers are empty (falsy) recordsets: compare with None.
         if provider is None:
-            return False
+            return None, None
         record = provider._fp_resolve(obj.plan_id, [obj.link_res_id])
+        return (provider, record) if record else (None, None)
+
+    @api.model
+    def _get_open_action(self, obj):
+        provider, record = self._resolve_object_record(obj)
         return provider._fp_get_open_action(record) if record else False
+
+    @api.model
+    def _get_details(self, obj):
+        """Side panel details of the record ``obj`` draws, or False."""
+
+        provider, record = self._resolve_object_record(obj)
+        return provider._fp_get_details(record) if record else False

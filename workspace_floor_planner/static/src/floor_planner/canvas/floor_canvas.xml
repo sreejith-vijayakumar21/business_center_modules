@@ -26,7 +26,10 @@
 
                 <!-- Objects -->
                 <t t-foreach="store.sortedObjects" t-as="o" t-key="o.key">
-                    <FloorObject obj="o" store="store" readonly="props.readonly"/>
+                    <g t-if="isInert(o)" class="o_fp_inert">
+                        <FloorObject obj="o" store="store" readonly="props.readonly"/>
+                    </g>
+                    <FloorObject t-else="" obj="o" store="store" readonly="props.readonly"/>
                 </t>
             </svg>
             <div t-if="!store.objects.length" class="o_fp_empty_hint">

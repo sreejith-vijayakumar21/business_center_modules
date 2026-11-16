@@ -31,7 +31,7 @@ class TestLinkAndStatus(FloorPlannerCase):
         result = self.save(self.plan, [self.obj()])
         self.assertEqual(result["providers"], [])
         statuses = self.statuses()
-        self.assertEqual(statuses[result["id_map"]["c1"]]["status"], "unknown")
+        self.assertEqual(statuses[result["id_map"]["c1"]]["status"], "not_linked")
         with self.assertRaises(ValidationError):
             self.save(self.plan, [self.obj(link_key="partner", link_res_id=self.unit_a.id)])
 
@@ -74,7 +74,7 @@ class TestLinkAndStatus(FloorPlannerCase):
             statuses = self.statuses()
             self.assertEqual(statuses[ids["a"]]["status"], "available")
             self.assertEqual(statuses[ids["b"]]["status"], "occupied")
-            self.assertEqual(statuses[ids["free"]]["status"], "unknown")
+            self.assertEqual(statuses[ids["free"]]["status"], "not_linked")
             self.assertEqual(statuses[ids["zone"]], {"status": "partial", "available": 1, "total": 2})
 
             # A booking change shows up on the next refresh (nothing is cached).

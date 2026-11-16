@@ -7,7 +7,7 @@ from odoo.addons.workspace_floor_planner.tools.constants import OBJECT_TYPE_SELE
 
 # Provider keys whose shapes point at spaces, and at desks.
 SPACE_LINK_KEYS = ("bc_office", "bc_meeting_room", "bc_coworking")
-DESK_LINK_KEYS = ("bc_desk",)
+DESK_LINK_KEYS = ("bc_desk", "bc_hot_desk")
 
 
 def release_floor_links(env, link_keys, res_ids):

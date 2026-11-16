@@ -10,8 +10,10 @@
                 <header>
                     <button name="action_send_contract" type="object" string="Send Contract"
                             class="btn-primary"
+                            groups="business_center.group_bc_manager"
                             invisible="state not in ('upcoming', 'active') or agreement_state != 'not_sent'"/>
                     <button name="action_send_contract" type="object" string="Send by Email"
+                            groups="business_center.group_bc_manager"
                             invisible="state not in ('upcoming', 'active')"/>
                     <button name="action_mark_agreement_signed" type="object" string="Mark as Signed"
                             groups="business_center.group_bc_manager"
@@ -25,9 +27,10 @@
                             invisible="state not in ('active', 'expired')"/>
                     <button name="action_renew" type="object" string="Renew"
                             groups="business_center.group_bc_manager"
-                            invisible="state not in ('active', 'expired') or renewal_contract_id"/>
+                            invisible="state != 'active' or renewal_contract_id"/>
                     <button name="action_send_expiry_reminder" type="object"
                             string="Send Expiry Reminder"
+                            groups="business_center.group_bc_manager"
                             invisible="state != 'active' or not send_expiry_reminder"
                             confirm="Send the renewal reminder to this tenant now?"/>
                     <field name="send_expiry_reminder" invisible="1"/>
@@ -154,9 +157,9 @@
                         </page>
                         <page string="Charges" name="charges">
                             <field name="charge_ids" mode="list"
-                            options="{'create': False}"
-                            context="{'default_center_id': id,
-                                    'list_view_ref': 'business_center.business_center_contract_charge_view_list'}"/>
+                                   readonly="state in ('draft', 'cancelled')"
+                                   context="{'list_view_ref': 'business_center.business_center_contract_charge_view_list',
+                                             'form_view_ref': 'business_center.business_center_contract_charge_view_form'}"/>
                         </page>
 
                         <page string="Terms &amp; Conditions" name="terms">

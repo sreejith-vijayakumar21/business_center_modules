@@ -17,6 +17,9 @@
                     <button name="action_decide_charge" string="Decide Charge" type="object"
                             class="btn-primary" groups="business_center.group_bc_manager"
                             invisible="not charge_to_decide"/>
+                    <button name="action_decide_charge" string="Decide Cancellation" type="object"
+                            class="btn-primary" groups="business_center.group_bc_manager"
+                            invisible="cancel_request_state != 'pending' or state != 'confirmed'"/>
                     <button name="action_cancel" string="Cancel" type="object"
                             invisible="state not in ('draft', 'confirmed')"/>
                     <button name="action_reset_to_draft" string="Reset to Draft" type="object"
@@ -97,6 +100,25 @@
                         No charge has been decided for this booking yet. A manager decides it with
                         <strong>Decide Charge</strong>.
                     </div>
+                    <div class="alert alert-warning" role="alert"
+                         invisible="cancel_request_state != 'pending' or state != 'confirmed'">
+                        The customer asked to cancel this booking. The desk stays held until a
+                        manager answers with <strong>Decide Cancellation</strong>.
+                    </div>
+                    <group string="Cancellation Request" invisible="not cancel_request_state">
+                        <group>
+                            <field name="cancel_request_state"/>
+                            <field name="cancel_requested_by_id"/>
+                            <field name="cancel_requested_at"/>
+                            <field name="cancelled_by_id" string="Answered By"
+                                   invisible="cancel_request_state != 'rejected'"/>
+                        </group>
+                        <group>
+                            <field name="cancel_request_reason"/>
+                            <field name="cancel_reason" string="Answer"
+                                   invisible="cancel_request_state != 'rejected'"/>
+                        </group>
+                    </group>
                     <group string="Charge Decision" invisible="not cancel_outcome">
                         <group>
                             <field name="cancel_outcome"/>
@@ -128,6 +150,10 @@
                 <field name="duration_display" string="Duration"/>
                 <field name="currency_id" column_invisible="1"/>
                 <field name="amount" widget="monetary" sum="Total"/>
+                <field name="cancel_request_state" optional="show" widget="badge"
+                       decoration-warning="cancel_request_state == 'pending'"
+                       decoration-success="cancel_request_state == 'accepted'"
+                       decoration-muted="cancel_request_state in ('rejected', 'withdrawn')"/>
                 <field name="state" widget="badge"
                        decoration-info="state == 'draft'"
                        decoration-primary="state == 'confirmed'"
@@ -171,6 +197,8 @@
                 <filter name="filter_released" string="Released" domain="[('state', '=', 'released')]"/>
                 <separator/>
                 <filter name="filter_charge_to_decide" string="Charge to Decide" domain="[('charge_to_decide', '=', True)]"/>
+                <filter name="filter_cancel_requested" string="Cancellation Requested"
+                        domain="[('cancel_request_state', '=', 'pending')]"/>
                 <group>
                     <filter name="groupby_desk" string="Hot Desk" context="{'group_by': 'desk_id'}"/>
                     <filter name="groupby_date" string="Date" context="{'group_by': 'booking_date'}"/>

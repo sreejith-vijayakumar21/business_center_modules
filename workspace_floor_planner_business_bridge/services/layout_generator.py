@@ -13,6 +13,12 @@ ROW_WRAP_WIDTH = 1400  # blocks wrap to a new row past this width
 PLAN_SCALE = 50.0  # canvas units per metre (plan default)
 DEFAULT_SIZES = {"private_office": (200, 150), "meeting_room": (220, 160)}
 
+# Desk type -> (shape type, link key) on a generated layout.
+DESK_SHAPES = {
+    "dedicated": ("dedicated_desk", "bc_desk"),
+    "hot": ("hot_desk", "bc_hot_desk"),
+}
+
 # Pastel look shared with the floor planner palette.
 UNIT_BORDER_COLOR = "#8C93AD"
 ZONE_FILL_COLOR, ZONE_BORDER_COLOR = "#EEF3FF", "#9DB4F2"
@@ -89,10 +95,11 @@ class BusinessCenterLayoutGenerator(models.AbstractModel):
             }]
             for index, desk in enumerate(desks):
                 col, row = index % cols, index // cols
+                object_type, link_key = self._desk_shape(desk)
                 objects.append(self._unit(
-                    desk.name, "dedicated_desk",
+                    desk.name, object_type,
                     ZONE_PAD + col * (DESK_W + DESK_GAP), ZONE_HEADER + row * (DESK_H + DESK_GAP),
-                    DESK_W, DESK_H, "bc_desk", desk.id, font_size=10,
+                    DESK_W, DESK_H, link_key, desk.id, font_size=10,
                 ))
             blocks.append((w, h, objects))
         for space in spaces.filtered(lambda s: s.space_type == "meeting_room"):
@@ -112,6 +119,14 @@ class BusinessCenterLayoutGenerator(models.AbstractModel):
             height = width * 3 / 4
             return max(min(width, 600), 100), max(min(height, 450), 80)
         return DEFAULT_SIZES[object_type]
+    
+    @api.model
+    def _desk_shape(self, desk):
+        """Shape type and link key that draw ``desk``: hot desks get their own
+        shape and provider, like dedicated desks."""
+
+        return DESK_SHAPES.get(desk.desk_type, DESK_SHAPES["dedicated"])
+
 
     @api.model
     def _unit(self, name, object_type, x, y, w, h, link_key, res_id, font_size=20):

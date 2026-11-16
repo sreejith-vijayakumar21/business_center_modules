@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
+from markupsafe import Markup
 
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
@@ -96,6 +97,17 @@ class BusinessCenterDeskBooking(models.Model):
     ], string='Charge Decision', readonly=True, copy=False, tracking=True)
     cancel_reason = fields.Text(string='Decision Reason', readonly=True, copy=False)
     cancelled_by_id = fields.Many2one('res.users', string='Decided By', readonly=True, copy=False)
+    cancel_request_state = fields.Selection([
+        ('pending', 'Requested'),
+        ('accepted', 'Accepted'),
+        ('rejected', 'Rejected'),
+        ('withdrawn', 'Withdrawn'),
+    ], string='Cancellation Request', readonly=True, copy=False, tracking=True,
+        help="The customer asked to cancel after free cancellation ended; the "
+             "desk stays held until a manager answers.")
+    cancel_requested_at = fields.Datetime(string='Requested At', readonly=True, copy=False)
+    cancel_requested_by_id = fields.Many2one('res.users', string='Requested By', readonly=True, copy=False)
+    cancel_request_reason = fields.Text(string="Customer's Reason", readonly=True, copy=False)
     company_id = fields.Many2one(related='center_id.company_id', store=True, string='Company')
     currency_id = fields.Many2one(related='company_id.currency_id', string='Currency')
 
@@ -149,15 +161,8 @@ class BusinessCenterDeskBooking(models.Model):
             if rec.center_id:
                 domain.append(('center_id', '=', rec.center_id.id))
             desks = Desk.search(domain)
-            if rec.booking_date and rec.end_time > rec.start_time:
-                desks -= self.search([
-                    ('desk_id', 'in', desks.ids),
-                    ('state', 'in', self._slot_blocking_states),
-                    ('booking_date', '=', rec.booking_date),
-                    ('start_time', '<', rec.end_time),
-                    ('end_time', '>', rec.start_time),
-                    ('id', '!=', rec._origin.id or 0),
-                ]).desk_id
+            desks -= self._bc_held_desks(
+                desks, rec.booking_date, rec.start_time, rec.end_time, rec._origin.id or 0)
             rec.available_desk_ids = desks
 
     @api.model_create_multi
@@ -168,7 +173,7 @@ class BusinessCenterDeskBooking(models.Model):
             if vals.get('state', 'draft') != 'draft':
                 raise UserError(_("A hot desk booking is created in Draft and confirmed with Confirm."))
             if vals.get('name', _("New")) == _("New"):
-                vals['name'] = self.env['ir.sequence'].next_by_code(
+                vals['name'] = self.env['ir.sequence'].sudo().next_by_code(
                     'business.center.desk.booking') or _("New")
         return super().create(vals_list)
 
@@ -291,6 +296,8 @@ class BusinessCenterDeskBooking(models.Model):
                     "%(booking)s is for %(date)s; check in on that day.",
                     booking=rec.name, date=format_date(self.env, rec.booking_date)))
         self.write({'state': 'checked_in', 'checked_in_at': fields.Datetime.now()})
+        # They came after all: an open cancellation request no longer applies.
+        self._bc_close_cancel_request('withdrawn')
 
     def action_done(self):
         """The customer has left: close the booking and bill the slot."""
@@ -318,6 +325,43 @@ class BusinessCenterDeskBooking(models.Model):
                 raise UserError(_("Cancel started bookings one at a time."))
             return self.action_open_cancel_wizard()
         self.write({'state': 'cancelled'})
+        # Staff cancelling a not-yet-started booking answers any open request, free.
+        answered = self._bc_close_cancel_request('accepted')
+        if answered:
+            answered.write({'cancel_outcome': 'waive', 'cancelled_by_id': self.env.uid})
+            answered._bc_send_cancel_answer()
+            
+    def action_request_cancel(self, reason):
+        """The customer asks to cancel once free cancellation has ended. The
+        booking stays confirmed and the desk stays held; the centre manager
+        decides with Decide Cancellation whether to cancel (and charge) or
+        keep it."""
+
+        reason = (reason or '').strip()
+        if not reason:
+            raise UserError(_("Please tell us why you want to cancel."))
+        for rec in self:
+            if rec.state != 'confirmed':
+                raise UserError(_("Only a confirmed booking can be cancelled."))
+            if rec.cancel_request_state == 'pending':
+                raise UserError(_("A cancellation of %s has already been requested.", rec.name))
+        self.write({
+            'cancel_request_state': 'pending',
+            'cancel_requested_at': fields.Datetime.now(),
+            'cancel_requested_by_id': self.env.uid,
+            'cancel_request_reason': reason,
+        })
+        for rec in self:
+            rec.message_post(body=Markup("<p><b>%s</b></p><p>%s</p>") % (
+                _("The customer asked to cancel this booking."), reason))
+            rec.activity_schedule(
+                'mail.mail_activity_data_todo',
+                summary=_("Cancellation request"),
+                note=_("%(booking)s: the customer asked to cancel (%(reason)s). Open it "
+                       "and use Decide Cancellation to cancel it, with or without a "
+                       "charge, or keep it.", booking=rec.name, reason=reason),
+                user_id=(rec.center_id.manager_id or self.env.user).id,
+            )
 
     def action_release(self):
         """Free the desk of a booking the customer will not use, said by the
@@ -386,6 +430,88 @@ class BusinessCenterDeskBooking(models.Model):
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
+    @api.model
+    def _bc_held_desks(self, desks, booking_date, start_time, end_time, exclude_id=0):
+        """The desks among ``desks`` held by another booking overlapping the
+        slot. One rule for the booking form and the portal floor plan, so
+        "free" and "booked" always mean the same thing."""
+
+        if not (desks and booking_date and end_time > start_time):
+            return desks.browse()
+        return self.search([
+            ('desk_id', 'in', desks.ids),
+            ('state', 'in', self._slot_blocking_states),
+            ('booking_date', '=', booking_date),
+            ('start_time', '<', end_time),
+            ('end_time', '>', start_time),
+            ('id', '!=', exclude_id),
+        ]).desk_id
+        
+    def _bc_minutes_to_start(self):
+        """Minutes until the slot starts by the centre's clock (negative once
+        started), counting whole days for bookings on other dates."""
+
+        self.ensure_one()
+        today, hour = (self.company_id or self.env.company)._bc_clock()
+        days = (self.booking_date - today).days
+        return (days * 24 + self.start_time - hour) * 60.0
+
+    def _bc_free_cancel_minutes_left(self):
+        """Minutes left to cancel for free: until the company's cut-off
+        before the start. Zero or less means a request is needed."""
+
+        self.ensure_one()
+        policy = self.company_id or self.env.company
+        return self._bc_minutes_to_start() - policy.bc_hot_desk_free_cancel_minutes
+
+    def _bc_can_cancel_free(self):
+        """Whether the customer may still cancel without asking."""
+
+        return self._bc_free_cancel_minutes_left() > 0
+
+    def _bc_close_cancel_request(self, answer):
+        """Close the pending cancellation requests among these bookings as
+        ``answer`` ('accepted', 'rejected' or 'withdrawn') and tick off the
+        manager's to-do. Returns the bookings that had one."""
+
+        pending = self.filtered(lambda b: b.cancel_request_state == 'pending')
+        if pending:
+            pending.write({'cancel_request_state': answer})
+            label = dict(self._fields['cancel_request_state']._description_selection(self.env))[answer]
+            pending.activity_feedback(['mail.mail_activity_data_todo'],
+                                      feedback=_("Cancellation request: %s", label))
+        return pending
+
+    def _bc_reject_cancel_request(self, reason):
+        """Keep the booking: the manager declined the customer's request."""
+
+        self.ensure_one()
+        if self.cancel_request_state != 'pending' or self.state != 'confirmed':
+            raise UserError(_("%s has no open cancellation request.", self.name))
+        self.write({'cancel_reason': reason, 'cancelled_by_id': self.env.uid})
+        self._bc_close_cancel_request('rejected')
+        self._bc_send_cancel_answer()
+
+    def _bc_send_cancel_answer(self):
+        """Send the answer to a cancellation request to the desk user and,
+        when someone else asked, to them too. Posted in the chatter as a
+        customer message, so staff can see on the booking that the customer
+        was told, and what."""
+
+        template = self.env.ref('business_center.mail_template_hot_desk_cancel_answer',
+                                raise_if_not_found=False)
+        if not template:
+            return
+        for rec in self:
+            partners = (rec.partner_id | rec.cancel_requested_by_id.partner_id).filtered('email')
+            if partners:
+                rec.message_post_with_source(
+                    template,
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_comment',
+                    partner_ids=partners.ids,
+                )
+        
     def _bc_mark_no_show(self):
         """Release the desk of a booking nobody checked in to; a manager
         decides the charge."""
@@ -399,6 +525,9 @@ class BusinessCenterDeskBooking(models.Model):
 
         self.write({'charge_to_decide': True})
         for rec in self:
+            if rec.cancel_request_state == 'pending':
+                # The manager already has the cancellation request to answer.
+                continue
             rec.activity_schedule(
                 'mail.mail_activity_data_todo',
                 summary=_("Decide hot desk charge"),
@@ -442,6 +571,8 @@ class BusinessCenterDeskBooking(models.Model):
         if self.state == 'confirmed':
             vals['state'] = 'cancelled'
         self.write(vals)
+        if self._bc_close_cancel_request('accepted'):
+            self._bc_send_cancel_answer()
         self.activity_feedback(['mail.mail_activity_data_todo'],
                                feedback=_("Charge decided: %s", dict(
                                    self._fields['cancel_outcome'].selection)[vals['cancel_outcome']]))
@@ -453,6 +584,47 @@ class BusinessCenterDeskBooking(models.Model):
         if self.booking_date < today:
             return float('inf')
         return (hour - self.start_time) * 60.0
+    
+    @api.model
+    def _bc_company_clocks(self):
+        """Every company's local (date, hour), read once per cron run, so a
+        booking is judged by its own centre's time, not the cron user's."""
+
+        return {company: company._bc_clock()
+                for company in self.env['res.company'].sudo().search([])}
+
+    def _bc_clock_of(self, clocks):
+        """This booking's centre clock from ``clocks``."""
+
+        self.ensure_one()
+        company = self.company_id or self.env.company
+        return clocks.get(company) or company._bc_clock()
+
+    def _bc_hot_desk_action(self, today, hour):
+        """What the cron should do with this confirmed booking at its local
+        ``today``/``hour``: 'remind', 'no_show', or False for nothing yet."""
+
+        self.ensure_one()
+        minutes = self._bc_minutes_since_start(today, hour)
+        if minutes < 0:
+            return False
+        if self.customer_coming:
+            # On their way: keep the desk until the slot is over.
+            return 'no_show' if self._bc_has_ended(today, hour) else False
+        policy = self.company_id or self.env.company
+        if minutes >= policy.bc_hot_desk_checkin_grace:
+            return 'no_show'
+        if (minutes >= policy.bc_hot_desk_reminder_minutes and not self.reminder_sent_at
+                and self.cancel_request_state != 'pending'):
+            # No "still coming?" email to someone who asked to cancel.
+            return 'remind'
+        return False
+
+    def _bc_has_ended(self, today, hour):
+        """Whether the slot is over at the local ``today``/``hour``."""
+
+        self.ensure_one()
+        return self.booking_date < today or self.end_time <= hour
 
     def _bc_reminder_template(self):
         """Mail template of the "still coming?" reminder. The portal module
@@ -517,7 +689,7 @@ class BusinessCenterDeskBooking(models.Model):
         move = self.env['account.move'].sudo().with_company(self.company_id).create({
             'move_type': 'out_invoice',
             'partner_id': self.partner_id.id,
-            'invoice_date': fields.Date.context_today(self),
+            'invoice_date': self.company_id._bc_today(),
             'invoice_origin': self.name,
             'invoice_line_ids': [(0, 0, {
                 'product_id': product.id,
@@ -541,32 +713,26 @@ class BusinessCenterDeskBooking(models.Model):
     # ------------------------------------------------------------------------------
     @api.model
     def _cron_process_hot_desk_bookings(self):
-        """Run every few minutes, using each booking's company policy:
-        remind customers who have not checked in, release unattended desks
-        as no-shows (or at the end of the slot for customers on their way),
-        and complete finished stays."""
+        """Run every few minutes, using each booking's company policy and
+        local time: remind customers who have not checked in, release
+        unattended desks as no-shows (or at the end of the slot for customers
+        on their way), and complete finished stays."""
 
-        now = self._local_now()
-        today, hour = now.date(), now.hour + now.minute / 60.0
+        clocks = self._bc_company_clocks()
+        latest_day = max(day for day, _hour in clocks.values())
 
-        started = self.search([('state', '=', 'confirmed'), ('booking_date', '<=', today)])
+        started = self.search([('state', '=', 'confirmed'), ('booking_date', '<=', latest_day)])
         to_remind, no_shows = self.browse(), self.browse()
         for booking in started:
-            company = booking.company_id
-            minutes = booking._bc_minutes_since_start(today, hour)
-            if minutes < 0:
-                continue
-            if booking.customer_coming:
-                if booking.booking_date < today or booking.end_time <= hour:
-                    no_shows |= booking
-            elif minutes >= company.bc_hot_desk_checkin_grace:
-                no_shows |= booking
-            elif minutes >= company.bc_hot_desk_reminder_minutes and not booking.reminder_sent_at:
+            action = booking._bc_hot_desk_action(*booking._bc_clock_of(clocks))
+            if action == 'remind':
                 to_remind |= booking
+            elif action == 'no_show':
+                no_shows |= booking
         to_remind._bc_send_reminder()
         no_shows._bc_mark_no_show()
 
-        ended = self.search([('state', '=', 'checked_in'), ('booking_date', '<=', today)]).filtered(
-            lambda b: b.booking_date < today or b.end_time <= hour)
-        for booking in ended:
-            booking.action_done()
+        checked_in = self.search([('state', '=', 'checked_in'), ('booking_date', '<=', latest_day)])
+        for booking in checked_in:
+            if booking._bc_has_ended(*booking._bc_clock_of(clocks)):
+                booking.action_done()

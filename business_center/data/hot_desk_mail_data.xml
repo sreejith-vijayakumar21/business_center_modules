@@ -23,5 +23,37 @@
             <field name="auto_delete" eval="True"/>
         </record>
 
+                <!-- Answer to a customer's cancellation request. -->
+        <record id="mail_template_hot_desk_cancel_answer" model="mail.template">
+            <field name="name">Hot Desk: Cancellation Request Answer</field>
+            <field name="model_id" ref="model_business_center_desk_booking"/>
+            <field name="subject">Your cancellation request for {{ object.name }}</field>
+            <field name="partner_to">{{ object.partner_id.id }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="body_html" type="html">
+<div>
+    <p>Dear <t t-out="object.partner_id.name"/>,</p>
+    <t t-if="object.cancel_request_state == 'rejected'">
+        <p>We could not cancel your hot desk booking <strong t-out="object.name"/> for
+           <strong t-out="object.desk_id.name"/> on <t t-out="format_date(object.booking_date)"/>,
+           <t t-out="object.selected_slot_display"/>. The booking stays as it was.</p>
+    </t>
+    <t t-else="">
+        <p>Your hot desk booking <strong t-out="object.name"/> for
+           <strong t-out="object.desk_id.name"/> on <t t-out="format_date(object.booking_date)"/>,
+           <t t-out="object.selected_slot_display"/> has been cancelled.</p>
+        <p t-if="object.cancel_outcome == 'waive'">Nothing is charged.</p>
+        <p t-elif="object.cancel_outcome == 'used'">You are charged for the time used:
+           <t t-out="format_amount(object.billed_hours * object.hourly_rate, object.currency_id)"/>.</p>
+        <p t-else="">The full booking is charged:
+           <t t-out="format_amount(object.amount, object.currency_id)"/>.</p>
+    </t>
+    <p t-if="object.cancel_reason">Note from the business centre: <t t-out="object.cancel_reason"/></p>
+    <p>Kind regards,<br/><t t-out="object.company_id.name"/></p>
+</div>
+            </field>
+            <field name="auto_delete" eval="True"/>
+        </record>
+
     </data>
 </odoo>

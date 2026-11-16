@@ -67,20 +67,16 @@
                         No floor of this site has a layout yet. Use the dropdown instead.
                     </div>
                 </div>
+                <FloorUnitDetails details="state.details" loading="state.detailsLoading"
+                                  selected="!!selected" status="selectedStatus" note="selectedNote"/>
             </div>
 
             <t t-set-slot="footer">
-                <div class="o_fp_picker_selection me-auto">
-                    <t t-if="selected">
-                        <span class="fw-bold" t-esc="selected.link_name or selected.name"/>
-                        <span t-if="isChosen(selected)" class="text-muted">
-                            · already on this contract
-                        </span>
-                        <span t-elif="!selectedPickable" class="text-muted">
-                            · not available for this record
-                        </span>
-                    </t>
-                    <span t-else="" class="text-muted">Click a green unit on the plan.</span>
+                <div class="o_fp_picker_selection me-auto text-muted">
+                    <t t-if="!selected">Click a green unit on the plan.</t>
+                    <t t-elif="isChosen(selected)">Already on this contract.</t>
+                    <t t-elif="!selectedPickable">Not available for this record.</t>
+                    <t t-else="">Ready to select.</t>
                 </div>
                 <button type="button" class="btn btn-primary" t-att-disabled="!selectedPickable"
                         t-on-click="confirm">

@@ -187,3 +187,126 @@
         background: #f4f4f6;
     }
 }
+
+// Hot desk floor picker in the booking form.
+.o_fp_viewer.o_bc_hd_picker {
+    height: auto;
+    display: flex;
+    flex-direction: column;
+    gap: .75rem;
+}
+
+.o_bc_hd_floors {
+    display: flex;
+    flex-wrap: wrap;
+    gap: .4rem;
+}
+
+.o_bc_hd_floor {
+    display: inline-flex;
+    align-items: center;
+    gap: .5rem;
+    padding: .35rem .75rem;
+    background: #fff;
+    border: 1px solid #e8e8ec;
+    border-radius: 999px;
+    font-size: .8125rem;
+    color: #374151;
+
+    &.active { border-color: #111827; background: #f4f4f6; }
+    &:disabled { color: #9ca3af; cursor: not-allowed; }
+}
+
+.o_bc_hd_floor_count {
+    padding: 0 .45rem;
+    border-radius: 999px;
+    background: #eef6ef;
+    color: #2f6b3a;
+    font-size: .75rem;
+    font-weight: 600;
+}
+
+.o_bc_hd_picker_body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 260px;
+    gap: .75rem;
+    height: 420px;
+}
+
+.o_bc_hd_canvas {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    border: 1px solid #e8e8ec;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.o_bc_hd_picker_empty {
+    padding: 1rem;
+    border: 1px dashed #d8dae0;
+    border-radius: 12px;
+    color: #6b7280;
+    font-size: .875rem;
+    text-align: center;
+}
+
+.o_bc_legend .o_bc_dot_booked { background: #f4a6a6; }
+.o_bc_legend .o_bc_dot_closed { background: #dce0e8; }
+.o_bc_legend .o_bc_dot_other { background: #eef0f4; border: 1px dashed #b9bed0; }
+
+.o_bc_hd_floor_full {
+    padding: 0 .45rem;
+    border-radius: 999px;
+    background: #fdecec;
+    color: #b42318;
+    font-size: .75rem;
+    font-weight: 600;
+}
+
+// Zoom controls floating over the plan.
+.o_bc_hd_zoom {
+    position: absolute;
+    top: .5rem;
+    right: .5rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    padding: .2rem;
+    background: rgba(255, 255, 255, .92);
+    border: 1px solid #e8e8ec;
+    border-radius: 8px;
+}
+
+.o_bc_hd_zoom_value {
+    min-width: 3rem;
+    text-align: center;
+    font-size: .75rem;
+    color: #374151;
+}
+
+// "Booked for your time" badge in the details panel.
+.o_fp_details_status_booked {
+    background: #fdecec;
+    color: #b42318;
+}
+
+.o_bc_initial {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #eceeff;
+    color: #4b58c9;
+    font-size: .75rem;
+    font-weight: 700;
+    flex: 0 0 24px;
+}
+
+@media (max-width: 767.98px) {
+    .o_bc_hd_picker_body { grid-template-columns: minmax(0, 1fr); height: auto; }
+    .o_bc_hd_canvas { height: 320px; }
+}

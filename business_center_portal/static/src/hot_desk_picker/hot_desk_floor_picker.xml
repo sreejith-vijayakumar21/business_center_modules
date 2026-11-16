@@ -1,0 +1,61 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="business_center_portal.HotDeskFloorPicker">
+        <div class="o_fp_viewer o_bc_hd_picker">
+            <div t-if="!plans.length" class="o_bc_hd_picker_empty">
+                <t t-if="state.ready">
+                    No hot desk of your centre is drawn on a floor plan. Choose from the list below.
+                </t>
+                <t t-else="">Loading the floor plan…</t>
+            </div>
+            <t t-else="">
+                <p t-foreach="notes" t-as="note" t-key="note_index" class="o_fp_details_note mb-0">
+                    <i class="fa fa-info-circle"/><span t-esc="note"/>
+                </p>
+                <div class="o_bc_hd_floors" role="tablist">
+                    <button t-foreach="plans" t-as="plan" t-key="plan.key" type="button" role="tab"
+                            class="o_bc_hd_floor" t-att-class="{ active: plan.id and plan.id === state.planId }"
+                            t-att-disabled="!plan.id" t-on-click="() => this.loadPlan(plan.id)">
+                        <span class="fw-bold" t-esc="plan.name"/>
+                        <span t-if="!plan.id" class="text-muted small">No layout</span>
+                        <span t-elif="plan.pickable" class="o_bc_hd_floor_count"><t t-esc="plan.pickable"/> free</span>
+                        <span t-else="" class="o_bc_hd_floor_full">Fully booked</span>
+                    </button>
+                </div>
+                <div t-if="state.slotError" class="alert alert-warning py-2 mb-0 small" role="alert">
+                    <i class="fa fa-exclamation-triangle me-1"/>
+                    Could not load which desks are free. Choose from the list below, or reload the page.
+                </div>
+                <div class="o_bc_hd_picker_body">
+                    <div class="o_bc_hd_canvas" t-ref="area">
+                        <div t-if="state.store" class="o_bc_hd_zoom" role="group" aria-label="Zoom">
+                            <button type="button" class="btn btn-light btn-sm" title="Zoom out" t-on-click="zoomOut">
+                                <i class="fa fa-search-minus"/>
+                            </button>
+                            <span class="o_bc_hd_zoom_value"><t t-esc="zoomPercent"/>%</span>
+                            <button type="button" class="btn btn-light btn-sm" title="Zoom in" t-on-click="zoomIn">
+                                <i class="fa fa-search-plus"/>
+                            </button>
+                            <button type="button" class="btn btn-light btn-sm" title="Fit the whole floor"
+                                    t-on-click="fit">
+                                <i class="fa fa-expand"/>
+                            </button>
+                        </div>
+                        <FloorCanvas t-if="state.store" t-key="state.planId" store="state.store"
+                                     readonly="true" onReady.bind="onCanvasReady" isInert.bind="isInert"/>
+                    </div>
+                    <FloorUnitDetails details="state.details" loading="state.detailsLoading"
+                                      selected="!!selected" status="selectedStatus" note="selectedNote"/>
+                </div>
+                <div class="o_bc_legend">
+                    <span><i class="o_bc_dot o_bc_dot_free"/>Free for your time: click to pick</span>
+                    <span><i class="o_bc_dot o_bc_dot_booked"/>Booked for your time</span>
+                    <span><i class="o_bc_dot o_bc_dot_closed"/>Not open for booking</span>
+                    <span><i class="o_bc_dot o_bc_dot_other"/>Other spaces (not bookable here)</span>
+                </div>
+            </t>
+        </div>
+    </t>
+
+</templates>
