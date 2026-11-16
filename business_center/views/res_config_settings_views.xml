@@ -41,6 +41,14 @@
                                 minutes
                             </div>
                         </setting>
+                        <setting string="Hot Desk Cancellation"
+                                 help="After this point customers send a cancellation request instead, and a manager decides the charge.">
+                            <div class="mt-2">
+                                Free cancellation up to
+                                <field name="bc_hot_desk_free_cancel_minutes" class="oe_inline" style="width: 4rem;"/>
+                                minutes before the start
+                            </div>
+                        </setting>
                     </block>
                 </app>
             </xpath>

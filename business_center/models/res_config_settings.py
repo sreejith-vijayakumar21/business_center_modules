@@ -30,4 +30,6 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.bc_hot_desk_checkin_grace', readonly=False)
     bc_hot_desk_reminder_minutes = fields.Integer(
         related='company_id.bc_hot_desk_reminder_minutes', readonly=False)
+    bc_hot_desk_free_cancel_minutes = fields.Integer(
+        related='company_id.bc_hot_desk_free_cancel_minutes', readonly=False)
 
