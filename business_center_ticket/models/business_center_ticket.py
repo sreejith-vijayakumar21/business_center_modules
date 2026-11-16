@@ -390,32 +390,42 @@ class BusinessCenterTicket(models.Model):
         return bool(self.state == 'resolved' and days and self.resolved_at
                     and self.resolved_at >= fields.Datetime.now() - timedelta(days=days))
 
-    def _bc_create_images(self, images):
-        """Store uploaded photos as attachments of this ticket.
+    def _bc_check_images(self, images):
+        """Check uploaded photos: how many, how big, and that they really
+        are images.
 
         :param images: [(filename, bytes)], as read from the upload
-        :return: the created ir.attachment records
+        :return: [(filename, bytes, mimetype)] of the non-empty ones
         """
 
-        self.ensure_one()
         images = [(name, content) for name, content in images if content]
         if len(images) > MAX_PHOTOS:
             raise UserError(_("Please attach at most %s photos.", MAX_PHOTOS))
-        vals_list = []
+        checked = []
         for name, content in images:
             if len(content) > MAX_PHOTO_BYTES:
                 raise UserError(_("%s is larger than 5 MB.", name))
             mimetype = guess_mimetype(content)
             if mimetype not in IMAGE_MIMETYPES:
                 raise UserError(_("%s is not a photo (PNG, JPEG, GIF or WebP).", name))
-            vals_list.append({
-                'name': name,
-                'raw': content,
-                'mimetype': mimetype,
-                'res_model': self._name,
-                'res_id': self.id,
-            })
-        return self.env['ir.attachment'].sudo().create(vals_list)
+            checked.append((name, content, mimetype))
+        return checked
+
+    def _bc_create_images(self, images):
+        """Store checked photos as attachments of this ticket.
+
+        :param images: [(filename, bytes)]
+        :return: the created ir.attachment records
+        """
+
+        self.ensure_one()
+        return self.env['ir.attachment'].sudo().create([{
+            'name': name,
+            'raw': content,
+            'mimetype': mimetype,
+            'res_model': self._name,
+            'res_id': self.id,
+        } for name, content, mimetype in self._bc_check_images(images)])
 
     def _bc_add_photos(self, images):
         """Attach the photos sent with a new ticket."""
@@ -435,13 +445,15 @@ class BusinessCenterTicket(models.Model):
             raise UserError(_("Please write a message."))
         if self.state in ('closed', 'cancelled'):
             raise UserError(_("%s is closed. Please raise a new ticket.", self.name))
-        attachments = self._bc_create_images(images)
+        photos = self._bc_check_images(images)
         self.message_post(
             body=plaintext2html(body),
             message_type='comment',
             subtype_xmlid='mail.mt_comment',
             author_id=partner.id,
-            attachment_ids=attachments.ids,
+            # Given as content, not ids: for a portal author Odoo only links
+            # attachments it creates itself while posting.
+            attachments=[(name, content) for name, content, _mimetype in photos],
         )
         if self.state == 'waiting':
             self.write({'state': 'in_progress'})
