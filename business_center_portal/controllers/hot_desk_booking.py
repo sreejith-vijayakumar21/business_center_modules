@@ -92,7 +92,7 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
             'start_time': start or 0.0,
             'end_time': end or 0.0,
         })
-        return preview.available_desk_ids.sorted('name')
+        return preview.available_desk_ids._origin.sorted('name')
     
     def _hot_desk_sites(self, contract, free_desks):
         """Floors of the contract's centre that draw its hot desks, each
