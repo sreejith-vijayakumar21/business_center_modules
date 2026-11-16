@@ -23,6 +23,10 @@
                         <span t-else="" class="o_bc_hd_floor_full">Fully booked</span>
                     </button>
                 </div>
+                <div t-if="state.slotError" class="alert alert-warning py-2 mb-0 small" role="alert">
+                    <i class="fa fa-exclamation-triangle me-1"/>
+                    Could not load which desks are free. Choose from the list below, or reload the page.
+                </div>
                 <div class="o_bc_hd_picker_body">
                     <div class="o_bc_hd_canvas" t-ref="area">
                         <div t-if="state.store" class="o_bc_hd_zoom" role="group" aria-label="Zoom">

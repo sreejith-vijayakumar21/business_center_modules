@@ -91,6 +91,7 @@ export class HotDeskFloorPicker extends Component {
             planId: false,
             store: null,
             slot: {},
+            slotError: false,
             details: false,
             detailsLoading: false,
         });
@@ -149,6 +150,9 @@ export class HotDeskFloorPicker extends Component {
         if (!obj || !isHotDesk(obj)) {
             return undefined;
         }
+        if (this.state.slotError) {
+            return undefined;
+        }
         const state = this.slotOf(obj);
         if (state === FREE) {
             return { label: _t("Free for your time"), tone: "pickable" };
@@ -162,6 +166,9 @@ export class HotDeskFloorPicker extends Component {
     get selectedNote() {
         const obj = this.selected;
         if (!obj || !isHotDesk(obj)) {
+            return undefined;
+        }
+        if (this.state.slotError) {
             return undefined;
         }
         const state = this.slotOf(obj);
@@ -248,9 +255,17 @@ export class HotDeskFloorPicker extends Component {
             start_time: this.state.startTime,
             end_time: this.state.endTime,
         });
-        const slot = await getJson(`/my/hot-desks/floor/${planId}/slots?${params}`);
+        let slot = {};
+        let failed = false;
+        try {
+            slot = await getJson(`/my/hot-desks/floor/${planId}/slots?${params}`);
+        } catch {
+            failed = true;
+        }
+        // Ignore an answer for a floor the member has already left.
         if (this.state.planId === planId) {
             this.state.slot = slot;
+            this.state.slotError = failed;
         }
     }
 
