@@ -35,6 +35,20 @@ class BusinessCenterPortal(CustomerPortal):
         if user.share and not user.has_group(TENANT_EMPLOYEE_GROUP):
             return request.redirect('/my')
         return False
+    
+    def _bc_member_contracts(self, extra_domain=None):
+        """Running contracts this member may act on: any of the company's
+        for a corporate admin, the ones they are named on for an employee.
+        ``extra_domain`` narrows it for one feature."""
+
+        user = request.env.user
+        domain = [
+            ('partner_id', 'child_of', user.partner_id.commercial_partner_id.id),
+            ('state', '=', 'active'),
+        ]
+        if not self._bc_is_tenant_admin():
+            domain.append(('contact_ids', 'in', [user.partner_id.id]))
+        return request.env['business.center.contract'].sudo().search(domain + (extra_domain or []))
 
     # ------------------------------------------------------------------------------
     #   MARK: FORM VALUE HELPERS
