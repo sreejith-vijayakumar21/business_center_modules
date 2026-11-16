@@ -114,23 +114,22 @@ function initHotDeskForm() {
     refresh();
 }
 
-/** Cancel dialog on a booking's page: once the booking has started, show
- * "contact the centre" instead of free cancellation. The server's
- * seconds-to-start is counted down here, so the member's own clock and
- * time zone don't matter; the server still checks again on submit. */
+/** Cancel dialog on a booking's page: once free cancellation has ended
+ * while the page was open, show the cancellation request form instead.
+ * The server's seconds-left is counted down here, so the member's own clock
+ * and time zone don't matter; the server checks again on submit. */
 function initHotDeskCancelDialog() {
     const modal = document.getElementById("o_bc_cancel_hot_desk");
-    if (!modal || modal.dataset.startsIn === undefined) {
+    if (!modal || modal.dataset.freeSeconds === undefined) {
         return;
     }
-    const startsAt = Date.now() + Number(modal.dataset.startsIn) * 1000;
+    const freeUntil = Date.now() + Number(modal.dataset.freeSeconds) * 1000;
     modal.addEventListener("show.bs.modal", () => {
-        const started = Date.now() >= startsAt;
-        modal.querySelector(".o_bc_cancel_free").classList.toggle("d-none", started);
-        modal.querySelector(".o_bc_cancel_late").classList.toggle("d-none", !started);
+        const ended = Date.now() >= freeUntil;
+        modal.querySelector(".o_bc_cancel_free").classList.toggle("d-none", ended);
+        modal.querySelector(".o_bc_cancel_request").classList.toggle("d-none", !ended);
     });
 }
-
 function onReady(callback) {
     if (document.readyState === "loading") {
         document.addEventListener("DOMContentLoaded", callback);

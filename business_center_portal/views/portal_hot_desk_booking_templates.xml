@@ -25,6 +25,8 @@
                                       'cancelled': 'secondary'}"/>
         <span t-attf-class="badge rounded-pill text-bg-#{bc_tones.get(booking.state, 'secondary')}"
               t-field="booking.state"/>
+        <span t-if="booking.cancel_request_state == 'pending'"
+              class="badge rounded-pill text-bg-warning ms-1">Cancellation requested</span>
     </template>
 
     <!-- DESK USER, shared by the list and the detail page -->
@@ -96,7 +98,7 @@
                         Hot desk <t t-esc="booking.name"/>
                         <t t-call="business_center_portal.portal_hot_desk_state_badge"/>
                     </h5>
-                    <button t-if="booking.state == 'confirmed'" type="button"
+                    <button t-if="booking.state == 'confirmed' and booking.cancel_request_state != 'pending'" type="button"
                             t-attf-class="btn btn-sm #{'btn-outline-danger' if can_cancel else 'btn-outline-secondary'}"
                             data-bs-toggle="modal" data-bs-target="#o_bc_cancel_hot_desk">
                         <i class="fa fa-times me-1"/>Cancel booking
@@ -105,6 +107,22 @@
             </div>
             <div t-if="error" class="alert alert-danger d-flex align-items-center" role="alert">
                 <i class="fa fa-exclamation-circle me-2"/><t t-esc="error"/>
+            </div>
+            <div t-if="booking.cancel_request_state == 'pending'" class="alert alert-warning" role="alert">
+                <i class="fa fa-hourglass-half me-2"/>
+                You asked to cancel this booking on <span t-field="booking.cancel_requested_at"/>.
+                The business centre will reply by email; until then the desk stays booked.
+                <div class="small mt-1"><strong>Your reason:</strong> <t t-esc="booking.cancel_request_reason"/></div>
+            </div>
+            <div t-elif="booking.cancel_request_state == 'rejected'" class="alert alert-info" role="alert">
+                <i class="fa fa-info-circle me-2"/>
+                The business centre kept this booking: your cancellation request was declined.
+                <div t-if="booking.cancel_reason" class="small mt-1"><strong>Note:</strong> <t t-esc="booking.cancel_reason"/></div>
+            </div>
+            <div t-elif="booking.cancel_request_state == 'accepted'" class="alert alert-info" role="alert">
+                <i class="fa fa-info-circle me-2"/>
+                Your cancellation request was accepted: <span t-field="booking.cancel_outcome"/>.
+                <div t-if="booking.cancel_reason" class="small mt-1"><strong>Note:</strong> <t t-esc="booking.cancel_reason"/></div>
             </div>
 
             <div class="row">
@@ -153,14 +171,13 @@
                 The amount is added to your contract's next monthly invoice once the booking is over.
             </p>
 
-            <div t-if="booking.state == 'confirmed'" class="modal fade" id="o_bc_cancel_hot_desk"
-            <div t-if="booking.state == 'confirmed'" class="modal fade" id="o_bc_cancel_hot_desk"
-                 tabindex="-1" aria-hidden="true"
-                 t-att-data-starts-in="starts_in if can_cancel else None">
+            <div t-if="booking.state == 'confirmed' and booking.cancel_request_state != 'pending'"
+                 class="modal fade" id="o_bc_cancel_hot_desk" tabindex="-1" aria-hidden="true"
+                 t-att-data-free-seconds="free_seconds_left if (can_cancel and can_cancel_free) else None">
                 <div class="modal-dialog modal-dialog-centered">
 
-                    <!-- Before the start: free cancellation -->
-                    <div t-if="can_cancel" class="modal-content o_bc_cancel_free">
+                    <!-- Inside the free window: cancel at once -->
+                    <div t-if="can_cancel and can_cancel_free" class="modal-content o_bc_cancel_free">
                         <div class="modal-header">
                             <h5 class="modal-title">Cancel this booking?</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
@@ -183,10 +200,13 @@
                         </div>
                     </div>
 
-                    <!-- Started (or not cancellable for another reason): no cancel button -->
-                    <div t-attf-class="modal-content o_bc_cancel_late #{'d-none' if can_cancel else ''}">
+                    <!-- After the free window: ask the business centre -->
+                    <form t-if="can_cancel" method="post"
+                          t-attf-action="/my/hot-desks/#{booking.id}/request-cancel"
+                          t-attf-class="modal-content o_bc_cancel_request #{'d-none' if can_cancel_free else ''}">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                         <div class="modal-header">
-                            <h5 class="modal-title">This booking can't be cancelled here</h5>
+                            <h5 class="modal-title">Request cancellation</h5>
                             <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
                         </div>
                         <div class="modal-body">
@@ -194,7 +214,34 @@
                                 <t t-esc="booking.desk_id.name"/> on <span t-field="booking.booking_date"/>,
                                 <t t-esc="booking.selected_slot_display"/>.
                             </p>
-                            <p class="text-muted small mb-0" t-esc="cancel_block_reason or started_reason"/>
+                            <p class="text-muted small">
+                                <t t-if="free_cancel_minutes">
+                                    Free cancellation ends <t t-esc="free_cancel_minutes"/> minutes before the start.
+                                </t>
+                                <t t-else="">This booking has already started.</t>
+                                The business centre decides whether anything is charged and replies by email.
+                                Until then the desk stays booked.
+                            </p>
+                            <label class="o_bc_label" for="o_bc_cancel_reason">Why do you want to cancel?</label>
+                            <textarea name="reason" id="o_bc_cancel_reason" class="form-control" rows="3"
+                                      required="required" maxlength="1000"/>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep booking</button>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fa fa-paper-plane me-1"/>Send request
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Not allowed for this member -->
+                    <div t-if="not can_cancel" class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">This booking can't be cancelled here</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted small mb-0" t-esc="cancel_block_reason"/>
                         </div>
                         <div class="modal-footer">
                             <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>

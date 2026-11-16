@@ -5,8 +5,6 @@ from urllib.parse import urlencode
 
 from psycopg2 import IntegrityError
 
-from datetime import datetime, time, timedelta
-
 from odoo import _, fields, http
 from odoo.exceptions import UserError, ValidationError
 from odoo.http import request
@@ -19,8 +17,9 @@ HOT_DESK_LINK_KEY = 'bc_hot_desk'
 
 
 class BusinessCenterHotDeskPortal(BusinessCenterPortal):
-    """Hot desk bookings in the tenant portal: list, detail, cancel, the
-    booking form and the data its floor picker reads.
+    """Hot desk bookings in the tenant portal: list, detail, cancel or
+    request a cancellation, the booking form and the data its floor picker
+    reads.
 
     Records are read with sudo() inside the member's own scope only: their
     company's running contracts and the centres of those contracts. Portal
@@ -94,8 +93,11 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
             'start_time': start or 0.0,
             'end_time': end or 0.0,
         })
+        # A new() record hands back placeholder copies of its x2many records;
+        # _origin turns them back into the real desks, so "desk in free"
+        # comparisons and ids match the rest of the database.
         return preview.available_desk_ids._origin.sorted('name')
-    
+
     def _hot_desk_sites(self, contract, free_desks):
         """Floors of the contract's centre that draw its hot desks, each
         counting the desks free for the slot. A floor stays listed when all
@@ -298,8 +300,10 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
             'can_cancel': not reason,
             'cancel_block_reason': reason,
             'is_tenant_admin': self._bc_is_tenant_admin(),
-            'starts_in': self._hot_desk_seconds_to_start(booking),
-            'started_reason': self._hot_desk_started_reason(),
+            # Free cancellation or a request: the model decides, by the centre's clock.
+            'can_cancel_free': booking._bc_can_cancel_free(),
+            'free_seconds_left': int(booking._bc_free_cancel_minutes_left() * 60),
+            'free_cancel_minutes': booking.company_id.bc_hot_desk_free_cancel_minutes,
             'error': kw.get('error', ''),
         })
         return request.render('business_center_portal.portal_hot_desk_page', values)
@@ -307,27 +311,11 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
     # ------------------------------------------------------------------------------
     #   MARK: CANCELLATION
     # ------------------------------------------------------------------------------
-    @staticmethod
-    def _hot_desk_started_reason():
-        """Why a booking that has started cannot be cancelled in the portal."""
-
-        return _("This booking has already started. Please contact the "
-                 "business centre to cancel it.")
-
-    @staticmethod
-    def _hot_desk_seconds_to_start(booking):
-        """Seconds until the booking starts by the centre's clock (negative
-        once started), so the page can tell when free cancellation ends
-        without trusting the member's own clock or time zone."""
-
-        now = booking._local_now().replace(tzinfo=None)
-        start = datetime.combine(booking.booking_date, time.min) + timedelta(hours=booking.start_time)
-        return int((start - now).total_seconds())
-    
     def _hot_desk_cancel_block_reason(self, booking):
-        """Why this member may not cancel this booking, or False if they may.
-        Free before the start, by the person who booked, the desk user or the
-        company's admin; once started, the centre decides any charge."""
+        """Why this member may neither cancel nor ask to cancel this booking,
+        or False if they may. The person who booked, the desk user or the
+        company's admin may; whether it is free or a request is the model's
+        call (_bc_can_cancel_free)."""
 
         user = request.env.user
         if booking.state != 'confirmed':
@@ -336,28 +324,61 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
                 or booking.partner_id == user.partner_id):
             return _("Only the person who booked, the desk user or your company's "
                      "administrator can cancel this booking.")
-        if booking._is_in_past():
-            return self._hot_desk_started_reason()
+        if booking.cancel_request_state == 'pending':
+            return _("You have already asked to cancel this booking. The business "
+                     "centre will reply by email.")
         return False
+
+    def _hot_desk_redirect_error(self, booking_id, message):
+        """Back to the booking page with ``message`` shown at the top."""
+
+        return request.redirect('/my/hot-desks/%s?%s' % (booking_id, urlencode({'error': message})))
 
     @http.route(['/my/hot-desks/<int:booking_id>/cancel'], type='http',
                 auth='user', website=True, methods=['POST'])
     def portal_hot_desk_cancel(self, booking_id, **post):
-        """Cancel an upcoming hot desk booking, free of charge."""
+        """Cancel an upcoming hot desk booking for free, while the free
+        cancellation window is still open."""
 
         booking, redirect = self._bc_get_hot_desk_sudo(booking_id)
         if redirect:
             return redirect
         reason = self._hot_desk_cancel_block_reason(booking)
+        if not reason and not booking._bc_can_cancel_free():
+            reason = _("Free cancellation has ended for this booking. Please send a "
+                       "cancellation request instead.")
         if reason:
-            return request.redirect('/my/hot-desks/%s?%s' % (booking_id, urlencode({'error': reason})))
+            return self._hot_desk_redirect_error(booking_id, reason)
         try:
             booking.action_cancel()
             request.env.flush_all()
         except (UserError, ValidationError) as exc:
             request.env.cr.rollback()
-            return request.redirect('/my/hot-desks/%s?%s' % (
-                booking_id, urlencode({'error': exc.args[0]})))
+            return self._hot_desk_redirect_error(booking_id, exc.args[0])
+        return request.redirect('/my/hot-desks/%s' % booking_id)
+
+    @http.route(['/my/hot-desks/<int:booking_id>/request-cancel'], type='http',
+                auth='user', website=True, methods=['POST'])
+    def portal_hot_desk_request_cancel(self, booking_id, reason=None, **post):
+        """Ask the business centre to cancel once free cancellation has
+        ended; a manager decides whether anything is charged. Still inside
+        the free window (the page was left open), it simply cancels."""
+
+        booking, redirect = self._bc_get_hot_desk_sudo(booking_id)
+        if redirect:
+            return redirect
+        block = self._hot_desk_cancel_block_reason(booking)
+        if block:
+            return self._hot_desk_redirect_error(booking_id, block)
+        try:
+            if booking._bc_can_cancel_free():
+                booking.action_cancel()
+            else:
+                booking.action_request_cancel(reason)
+            request.env.flush_all()
+        except (UserError, ValidationError) as exc:
+            request.env.cr.rollback()
+            return self._hot_desk_redirect_error(booking_id, exc.args[0])
         return request.redirect('/my/hot-desks/%s' % booking_id)
 
     # ------------------------------------------------------------------------------
