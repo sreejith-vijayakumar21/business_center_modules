@@ -8,8 +8,8 @@
             <t t-if="request.env.user.has_group('business_center_portal.group_bc_tenant_employee')">
                 <t t-call="portal.portal_docs_entry">
                     <t t-set="icon" t-value="'/portal/static/src/img/portal-addresses.svg'"/>
-                    <t t-set="title">Bookings</t>
-                    <t t-set="text">View your active and past bookings</t>
+                    <t t-set="title">Meeting Room Bookings</t>
+                    <t t-set="text">Book meeting rooms and see your past bookings</t>
                     <t t-set="url" t-value="'/my/bookings'"/>
                     <t t-set="placeholder_count" t-value="'booking_count'"/>
                     <t t-set="config_card" t-value="True"/>

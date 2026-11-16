@@ -4,7 +4,7 @@
 
 {
     'name': 'Business Center Portal',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Generic Modules',
     'sequence': 10,
     'author': 'Infintor Solutions',
@@ -16,11 +16,12 @@ Tenant portal for Business Center.
 
 * Corporate admins see their company's contracts, signed agreements and invoices.
 * Tenants book meeting rooms against their contract.
-* Hot desk customers answer the "still coming?" reminder from a token link.
+* Tenants book hot desks for themselves or a colleague, on a floor plan or a list.
 """,
     'website': 'https://www.infintor.com',
     'depends': [
-        'business_center', 'portal', 'account', 'sale'
+        'business_center', 'portal', 'account', 'sale',
+        'workspace_floor_planner_business_bridge'
     ],
 
     'images': ['static/description/banner.png'],
@@ -33,6 +34,7 @@ Tenant portal for Business Center.
         
         'data/hot_desk_mail_data.xml',
         
+        'views/portal_hot_desk_booking_templates.xml',
         'views/portal_hot_desk_templates.xml',
         'views/portal_invoice_templates.xml',
         'views/res_partner_views.xml',
@@ -44,6 +46,17 @@ Tenant portal for Business Center.
         'web.assets_frontend': [
             'business_center_portal/static/src/scss/portal.scss',
             'business_center_portal/static/src/js/portal_booking.js',
+            # Read-only floor canvas and details panel, shared with the backend picker.
+            'workspace_floor_planner/static/src/floor_planner/floor_planner.scss',
+            'workspace_floor_planner/static/src/floor_planner/core/geometry.js',
+            'workspace_floor_planner/static/src/floor_planner/core/layout_store.js',
+            'workspace_floor_planner/static/src/floor_planner/canvas/*',
+            'workspace_floor_planner/static/src/floor_planner/picker/floor_unit_details.*',
+            'workspace_floor_planner/static/src/floor_planner/picker/pickability.js',
+            # Hot desk booking form and its floor picker.
+            'business_center_portal/static/src/js/hot_desk_events.js',
+            'business_center_portal/static/src/js/portal_hot_desk.js',
+            'business_center_portal/static/src/hot_desk_picker/*',
         ],
     },
     'installable': True,

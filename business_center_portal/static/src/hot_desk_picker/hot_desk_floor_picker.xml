@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+    <t t-name="business_center_portal.HotDeskFloorPicker">
+        <div class="o_fp_viewer o_bc_hd_picker">
+            <div t-if="!plans.length" class="o_bc_hd_picker_empty">
+                <t t-if="state.ready">
+                    No free hot desk is drawn on a floor plan for this time. Choose from the list below.
+                </t>
+                <t t-else="">Loading the floor plan…</t>
+            </div>
+            <t t-else="">
+                <div class="o_bc_hd_floors" role="tablist">
+                    <button t-foreach="plans" t-as="plan" t-key="plan.key" type="button" role="tab"
+                            class="o_bc_hd_floor" t-att-class="{ active: plan.id and plan.id === state.planId }"
+                            t-att-disabled="!plan.id" t-on-click="() => this.loadPlan(plan.id)">
+                        <span class="fw-bold" t-esc="plan.name"/>
+                        <span t-if="plan.pickable" class="o_bc_hd_floor_count"><t t-esc="plan.pickable"/> free</span>
+                    </button>
+                </div>
+                <div class="o_bc_hd_picker_body">
+                    <div class="o_bc_hd_canvas" t-ref="area">
+                        <FloorCanvas t-if="state.store" t-key="state.planId" store="state.store"
+                                     readonly="true" onReady.bind="onCanvasReady"/>
+                    </div>
+                    <FloorUnitDetails details="state.details" loading="state.detailsLoading"
+                                      selected="!!selected" status="selectedStatus" note="selectedNote"/>
+                </div>
+                <div class="o_bc_legend">
+                    <span><i class="o_bc_dot o_bc_dot_free"/>Free for your time: click to pick</span>
+                    <span><i class="o_bc_dot o_bc_dot_none"/>Not available</span>
+                </div>
+            </t>
+        </div>
+    </t>
+
+</templates>
