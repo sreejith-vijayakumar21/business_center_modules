@@ -149,15 +149,8 @@ class BusinessCenterDeskBooking(models.Model):
             if rec.center_id:
                 domain.append(('center_id', '=', rec.center_id.id))
             desks = Desk.search(domain)
-            if rec.booking_date and rec.end_time > rec.start_time:
-                desks -= self.search([
-                    ('desk_id', 'in', desks.ids),
-                    ('state', 'in', self._slot_blocking_states),
-                    ('booking_date', '=', rec.booking_date),
-                    ('start_time', '<', rec.end_time),
-                    ('end_time', '>', rec.start_time),
-                    ('id', '!=', rec._origin.id or 0),
-                ]).desk_id
+            desks -= self._bc_held_desks(
+                desks, rec.booking_date, rec.start_time, rec.end_time, rec._origin.id or 0)
             rec.available_desk_ids = desks
 
     @api.model_create_multi
@@ -386,6 +379,23 @@ class BusinessCenterDeskBooking(models.Model):
     # ------------------------------------------------------------------------------
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
+    @api.model
+    def _bc_held_desks(self, desks, booking_date, start_time, end_time, exclude_id=0):
+        """The desks among ``desks`` held by another booking overlapping the
+        slot. One rule for the booking form and the portal floor plan, so
+        "free" and "booked" always mean the same thing."""
+
+        if not (desks and booking_date and end_time > start_time):
+            return desks.browse()
+        return self.search([
+            ('desk_id', 'in', desks.ids),
+            ('state', 'in', self._slot_blocking_states),
+            ('booking_date', '=', booking_date),
+            ('start_time', '<', end_time),
+            ('end_time', '>', start_time),
+            ('id', '!=', exclude_id),
+        ]).desk_id
+        
     def _bc_mark_no_show(self):
         """Release the desk of a booking nobody checked in to; a manager
         decides the charge."""
