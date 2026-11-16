@@ -5,6 +5,8 @@ from urllib.parse import urlencode
 
 from psycopg2 import IntegrityError
 
+from datetime import datetime, time, timedelta
+
 from odoo import _, fields, http
 from odoo.exceptions import UserError, ValidationError
 from odoo.http import request
@@ -296,6 +298,8 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
             'can_cancel': not reason,
             'cancel_block_reason': reason,
             'is_tenant_admin': self._bc_is_tenant_admin(),
+            'starts_in': self._hot_desk_seconds_to_start(booking),
+            'started_reason': self._hot_desk_started_reason(),
             'error': kw.get('error', ''),
         })
         return request.render('business_center_portal.portal_hot_desk_page', values)
@@ -303,6 +307,23 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
     # ------------------------------------------------------------------------------
     #   MARK: CANCELLATION
     # ------------------------------------------------------------------------------
+    @staticmethod
+    def _hot_desk_started_reason():
+        """Why a booking that has started cannot be cancelled in the portal."""
+
+        return _("This booking has already started. Please contact the "
+                 "business centre to cancel it.")
+
+    @staticmethod
+    def _hot_desk_seconds_to_start(booking):
+        """Seconds until the booking starts by the centre's clock (negative
+        once started), so the page can tell when free cancellation ends
+        without trusting the member's own clock or time zone."""
+
+        now = booking._local_now().replace(tzinfo=None)
+        start = datetime.combine(booking.booking_date, time.min) + timedelta(hours=booking.start_time)
+        return int((start - now).total_seconds())
+    
     def _hot_desk_cancel_block_reason(self, booking):
         """Why this member may not cancel this booking, or False if they may.
         Free before the start, by the person who booked, the desk user or the
@@ -316,8 +337,7 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
             return _("Only the person who booked, the desk user or your company's "
                      "administrator can cancel this booking.")
         if booking._is_in_past():
-            return _("This booking has already started. Please contact the "
-                     "business centre to cancel it.")
+            return self._hot_desk_started_reason()
         return False
 
     @http.route(['/my/hot-desks/<int:booking_id>/cancel'], type='http',

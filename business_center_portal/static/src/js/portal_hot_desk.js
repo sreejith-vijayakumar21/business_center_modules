@@ -114,8 +114,30 @@ function initHotDeskForm() {
     refresh();
 }
 
-if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", initHotDeskForm);
-} else {
-    initHotDeskForm();
+/** Cancel dialog on a booking's page: once the booking has started, show
+ * "contact the centre" instead of free cancellation. The server's
+ * seconds-to-start is counted down here, so the member's own clock and
+ * time zone don't matter; the server still checks again on submit. */
+function initHotDeskCancelDialog() {
+    const modal = document.getElementById("o_bc_cancel_hot_desk");
+    if (!modal || modal.dataset.startsIn === undefined) {
+        return;
+    }
+    const startsAt = Date.now() + Number(modal.dataset.startsIn) * 1000;
+    modal.addEventListener("show.bs.modal", () => {
+        const started = Date.now() >= startsAt;
+        modal.querySelector(".o_bc_cancel_free").classList.toggle("d-none", started);
+        modal.querySelector(".o_bc_cancel_late").classList.toggle("d-none", !started);
+    });
 }
+
+function onReady(callback) {
+    if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", callback);
+    } else {
+        callback();
+    }
+}
+
+onReady(initHotDeskForm);
+onReady(initHotDeskCancelDialog);
