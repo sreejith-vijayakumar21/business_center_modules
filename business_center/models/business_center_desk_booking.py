@@ -493,8 +493,10 @@ class BusinessCenterDeskBooking(models.Model):
         self._bc_send_cancel_answer()
 
     def _bc_send_cancel_answer(self):
-        """Email the answer to a cancellation request to the desk user and,
-        when someone else asked, to them too."""
+        """Send the answer to a cancellation request to the desk user and,
+        when someone else asked, to them too. Posted in the chatter as a
+        customer message, so staff can see on the booking that the customer
+        was told, and what."""
 
         template = self.env.ref('business_center.mail_template_hot_desk_cancel_answer',
                                 raise_if_not_found=False)
@@ -503,9 +505,12 @@ class BusinessCenterDeskBooking(models.Model):
         for rec in self:
             partners = (rec.partner_id | rec.cancel_requested_by_id.partner_id).filtered('email')
             if partners:
-                template.send_mail(rec.id, email_values={
-                    'recipient_ids': [(4, pid) for pid in partners.ids],
-                })
+                rec.message_post_with_source(
+                    template,
+                    message_type='comment',
+                    subtype_xmlid='mail.mt_comment',
+                    partner_ids=partners.ids,
+                )
         
     def _bc_mark_no_show(self):
         """Release the desk of a booking nobody checked in to; a manager
