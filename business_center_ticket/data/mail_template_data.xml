@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Sent to the member when their ticket is resolved. -->
+        <record id="mail_template_ticket_resolved" model="mail.template">
+            <field name="name">Ticket: Resolved</field>
+            <field name="model_id" ref="model_business_center_ticket"/>
+            <field name="subject">Your ticket {{ object.name }} is resolved</field>
+            <field name="partner_to">{{ object.partner_id.id }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="body_html" type="html">
+<div>
+    <p>Dear <t t-out="object.partner_id.name"/>,</p>
+    <p>Your ticket <strong t-out="object.name"/> (<t t-out="object.subject"/>) has been resolved.</p>
+    <p><strong>What was done:</strong><br/><t t-out="object.resolution"/></p>
+    <p t-if="object.company_id.bc_ticket_reopen_days">
+        If the problem is still there, you can reopen the ticket within
+        <t t-out="object.company_id.bc_ticket_reopen_days"/> days:
+    </p>
+    <p style="margin: 24px 0;">
+        <a t-att-href="object.get_base_url() + object.access_url"
+           style="background:#6C7BF0;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">
+            View ticket
+        </a>
+    </p>
+    <p>Kind regards,<br/><t t-out="object.company_id.name"/></p>
+</div>
+            </field>
+            <field name="auto_delete" eval="True"/>
+        </record>
+
+    </data>
+</odoo>

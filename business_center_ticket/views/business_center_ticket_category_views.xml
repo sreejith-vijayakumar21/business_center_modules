@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- FORM VIEW -->
+    <record id="business_center_ticket_category_view_form" model="ir.ui.view">
+        <field name="name">business.center.ticket.category.view.form</field>
+        <field name="model">business.center.ticket.category</field>
+        <field name="arch" type="xml">
+            <form>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <group>
+                        <group>
+                            <field name="name"/>
+                            <field name="description"/>
+                        </group>
+                        <group>
+                            <field name="sequence"/>
+                            <field name="active" invisible="1"/>
+                        </group>
+                    </group>
+                    <separator string="Who handles these tickets"/>
+                    <p class="text-muted">
+                        One person per business center. A centre without a line goes to
+                        that centre's manager.
+                    </p>
+                    <field name="assignee_ids">
+                        <list editable="bottom">
+                            <field name="center_id"/>
+                            <field name="user_id" widget="many2one_avatar_user"/>
+                        </list>
+                    </field>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- LIST VIEW -->
+    <record id="business_center_ticket_category_view_list" model="ir.ui.view">
+        <field name="name">business.center.ticket.category.view.list</field>
+        <field name="model">business.center.ticket.category</field>
+        <field name="arch" type="xml">
+            <list>
+                <field name="sequence" widget="handle"/>
+                <field name="name"/>
+                <field name="description"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- ACTION -->
+    <record id="action_business_center_ticket_category" model="ir.actions.act_window">
+        <field name="name">Ticket Categories</field>
+        <field name="res_model">business.center.ticket.category</field>
+        <field name="view_mode">list,form</field>
+    </record>
+
+</odoo>

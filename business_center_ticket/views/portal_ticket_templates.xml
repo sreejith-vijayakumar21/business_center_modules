@@ -1,0 +1,315 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- HOME TILE -->
+    <template id="portal_my_home_ticket" name="Portal My Home: Support Tickets"
+              inherit_id="portal.portal_my_home" priority="34">
+        <xpath expr="//div[@id='portal_common_category']" position="inside">
+            <t t-if="request.env.user.has_group('business_center_portal.group_bc_tenant_employee')">
+                <t t-call="portal.portal_docs_entry">
+                    <t t-set="icon" t-value="'/portal/static/src/img/portal-connection.svg'"/>
+                    <t t-set="title">Support Tickets</t>
+                    <t t-set="text">Report an internet, facilities or maintenance problem</t>
+                    <t t-set="url" t-value="'/my/tickets'"/>
+                    <t t-set="placeholder_count" t-value="'ticket_count'"/>
+                    <t t-set="config_card" t-value="True"/>
+                </t>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- BREADCRUMBS -->
+    <template id="portal_breadcrumbs_ticket" name="Portal Breadcrumbs: Support Tickets"
+              inherit_id="portal.portal_breadcrumbs" priority="40">
+        <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+            <li t-if="page_name == 'ticket'" t-attf-class="breadcrumb-item #{'' if (ticket or ticket_form) else 'active'}">
+                <a t-if="ticket or ticket_form" href="/my/tickets">Support Tickets</a>
+                <t t-else="">Support Tickets</t>
+            </li>
+            <li t-if="page_name == 'ticket' and ticket" class="breadcrumb-item active" t-esc="ticket.name"/>
+            <li t-if="page_name == 'ticket' and ticket_form" class="breadcrumb-item active">New</li>
+        </xpath>
+    </template>
+
+    <!-- STATUS BADGE, shared by the list and the ticket page -->
+    <template id="portal_ticket_state_badge" name="Ticket: Status Badge">
+        <t t-set="bc_tones" t-value="{'new': 'info', 'in_progress': 'primary', 'waiting': 'warning',
+                                      'resolved': 'success', 'closed': 'secondary', 'cancelled': 'secondary'}"/>
+        <span t-attf-class="badge rounded-pill text-bg-#{bc_tones.get(ticket.state, 'secondary')}"
+              t-field="ticket.state"/>
+        <span t-if="ticket.state == 'waiting'" class="small text-muted ms-1">we need your answer</span>
+    </template>
+
+    <!-- PHOTO THUMBNAILS, shared by the ticket and its messages -->
+    <template id="portal_ticket_attachments" name="Ticket: Attachments">
+        <div t-if="attachments" class="d-flex flex-wrap gap-2 mt-2">
+            <t t-foreach="attachments" t-as="attachment">
+                <a t-attf-href="/my/tickets/#{ticket.id}/photo/#{attachment.id}" target="_blank"
+                   t-att-title="attachment.name">
+                    <img t-if="(attachment.mimetype or '').startswith('image/')"
+                         t-attf-src="/my/tickets/#{ticket.id}/photo/#{attachment.id}?size=thumb"
+                         t-att-alt="attachment.name" class="rounded border"
+                         style="width: 96px; height: 96px; object-fit: cover;" loading="lazy"/>
+                    <span t-else="" class="badge text-bg-light border">
+                        <i class="fa fa-paperclip me-1"/><t t-esc="attachment.name"/>
+                    </span>
+                </a>
+            </t>
+        </div>
+    </template>
+
+    <!-- LIST -->
+    <template id="portal_my_tickets" name="My Support Tickets">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True"/>
+            <t t-call="portal.portal_searchbar">
+                <t t-set="title">Support Tickets</t>
+            </t>
+            <div class="mb-3">
+                <a href="/my/tickets/new" class="btn btn-primary btn-sm">
+                    <i class="fa fa-plus me-1"/>Raise a Ticket
+                </a>
+            </div>
+
+            <div t-if="not tickets" class="alert alert-warning" role="alert">
+                There are no tickets here. If something is not working, raise a ticket and we will take care of it.
+            </div>
+
+            <t t-if="tickets" t-call="portal.portal_table">
+                <thead>
+                    <tr class="active">
+                        <th>Ticket</th>
+                        <th>Subject</th>
+                        <th>Category</th>
+                        <th t-if="is_tenant_admin">Reported By</th>
+                        <th class="text-end">Reported On</th>
+                        <th class="text-center">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr t-foreach="tickets" t-as="ticket">
+                        <td><a t-attf-href="/my/tickets/#{ticket.id}" t-esc="ticket.name"/></td>
+                        <td><span t-esc="ticket.subject"/></td>
+                        <td><span t-esc="ticket.category_id.name"/></td>
+                        <td t-if="is_tenant_admin"><span t-esc="ticket.partner_id.name"/></td>
+                        <td class="text-end"><span t-field="ticket.create_date" t-options="{'widget': 'date'}"/></td>
+                        <td class="text-center">
+                            <t t-call="business_center_ticket.portal_ticket_state_badge"/>
+                        </td>
+                    </tr>
+                </tbody>
+            </t>
+        </t>
+    </template>
+
+    <!-- TICKET PAGE -->
+    <template id="portal_ticket_page" name="Support Ticket Page">
+        <t t-call="portal.portal_layout">
+            <t t-set="additional_title"><t t-esc="ticket.name"/></t>
+
+            <div class="row mt-4 mb-3">
+                <div class="col-12">
+                    <div class="text-muted small" t-esc="ticket.name"/>
+                    <h5 class="mb-0">
+                        <t t-esc="ticket.subject"/>
+                        <t t-call="business_center_ticket.portal_ticket_state_badge"/>
+                    </h5>
+                </div>
+            </div>
+            <div t-if="error" class="alert alert-danger d-flex align-items-center" role="alert">
+                <i class="fa fa-exclamation-circle me-2"/><t t-esc="error"/>
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <h6 class="text-muted text-uppercase small">Ticket</h6>
+                    <div><strong>Category:</strong> <t t-esc="ticket.category_id.name"/></div>
+                    <div><strong>Priority:</strong> <span t-field="ticket.priority"/></div>
+                    <div><strong>Where:</strong> <t t-esc="ticket.unit_display"/>, <t t-esc="ticket.center_id.name"/></div>
+                    <div><strong>Reported by:</strong> <t t-esc="ticket.partner_id.name"/></div>
+                </div>
+                <div class="col-md-6 mb-3">
+                    <h6 class="text-muted text-uppercase small">Progress</h6>
+                    <div><strong>Reported on:</strong> <span t-field="ticket.create_date"/></div>
+                    <div t-if="ticket.user_id"><strong>Handled by:</strong> <t t-esc="ticket.user_id.name"/></div>
+                    <div t-if="ticket.started_at"><strong>Work started:</strong> <span t-field="ticket.started_at"/></div>
+                    <div t-if="ticket.resolved_at"><strong>Resolved on:</strong> <span t-field="ticket.resolved_at"/></div>
+                </div>
+            </div>
+
+            <h6 class="mt-2 text-muted text-uppercase small">Problem</h6>
+            <p style="white-space: pre-line;" t-esc="ticket.description"/>
+            <t t-call="business_center_ticket.portal_ticket_attachments">
+                <t t-set="attachments" t-value="ticket.photo_ids"/>
+            </t>
+
+            <div t-if="ticket.state in ('resolved', 'closed') and ticket.resolution"
+                 class="alert alert-success mt-3" role="alert">
+                <strong>What was done:</strong>
+                <div style="white-space: pre-line;" t-esc="ticket.resolution"/>
+            </div>
+
+            <!-- Conversation -->
+            <h6 class="mt-4 text-muted text-uppercase small">Conversation</h6>
+            <p t-if="not messages" class="text-muted small">No messages yet.</p>
+            <div t-foreach="messages" t-as="message"
+                 t-attf-class="border rounded p-3 mb-2 #{'bg-100' if message.author_id == my_partner else ''}">
+                <div class="d-flex justify-content-between small text-muted mb-1">
+                    <strong t-esc="message.author_id.name or message.email_from"/>
+                    <span t-field="message.date"/>
+                </div>
+                <div t-out="message.body"/>
+                <t t-call="business_center_ticket.portal_ticket_attachments">
+                    <t t-set="attachments" t-value="message.attachment_ids"/>
+                </t>
+            </div>
+
+            <!-- Reply -->
+            <form t-if="can_reply and not can_reopen" method="post" enctype="multipart/form-data"
+                  t-attf-action="/my/tickets/#{ticket.id}/reply" class="mt-3">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <label class="form-label fw-bold" for="o_bc_ticket_body">Write a message</label>
+                <textarea name="body" id="o_bc_ticket_body" class="form-control" rows="3"
+                          required="required" maxlength="5000"/>
+                <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+                    <input type="file" name="photos" class="form-control form-control-sm w-auto"
+                           accept="image/png,image/jpeg,image/gif,image/webp" multiple="multiple"/>
+                    <button type="submit" class="btn btn-primary ms-auto">
+                        <i class="fa fa-paper-plane me-1"/>Send
+                    </button>
+                </div>
+            </form>
+
+            <!-- Reopen -->
+            <form t-if="can_reopen" method="post" t-attf-action="/my/tickets/#{ticket.id}/reopen"
+                  class="border rounded p-3 mt-3">
+                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                <label class="form-label fw-bold" for="o_bc_ticket_reason">Still not working?</label>
+                <p class="text-muted small mb-2">
+                    You can reopen this ticket within <t t-esc="reopen_days"/> days of it being resolved.
+                    After that it is closed.
+                </p>
+                <textarea name="reason" id="o_bc_ticket_reason" class="form-control" rows="2"
+                          required="required" maxlength="2000" placeholder="What is still wrong?"/>
+                <div class="text-end mt-2">
+                    <button type="submit" class="btn btn-warning">
+                        <i class="fa fa-undo me-1"/>Reopen ticket
+                    </button>
+                </div>
+            </form>
+        </t>
+    </template>
+
+    <!-- NO CONTRACT -->
+    <template id="portal_ticket_no_contract" name="Ticket: No Contract">
+        <t t-call="portal.portal_layout">
+            <div class="alert alert-info mt-4" role="alert">
+                Tickets are raised against a running contract of your company.
+                Please contact the business centre.
+            </div>
+        </t>
+    </template>
+
+    <!-- RAISE A TICKET -->
+    <template id="portal_ticket_form" name="Raise a Ticket">
+        <t t-call="portal.portal_layout">
+            <t t-set="additional_title">Raise a Ticket</t>
+
+            <div class="o_bc_book">
+                <div class="o_bc_book_head">
+                    <h4>Raise a Ticket</h4>
+                    <a href="/my/tickets" class="o_bc_back">
+                        <i class="fa fa-angle-left me-1"/>All tickets
+                    </a>
+                </div>
+
+                <div t-if="error" class="alert alert-danger d-flex align-items-center" role="alert">
+                    <i class="fa fa-exclamation-circle me-2"/><t t-esc="error"/>
+                </div>
+
+                <!-- Changing the contract reloads the form, so the places offered are that contract's. -->
+                <form t-if="len(contracts) &gt; 1" method="get" action="/my/tickets/new" class="o_bc_card">
+                    <label class="o_bc_label" for="tk_contract_pick">Business centre and contract</label>
+                    <select name="contract_id" id="tk_contract_pick" class="form-select"
+                            onchange="this.form.submit()">
+                        <option t-foreach="contracts" t-as="opt" t-att-value="opt.id"
+                                t-att-selected="'selected' if opt == contract else None">
+                            <t t-esc="opt.center_id.name or 'No centre'"/> · <t t-esc="opt.name"/>
+                        </option>
+                    </select>
+                </form>
+
+                <form method="post" action="/my/tickets/new" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <input type="hidden" name="contract_id" t-att-value="contract.id"/>
+
+                    <!-- STEP 1 : WHAT AND WHERE -->
+                    <section class="o_bc_card">
+                        <div class="o_bc_step"><span class="o_bc_num">1</span>What and where</div>
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="o_bc_label" for="tk_category_id">What is it about?</label>
+                                <select name="category_id" id="tk_category_id" class="form-select" required="required">
+                                    <option value="">Choose…</option>
+                                    <option t-foreach="categories" t-as="opt" t-att-value="opt.id"
+                                            t-att-selected="'selected' if str(opt.id) == form.get('category_id') else None">
+                                        <t t-esc="opt.name"/><t t-if="opt.description"> (<t t-esc="opt.description"/>)</t>
+                                    </option>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="o_bc_label" for="tk_unit">Where?</label>
+                                <select name="unit" id="tk_unit" class="form-select">
+                                    <option value="">General / common area (<t t-esc="contract.center_id.name"/>)</option>
+                                    <option t-foreach="unit_options" t-as="opt" t-att-value="opt[0]"
+                                            t-att-selected="'selected' if opt[0] == form.get('unit') else None"
+                                            t-esc="opt[1]"/>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="o_bc_label" for="tk_priority">How urgent?</label>
+                                <select name="priority" id="tk_priority" class="form-select">
+                                    <option t-foreach="priorities" t-as="opt" t-att-value="opt[0]"
+                                            t-att-selected="'selected' if opt[0] == form.get('priority') else None"
+                                            t-esc="opt[1]"/>
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- STEP 2 : THE PROBLEM -->
+                    <section class="o_bc_card">
+                        <div class="o_bc_step"><span class="o_bc_num">2</span>The problem</div>
+                        <div class="row g-3">
+                            <div class="col-12">
+                                <label class="o_bc_label" for="tk_subject">Subject</label>
+                                <input type="text" name="subject" id="tk_subject" class="form-control"
+                                       required="required" maxlength="150" t-att-value="form.get('subject')"
+                                       placeholder="e.g. Wi-Fi keeps dropping in our office"/>
+                            </div>
+                            <div class="col-12">
+                                <label class="o_bc_label" for="tk_description">Describe it</label>
+                                <textarea name="description" id="tk_description" class="form-control" rows="4"
+                                          required="required" maxlength="5000"
+                                          placeholder="What is wrong, and since when?"><t t-esc="form.get('description')"/></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="o_bc_label" for="tk_photos">Photos (optional, up to 5, 5 MB each)</label>
+                                <input type="file" name="photos" id="tk_photos" class="form-control"
+                                       accept="image/png,image/jpeg,image/gif,image/webp" multiple="multiple"/>
+                            </div>
+                        </div>
+                    </section>
+
+                    <div class="o_bc_actions">
+                        <a href="/my/tickets" class="btn btn-light">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="fa fa-check me-1"/>Send ticket
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </t>
+    </template>
+
+</odoo>
