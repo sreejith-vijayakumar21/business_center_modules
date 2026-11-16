@@ -4,21 +4,12 @@ import { _t } from "@web/core/l10n/translation";
 import { useService } from "@web/core/utils/hooks";
 import { FloorCanvas } from "../canvas/floor_canvas";
 import { FloorPlanApi } from "../core/floor_plan_api";
-import { centerOf, fitView, rotateVector } from "../core/geometry";
+import { fitView } from "../core/geometry";
 import { LayoutStore } from "../core/layout_store";
+import { FloorUnitDetails } from "./floor_unit_details";
+import { colourByPickability } from "./pickability";
 
-const PICKABLE = "pickable";
 const ZOOM_STEP = 1.25;
-const UNPICKABLE = "unpickable";
-const PICKED = "picked";
-const CHOSEN = "chosen";
-
-/** True when ``point`` lies inside ``rect`` once the rect is rotated around its centre. */
-function pointInRect(point, rect) {
-    const c = centerOf(rect);
-    const local = rotateVector(point.x - c.x, point.y - c.y, -(rect.rotation || 0));
-    return Math.abs(local.x) <= rect.width / 2 && Math.abs(local.y) <= rect.height / 2;
-}
 
 /**
  * Side panel describing the clicked unit. Renders what the link provider
@@ -186,40 +177,10 @@ export class FloorPickerDialog extends Component {
     /** Colour every unit by whether it may be picked (the selected one
      * stands out), and summarise zones. */
     applyPickability(store) {
-        const palette = store.statusPalette;
-        store.statusPalette = {
-            ...palette,
-            [PICKABLE]: {
-                code: PICKABLE,
-                name: _t("Available to pick"),
-                color: palette.available ? palette.available.color : "#8EDCB0",
-            },
-            [UNPICKABLE]: { code: UNPICKABLE, name: _t("Not available here"), color: "#DCE0E8" },
-            [PICKED]: { code: PICKED, name: _t("Selected"), color: "#8E9BF5" },
-            [CHOSEN]: { code: CHOSEN, name: _t("On this contract"), color: "#C9D6FB" },
-        };
-        const selectedKey = store.selectedKey;
-        const objects = {};
-        const units = store.objects.filter((o) => o.category === "rentable");
-        for (const unit of units) {
-            let status = UNPICKABLE;
-            if (this.isChosen(unit)) {
-                status = CHOSEN;
-            } else if (this.isPickable(unit)) {
-                status = unit.key === selectedKey ? PICKED : PICKABLE;
-            }
-            objects[unit.id] = { status };
-        }
-        for (const zone of store.objects.filter((o) => o.category === "zone")) {
-            const inside = units.filter((u) => pointInRect(centerOf(u), zone));
-            const available = inside.filter((u) => this.isPickable(u)).length;
-            objects[zone.id] = {
-                status: available ? PICKABLE : UNPICKABLE,
-                available,
-                total: inside.length,
-            };
-        }
-        store.setStatuses({ objects, summary: {}, at: false, time_dependent: false, computed_at: false });
+        colourByPickability(store, {
+            isPickable: (obj) => this.isPickable(obj),
+            isChosen: (obj) => this.isChosen(obj),
+        });
     }
 
     isPickable(obj) {
