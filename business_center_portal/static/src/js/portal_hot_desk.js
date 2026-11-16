@@ -17,7 +17,14 @@ function initHotDeskForm() {
     const hint = byId("o_bc_hd_desk_hint");
     const summary = byId("o_bc_hd_summary");
     const symbol = form.dataset.currency || "";
-    let options = { contractId: Number(contract.value), desks: [], sites: [] };
+    const slotOptions = (sites) => ({
+        contractId: Number(contract.value),
+        bookingDate: date.value,
+        startTime: start.value,
+        endTime: end.value,
+        sites,
+    });
+    let options = slotOptions([]);
 
     const send = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
     const announce = () => send(HOT_DESK_EVENTS.options, options);
@@ -86,7 +93,7 @@ function initHotDeskForm() {
             hint.textContent = data.desks.length
                 ? `${data.desks.length} desk(s) free for this time.`
                 : "No hot desk is free for this time.";
-            options = { contractId: Number(contract.value), desks: data.desks.map((d) => d.id), sites: data.sites };
+            options = slotOptions(data.sites);
             announce();
             updateSummary();
         } catch {

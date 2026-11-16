@@ -251,7 +251,46 @@
     text-align: center;
 }
 
-.o_bc_legend .o_bc_dot_none { background: #dce0e8; }
+.o_bc_legend .o_bc_dot_booked { background: #f4a6a6; }
+.o_bc_legend .o_bc_dot_closed { background: #dce0e8; }
+.o_bc_legend .o_bc_dot_other { background: #eef0f4; border: 1px dashed #b9bed0; }
+
+.o_bc_hd_floor_full {
+    padding: 0 .45rem;
+    border-radius: 999px;
+    background: #fdecec;
+    color: #b42318;
+    font-size: .75rem;
+    font-weight: 600;
+}
+
+// Zoom controls floating over the plan.
+.o_bc_hd_zoom {
+    position: absolute;
+    top: .5rem;
+    right: .5rem;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: .25rem;
+    padding: .2rem;
+    background: rgba(255, 255, 255, .92);
+    border: 1px solid #e8e8ec;
+    border-radius: 8px;
+}
+
+.o_bc_hd_zoom_value {
+    min-width: 3rem;
+    text-align: center;
+    font-size: .75rem;
+    color: #374151;
+}
+
+// "Booked for your time" badge in the details panel.
+.o_fp_details_status_booked {
+    background: #fdecec;
+    color: #b42318;
+}
 
 .o_bc_initial {
     display: inline-flex;

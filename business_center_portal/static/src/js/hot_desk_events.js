@@ -5,7 +5,7 @@
 export const HOT_DESK_EVENTS = Object.freeze({
     // picker -> form: mounted, send the current options
     ready: "bc-hot-desk:picker-ready",
-    // form -> picker: {contractId, desks: [id], sites}
+    // form -> picker: {contractId, bookingDate, startTime, endTime, sites}
     options: "bc-hot-desk:options",
     // form -> picker: {id} chosen in the dropdown
     chosen: "bc-hot-desk:chosen",
