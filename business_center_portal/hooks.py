@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+
 """Install-time hooks for the Business Center Portal module."""
 
 
