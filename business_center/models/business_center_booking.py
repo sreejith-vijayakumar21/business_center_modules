@@ -429,6 +429,18 @@ class BusinessCenterBooking(models.Model):
         self.ensure_one()
         if self.state != 'confirmed':
             raise UserError(_("Only a confirmed booking can be cancelled here."))
+        
+    @api.model
+    def _bc_free_rooms(self, rooms, booking_date, start_time, end_time):
+        """The rooms among ``rooms`` open for the whole slot and not held by
+        another booking. Without a valid slot, every room counts as free."""
+
+        if not (booking_date and end_time > start_time):
+            return rooms
+        open_rooms = rooms.filtered(
+            lambda r: r.min_booking_hour <= start_time
+            and (not r.max_booking_hour or end_time <= r.max_booking_hour))
+        return open_rooms - self._slot_held(open_rooms, booking_date, start_time, end_time)
     
     def _bc_refund_wallet_hours(self, hours):
         """Give ``hours`` drawn by this booking back to the contract's wallet,

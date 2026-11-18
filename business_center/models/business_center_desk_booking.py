@@ -436,16 +436,7 @@ class BusinessCenterDeskBooking(models.Model):
         slot. One rule for the booking form and the portal floor plan, so
         "free" and "booked" always mean the same thing."""
 
-        if not (desks and booking_date and end_time > start_time):
-            return desks.browse()
-        return self.search([
-            ('desk_id', 'in', desks.ids),
-            ('state', 'in', self._slot_blocking_states),
-            ('booking_date', '=', booking_date),
-            ('start_time', '<', end_time),
-            ('end_time', '>', start_time),
-            ('id', '!=', exclude_id),
-        ]).desk_id
+        return self._slot_held(desks, booking_date, start_time, end_time, exclude_id)
         
     def _bc_minutes_to_start(self):
         """Minutes until the slot starts by the centre's clock (negative once
