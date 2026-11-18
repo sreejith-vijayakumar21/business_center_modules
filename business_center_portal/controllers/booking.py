@@ -14,12 +14,17 @@ from odoo.addons.portal.controllers.portal import pager as portal_pager
 
 from .portal import BusinessCenterPortal
 
+MEETING_ROOM_LINK_KEY = 'bc_meeting_room'
+
 
 class BusinessCenterBookingPortal(BusinessCenterPortal):
-    """Everything the portal needs for showing meeting room bookings.
+    """Everything the portal needs for meeting room bookings: list, detail,
+    cancel, the booking form and the data its floor picker reads.
 
-    The tenant check and the date, time and id parsing come from
-    BusinessCenterPortal, shared with the hot desk pages.
+    The tenant check, the date, time and id parsing and the floor picker
+    helpers come from BusinessCenterPortal, shared with the hot desk pages.
+    Availability is the booking model's (_bc_free_rooms, _slot_held), so the
+    plan, the dropdown and the confirmation always agree.
     """
 
     # ------------------------------------------------------------------
@@ -235,7 +240,7 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
         return request.redirect('/my/bookings/%s' % booking_id)
 
     # ------------------------------------------------------------------
-    #   MARK: BOOKING CREATION
+    #   MARK: SCOPE HELPERS
     # ------------------------------------------------------------------
     def _member_contracts(self):
         """Contracts this member can book meeting rooms against.
@@ -246,18 +251,33 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
         """
         return self._bc_member_contracts([('is_wallet_eligible', '=', True)])
 
-    def _rooms_for_center(self, center):
-        """Bookable meeting rooms in the centre the contract's assets sit in."""
+    def _member_contract(self, contract_id):
+        """One of the member's contracts, or an empty recordset."""
+
+        return self._member_contracts().filtered(
+            lambda c: c.id == self._bc_to_int(contract_id))[:1]
+
+    @staticmethod
+    def _center_rooms(center):
+        """Every meeting room of the centre, open for booking or not."""
 
         Space = request.env['business.center.space'].sudo()
         if not center:
             return Space
-        return Space.search([
-            ('space_type', '=', 'meeting_room'),
-            ('is_bookable', '=', True),
-            ('center_id', '=', center.id),
-            ('state', 'in', ('available', 'occupied')),
-        ])
+        return Space.search([('space_type', '=', 'meeting_room'), ('center_id', '=', center.id)])
+
+    def _rooms_for_center(self, center):
+        """Bookable meeting rooms in the centre the contract's assets sit in."""
+
+        return self._center_rooms(center).filtered(
+            lambda r: r.is_bookable and r.state in ('available', 'occupied'))
+
+    @staticmethod
+    def _room_fits(room, attendees):
+        """Whether ``room`` seats ``attendees``; a room without a capacity
+        set is not ruled out."""
+
+        return not (attendees and room.capacity and room.capacity < attendees)
 
     def _slots_html(self, room, booking_date):
         """Render the day's availability strip by reusing the model's own compute,
@@ -271,38 +291,96 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
         })
         return preview.slot_availability_html
 
-    def _resolve_selection(self, contract_id, room_id, booking_date):
-        """Pick the contract, room and date to show, falling back to the first
-        available option. Ids are only used to look records up inside the
-        member's own scope, never trusted as permission; malformed values fall
-        back instead of raising."""
+    def _resolve_selection(self, values):
+        """Contract, date, times, attendees, rooms and the free ones, from
+        what was posted or asked. Ids are only used to look records up inside
+        the member's own scope, never trusted as permission; malformed values
+        fall back instead of raising."""
 
         contracts = self._member_contracts()
         contract = contracts.filtered(
-            lambda c: c.id == self._bc_to_int(contract_id))[:1] or contracts[:1]
+            lambda c: c.id == self._bc_to_int(values.get('contract_id')))[:1] or contracts[:1]
         rooms = self._rooms_for_center(contract.center_id)
-        room = rooms.filtered(
-            lambda r: r.id == self._bc_to_int(room_id))[:1] or rooms[:1]
-        booking_date = fields.Date.to_string(
-            self._bc_parse_date(booking_date) or self._bc_today())
-        return contracts, contract, rooms, room, booking_date
-
-    def _booking_form_values(self, contract, contracts, rooms, room,
-                             booking_date, **extra):
-        """Everything the booking form template needs."""
-
-        values = self._prepare_portal_layout_values()
-        values.update({
-            'page_name': 'booking',
+        booking_date = self._bc_parse_date(values.get('booking_date')) or self._bc_today()
+        start = self._bc_parse_time(values.get('start_time'))
+        end = self._bc_parse_time(values.get('end_time'))
+        attendees = max(self._bc_to_int(values.get('attendees')), 0)
+        free = request.env['business.center.booking'].sudo()._bc_free_rooms(
+            rooms, booking_date, start or 0.0, end or 0.0)
+        fitting = free.filtered(lambda r: self._room_fits(r, attendees))
+        room_id = self._bc_to_int(values.get('meeting_room_id'))
+        room = rooms.filtered(lambda r: r.id == room_id)[:1] or fitting[:1] or rooms[:1]
+        return {
             'contracts': contracts,
             'contract': contract,
             'rooms': rooms,
+            'free': fitting.sorted('name'),
             'room': room,
             'booking_date': booking_date,
+            'start': start,
+            'end': end,
+            'attendees': attendees,
+        }
+
+    @staticmethod
+    def _room_option(room):
+        """A room as the form's dropdown and the picker show it."""
+
+        return {
+            'id': room.id,
+            'name': room.display_name,
+            'rate': room.hourly_rate,
+            'hours': room.operating_hours_display or '',
+        }
+
+    def _room_slot_states(self, plan, selection):
+        """'free', 'booked', 'closed' or 'small' for every meeting room drawn
+        on ``plan``, keyed by shape id, for the chosen slot and group size."""
+
+        center_rooms = self._center_rooms(selection['contract'].center_id)
+        held = request.env['business.center.booking'].sudo()._slot_held(
+            center_rooms, selection['booking_date'], selection['start'] or 0.0, selection['end'] or 0.0)
+        rooms = {room.id: room for room in center_rooms}
+        free_ids, held_ids = set(selection['free'].ids), set(held.ids)
+        bookable_ids = set(selection['rooms'].ids)
+
+        def state_of(room_id):
+            room = rooms.get(room_id)
+            if not room:
+                return None
+            if room_id in free_ids:
+                return 'free'
+            if room_id in held_ids:
+                return 'booked'
+            if room_id in bookable_ids and not self._room_fits(room, selection['attendees']):
+                return 'small'
+            return 'closed'
+
+        return self._bc_floor_slot_states(plan, MEETING_ROOM_LINK_KEY, state_of)
+
+    # ------------------------------------------------------------------
+    #   MARK: BOOKING FORM
+    # ------------------------------------------------------------------
+    def _booking_form_values(self, selection, **extra):
+        """Everything the booking form template needs."""
+
+        contract, room = selection['contract'], selection['room']
+        values = self._prepare_portal_layout_values()
+        values.update({
+            'page_name': 'booking',
+            'contracts': selection['contracts'],
+            'contract': contract,
+            'room': room,
+            'room_options': [self._room_option(r) for r in selection['free']],
+            'room_id': room.id if room in selection['free'] else 0,
+            'booking_date': fields.Date.to_string(selection['booking_date']),
+            'start_hhmm': self._bc_float_to_hhmm(selection['start']),
+            'end_hhmm': self._bc_float_to_hhmm(selection['end']),
+            'attendees': selection['attendees'] or '',
             'wallet': contract.wallet_balance if contract.is_wallet_eligible else 0.0,
             'free_hours': contract.free_hours_monthly,
             'today': fields.Date.to_string(self._bc_today()),
-            'slots_html': self._slots_html(room, booking_date),
+            'slots_html': self._slots_html(room, selection['booking_date']),
             'error': '',
         })
         values.update(extra)
@@ -310,42 +388,19 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
 
     @http.route(['/my/bookings/new'], type='http', auth='user',
                 website=True, methods=['GET'])
-    def portal_booking_new(self, contract_id=None, meeting_room_id=None,
-                           booking_date=None, **kw):
+    def portal_booking_new(self, **kw):
         """The booking form."""
 
         denied = self._bc_booking_access_denied()
         if denied:
             return denied
-        contracts, contract, rooms, room, booking_date = self._resolve_selection(
-            contract_id, meeting_room_id, booking_date)
-        if not contracts:
+        selection = self._resolve_selection(kw)
+        if not selection['contracts']:
             return request.render(
                 'business_center_portal.portal_booking_no_office',
                 {'page_name': 'booking'})
-        return request.render(
-            'business_center_portal.portal_booking_form',
-            self._booking_form_values(contract, contracts, rooms, room,
-                                      booking_date))
-
-    @http.route(['/my/bookings/slots'], type='http', auth='user',
-                website=True, methods=['GET'])
-    def portal_booking_slots(self, meeting_room_id=None, booking_date=None, **kw):
-        """Return just the availability strip, so changing the room or date
-        refreshes the colours without reloading the page."""
-
-        denied = self._bc_booking_access_denied()
-        if denied:
-            return denied
-        contracts, contract, rooms, room, booking_date = self._resolve_selection(
-            kw.get('contract_id'), meeting_room_id, booking_date)
-        return request.make_json_response({
-            'slots': str(self._slots_html(room, booking_date) or ''),
-            'hours': room.operating_hours_display or '',
-            'rate': room.hourly_rate,
-            'wallet': contract.wallet_balance if contract.is_wallet_eligible else 0.0,
-            'rooms': [{'id': r.id, 'name': r.display_name} for r in rooms],
-        })
+        return request.render('business_center_portal.portal_booking_form',
+                              self._booking_form_values(selection))
 
     @http.route(['/my/bookings/new'], type='http', auth='user',
                 website=True, methods=['POST'])
@@ -357,37 +412,35 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
         denied = self._bc_booking_access_denied()
         if denied:
             return denied
-        contracts, contract, rooms, room, booking_date = self._resolve_selection(
-            post.get('contract_id'), post.get('meeting_room_id'),
-            post.get('booking_date'))
+        selection = self._resolve_selection(post)
+        contract, room = selection['contract'], selection['room']
+        posted_room = self._bc_to_int(post.get('meeting_room_id'))
 
         def fail(message):
-            return request.render(
-                'business_center_portal.portal_booking_form',
-                self._booking_form_values(contract, contracts, rooms, room,
-                                          booking_date, error=message))
+            return request.render('business_center_portal.portal_booking_form',
+                                  self._booking_form_values(selection, error=message))
 
         if not contract:
             return fail(_("Pick one of your running contracts."))
-        if not room:
+        if not (room and room.id == posted_room):
             return fail(_("Pick a meeting room in your business centre."))
-        if fields.Date.from_string(booking_date) < self._bc_today():
+        if selection['booking_date'] < self._bc_today():
             return fail(_("Bookings cannot be made for a past date."))
-
-        try:
-            start = self._hhmm_to_float(post.get('start_time'), _("start time"))
-            end = self._hhmm_to_float(post.get('end_time'), _("end time"))
-        except UserError as exc:
-            return fail(exc.args[0])
+        start, end = selection['start'], selection['end']
+        if start is None or end is None:
+            return fail(_("Pick a start and an end time."))
         if end <= start:
             return fail(_("The end time must be after the start time."))
+        if not self._room_fits(room, selection['attendees']):
+            return fail(_("%(room)s seats %(seats)s; your group is %(people)s. Please pick a larger room.",
+                          room=room.name, seats=room.capacity, people=selection['attendees']))
 
         Booking = request.env['business.center.booking'].sudo()
         try:
             booking = Booking.create({
                 'contract_id': contract.id,
                 'meeting_room_id': room.id,
-                'booking_date': booking_date,
+                'booking_date': selection['booking_date'],
                 'start_time': start,
                 'end_time': end,
                 'user_id': request.env.user.id,
@@ -403,3 +456,94 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
                           "Please pick another time."))
 
         return request.redirect('/my/bookings/%s' % booking.id)
+
+    # ------------------------------------------------------------------
+    #   MARK: FORM AND FLOOR PICKER DATA
+    # ------------------------------------------------------------------
+    @http.route(['/my/bookings/rooms'], type='http', auth='user', methods=['GET'])
+    def portal_booking_rooms(self, **kw):
+        """Free rooms for the asked contract, slot and group size, the
+        contract's wallet, and the floors drawing the centre's rooms."""
+
+        denied = self._bc_booking_access_denied()
+        if denied:
+            return denied
+        selection = self._resolve_selection(kw)
+        contract = selection['contract']
+        return request.make_json_response({
+            'rooms': [self._room_option(r) for r in selection['free']],
+            'wallet': contract.wallet_balance if contract.is_wallet_eligible else 0.0,
+            'sites': self._bc_floor_sites(MEETING_ROOM_LINK_KEY, contract.center_id,
+                                          self._center_rooms(contract.center_id), selection['free']),
+        })
+
+    @http.route(['/my/bookings/slots'], type='http', auth='user',
+                website=True, methods=['GET'])
+    def portal_booking_slots(self, **kw):
+        """The picked room's availability strip for the day, so changing the
+        room or the date refreshes it without reloading the page."""
+
+        denied = self._bc_booking_access_denied()
+        if denied:
+            return denied
+        selection = self._resolve_selection(kw)
+        room = selection['room']
+        return request.make_json_response({
+            'slots': str(self._slots_html(room, selection['booking_date']) or ''),
+            'hours': room.operating_hours_display or '',
+            'rate': room.hourly_rate,
+        })
+
+    @http.route(['/my/bookings/floor/<int:plan_id>'], type='http', auth='user', methods=['GET'])
+    def portal_booking_floor(self, plan_id, contract_id=None, **kw):
+        """The drawing of one floor of the contract's centre, read-only."""
+
+        denied = self._bc_booking_access_denied()
+        if denied:
+            return denied
+        contract = self._member_contract(contract_id)
+        plan = self._bc_floor_plan(plan_id, contract.center_id)
+        if not plan:
+            return request.not_found()
+        return request.make_json_response(self._bc_floor_layout(plan))
+
+    @http.route(['/my/bookings/floor/<int:plan_id>/slots'], type='http', auth='user', methods=['GET'])
+    def portal_booking_floor_slots(self, plan_id, **kw):
+        """Free, booked, closed or too small for each meeting room on the
+        floor, for the asked contract, slot and group size."""
+
+        denied = self._bc_booking_access_denied()
+        if denied:
+            return denied
+        selection = self._resolve_selection(kw)
+        plan = self._bc_floor_plan(plan_id, selection['contract'].center_id)
+        if not plan:
+            return request.not_found()
+        return request.make_json_response(self._room_slot_states(plan, selection))
+
+    @http.route(['/my/bookings/room/<int:room_id>'], type='http', auth='user', methods=['GET'])
+    def portal_booking_room_details(self, room_id, contract_id=None, **kw):
+        """The side panel details of a meeting room of the contract's centre."""
+
+        denied = self._bc_booking_access_denied()
+        if denied:
+            return denied
+        contract = self._member_contract(contract_id)
+        room = self._center_rooms(contract.center_id).filtered(lambda r: r.id == room_id)
+        if not room:
+            return request.not_found()
+        image_url = '/my/bookings/room/%s/photo' % room.id if room.image_1920 else False
+        return request.make_json_response(self._bc_unit_details(MEETING_ROOM_LINK_KEY, room, image_url))
+
+    @http.route(['/my/bookings/room/<int:room_id>/photo'], type='http', auth='user', methods=['GET'])
+    def portal_booking_room_photo(self, room_id, **kw):
+        """Photo of a meeting room in one of the member's centres."""
+
+        denied = self._bc_booking_access_denied()
+        if denied:
+            return denied
+        centers = self._member_contracts().center_id
+        room = request.env['business.center.space'].sudo().browse(room_id).exists()
+        if not (room and room.space_type == 'meeting_room' and room.center_id in centers):
+            return request.not_found()
+        return self._bc_image_response(room)

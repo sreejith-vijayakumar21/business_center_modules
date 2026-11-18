@@ -108,3 +108,86 @@ class BusinessCenterPortal(CustomerPortal):
             return ''
         total = round(value * 60)
         return '%02d:%02d' % (total // 60, total % 60)
+    
+    # ------------------------------------------------------------------------------
+    #   MARK: FLOOR PICKER HELPERS
+    # ------------------------------------------------------------------------------
+    # Shared by every portal floor picker (hot desks, meeting rooms, ...). All
+    # reads are sudo(); callers pass only records already inside the member's
+    # own scope, and every route checks the floor belongs to that scope.
+
+    @staticmethod
+    def _bc_floor_sites(link_key, center, records, free_records):
+        """Floors of ``center`` that draw ``records``, each counting the
+        ``free_records`` drawn on it. A floor stays listed when nothing on it
+        is free, so the member sees its units in red instead of the floor
+        vanishing."""
+
+        if not (center and records):
+            return []
+        Floor = request.env['business.center.floor'].sudo()
+        sites = Floor.bc_get_picker_sites(link_key, records.ids)
+        free_sites = Floor.bc_get_picker_sites(link_key, free_records.ids) if free_records else []
+        free_by_plan = {plan['id']: plan['pickable'] for site in free_sites for plan in site['plans']}
+        # The note counts free units missing from every layout: take it from the free call.
+        free_notes = {site['id']: site['note'] for site in free_sites}
+        for site in sites:
+            site['note'] = free_notes.get(site['id'], False)
+            for plan in site['plans']:
+                plan['pickable'] = free_by_plan.get(plan['id'], 0)
+        return sites
+
+    @staticmethod
+    def _bc_floor_plan(plan_id, center):
+        """The floor plan when it belongs to ``center``, else an empty recordset."""
+
+        plan = request.env['workspace.floor.plan'].sudo().browse(plan_id).exists()
+        if center and plan and plan.bc_floor_id.center_id == center:
+            return plan
+        return plan.browse()
+
+    @staticmethod
+    def _bc_floor_layout(plan):
+        """The drawing of ``plan`` for a read-only portal picker: no palette,
+        providers or edit rights."""
+
+        layout = request.env['workspace.floor.layout.service'].sudo()._load(plan)
+        layout.update(presets=[], providers=[])
+        layout['plan']['can_edit'] = False
+        return layout
+
+    @staticmethod
+    def _bc_floor_slot_states(plan, link_key, state_of):
+        """{shape id: state} for every shape of ``plan`` linked through
+        ``link_key``. ``state_of(record_id)`` decides the state, or returns
+        None for a record outside the member's scope (left uncoloured)."""
+
+        objects = request.env['workspace.floor.plan.object'].sudo().search([
+            ('plan_id', '=', plan.id),
+            ('link_key', '=', link_key),
+            ('link_res_id', '!=', False),
+        ])
+        states = {}
+        for obj in objects:
+            state = state_of(obj.link_res_id)
+            if state:
+                states[obj.id] = state
+        return states
+
+    @staticmethod
+    def _bc_unit_details(link_key, record, image_url=False):
+        """Side panel details of ``record`` from its link provider, with an
+        image URL the portal can open."""
+
+        provider = request.env['workspace.floor.link.registry'].sudo()._get_provider(link_key)
+        details = provider._fp_get_details(record) or False
+        if details:
+            details['image_url'] = image_url
+        return details
+
+    @staticmethod
+    def _bc_image_response(record, field_name='image_1920'):
+        """A photo of ``record`` sized for the details panel."""
+
+        return request.env['ir.binary']._get_image_stream_from(
+            record, field_name, width=480, height=360).get_response()

@@ -91,64 +91,48 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
         # comparisons and ids match the rest of the database.
         return preview.available_desk_ids._origin.sorted('name')
 
-    def _hot_desk_sites(self, contract, free_desks):
-        """Floors of the contract's centre that draw its hot desks, each
-        counting the desks free for the slot. A floor stays listed when all
-        its desks are booked, so the member sees them in red instead of the
-        floor vanishing."""
+    @staticmethod
+    def _hot_desk_center_desks(contract):
+        """Every hot desk of the contract's centre, open or not."""
 
         if not contract.center_id:
-            return []
-        hot_desks = request.env['business.center.desk'].sudo().search([
+            return request.env['business.center.desk'].sudo()
+        return request.env['business.center.desk'].sudo().search([
             ('desk_type', '=', 'hot'),
             ('center_id', '=', contract.center_id.id),
         ])
-        if not hot_desks:
-            return []
-        Floor = request.env['business.center.floor'].sudo()
-        sites = Floor.bc_get_picker_sites(HOT_DESK_LINK_KEY, hot_desks.ids)
-        free_sites = Floor.bc_get_picker_sites(HOT_DESK_LINK_KEY, free_desks.ids) if free_desks else []
-        free_by_plan = {plan['id']: plan['pickable'] for site in free_sites for plan in site['plans']}
-        # The note counts free desks missing from every layout: take it from the free call.
-        free_notes = {site['id']: site['note'] for site in free_sites}
-        for site in sites:
-            site['note'] = free_notes.get(site['id'], False)
-            for plan in site['plans']:
-                plan['pickable'] = free_by_plan.get(plan['id'], 0)
-        return sites
+
+    def _hot_desk_sites(self, contract, free_desks):
+        """Floors of the contract's centre that draw its hot desks, each
+        counting the desks free for the slot."""
+
+        return self._bc_floor_sites(HOT_DESK_LINK_KEY, contract.center_id,
+                                    self._hot_desk_center_desks(contract), free_desks)
 
     def _hot_desk_plan(self, plan_id, contract):
         """The floor plan when it belongs to the contract's centre, else an
         empty recordset."""
 
-        plan = request.env['workspace.floor.plan'].sudo().browse(plan_id).exists()
-        if contract and plan and plan.bc_floor_id.center_id == contract.center_id:
-            return plan
-        return plan.browse()
+        return self._bc_floor_plan(plan_id, contract.center_id if contract else False)
 
     def _hot_desk_slot_states(self, plan, selection):
         """'free', 'booked' or 'closed' for every hot desk drawn on ``plan``,
         keyed by shape id, for the chosen slot. Decided here, not in the
         browser, from the same data as the desk dropdown."""
 
-        contract = selection['contract']
-        objects = request.env['workspace.floor.plan.object'].sudo().search([
-            ('plan_id', '=', plan.id),
-            ('link_key', '=', HOT_DESK_LINK_KEY),
-            ('link_res_id', '!=', False),
-        ])
-        desks = request.env['business.center.desk'].sudo().browse(
-            objects.mapped('link_res_id')).exists().filtered(
-            lambda d: d.center_id == contract.center_id)
+        desks = self._hot_desk_center_desks(selection['contract'])
         held = request.env['business.center.desk.booking'].sudo()._bc_held_desks(
             desks, selection['booking_date'], selection['start'] or 0.0, selection['end'] or 0.0)
-        free = selection['desks']
-        states = {}
-        for obj in objects:
-            desk = desks.filtered(lambda d: d.id == obj.link_res_id)
-            if desk:
-                states[obj.id] = 'free' if desk in free else ('booked' if desk in held else 'closed')
-        return states
+        all_ids, free_ids, held_ids = set(desks.ids), set(selection['desks'].ids), set(held.ids)
+
+        def state_of(desk_id):
+            if desk_id not in all_ids:
+                return None
+            if desk_id in free_ids:
+                return 'free'
+            return 'booked' if desk_id in held_ids else 'closed'
+
+        return self._bc_floor_slot_states(plan, HOT_DESK_LINK_KEY, state_of)
 
     def _hot_desk_selection(self, values):
         """Contract, date, times, free desks and people for the form, from
@@ -500,11 +484,7 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
         plan = self._hot_desk_plan(plan_id, self._hot_desk_contract(contract_id))
         if not plan:
             return request.not_found()
-        layout = request.env['workspace.floor.layout.service'].sudo()._load(plan)
-        # Only the drawing: no palette, providers or edit rights in the portal.
-        layout.update(presets=[], providers=[])
-        layout['plan']['can_edit'] = False
-        return request.make_json_response(layout)
+        return request.make_json_response(self._bc_floor_layout(plan))
 
     @http.route(['/my/hot-desks/floor/<int:plan_id>/slots'], type='http', auth='user', methods=['GET'])
     def portal_hot_desk_floor_slots(self, plan_id, **kw):
@@ -532,13 +512,10 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
         if not (contract and desk and desk.desk_type == 'hot'
                 and desk.center_id == contract.center_id):
             return request.not_found()
-        provider = request.env['workspace.floor.link.registry'].sudo()._get_provider(HOT_DESK_LINK_KEY)
-        details = provider._fp_get_details(desk) or False
-        if details:
-            # The backend image URL needs read access on spaces: serve it here.
-            space = desk.space_id
-            details['image_url'] = '/my/hot-desks/photo/%s' % space.id if space.image_1920 else False
-        return request.make_json_response(details)
+        # The backend image URL needs read access on spaces: serve it here.
+        space = desk.space_id
+        image_url = '/my/hot-desks/photo/%s' % space.id if space.image_1920 else False
+        return request.make_json_response(self._bc_unit_details(HOT_DESK_LINK_KEY, desk, image_url))
 
     @http.route(['/my/hot-desks/photo/<int:space_id>'], type='http', auth='user', methods=['GET'])
     def portal_hot_desk_photo(self, space_id, **kw):
@@ -551,5 +528,4 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
         if not (space and space.is_coworking
                 and space.center_id in self._hot_desk_contracts().center_id):
             return request.not_found()
-        return request.env['ir.binary']._get_image_stream_from(
-            space, 'image_1920', width=480, height=360).get_response()
+        return self._bc_image_response(space)

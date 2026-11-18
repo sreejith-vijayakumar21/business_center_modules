@@ -6,15 +6,16 @@ import { centerOf, fitView } from "@workspace_floor_planner/floor_planner/core/g
 import { LayoutStore } from "@workspace_floor_planner/floor_planner/core/layout_store";
 import { FloorUnitDetails } from "@workspace_floor_planner/floor_planner/picker/floor_unit_details";
 import { pointInRect } from "@workspace_floor_planner/floor_planner/picker/pickability";
-import { HOT_DESK_EVENTS } from "@business_center_portal/js/hot_desk_events";
+import { pickerEvents } from "@business_center_portal/floor_picker/picker_events";
+import { pickerKind } from "@business_center_portal/floor_picker/picker_kinds";
 
-const LINK_KEY = "bc_hot_desk";
 const ZOOM_STEP = 1.25;
 
 // Slot states sent by the server, plus two for drawing only.
 const FREE = "free";
 const BOOKED = "booked";
 const CLOSED = "closed";
+const SMALL = "small";
 const PICKED = "picked";
 const OTHER = "other";
 
@@ -23,41 +24,10 @@ function slotPalette() {
         [FREE]: { code: FREE, name: _t("Free for your time"), color: "#8EDCB0" },
         [PICKED]: { code: PICKED, name: _t("Selected"), color: "#8E9BF5" },
         [BOOKED]: { code: BOOKED, name: _t("Booked for your time"), color: "#F4A6A6" },
-        [CLOSED]: { code: CLOSED, name: _t("Not open for booking"), color: "#DCE0E8" },
+        [SMALL]: { code: SMALL, name: _t("Too small for your group"), color: "#F6D9A8" },
+        [CLOSED]: { code: CLOSED, name: _t("Not available"), color: "#DCE0E8" },
         [OTHER]: { code: OTHER, name: _t("Not bookable here"), color: "#EEF0F4" },
     };
-}
-
-/** A saved shape linked to a hot desk. */
-function isHotDesk(obj) {
-    return obj.link_key === LINK_KEY && Boolean(obj.id);
-}
-
-/**
- * Colour hot desks by the server's slot state (the selected free one stands
- * out), grey every other unit, and let zones count their free desks.
- *
- * @param {Object} store a LayoutStore
- * @param {Object} slot {shape id: "free" | "booked" | "closed"}
- */
-function colourBySlot(store, slot) {
-    store.statusPalette = { ...store.statusPalette, ...slotPalette() };
-    const objects = {};
-    const desks = store.objects.filter(isHotDesk);
-    for (const desk of desks) {
-        const state = slot[desk.id] || CLOSED;
-        objects[desk.id] = { status: state === FREE && desk.key === store.selectedKey ? PICKED : state };
-    }
-    for (const obj of store.objects) {
-        if (obj.id && obj.category === "rentable" && !isHotDesk(obj)) {
-            objects[obj.id] = { status: OTHER };
-        } else if (obj.id && obj.category === "zone") {
-            const inside = desks.filter((d) => pointInRect(centerOf(d), obj));
-            const available = inside.filter((d) => slot[d.id] === FREE).length;
-            objects[obj.id] = { status: available ? FREE : CLOSED, available, total: inside.length };
-        }
-    }
-    store.setStatuses({ objects, summary: {}, at: false, time_dependent: false, computed_at: false });
 }
 
 async function getJson(url) {
@@ -69,24 +39,27 @@ async function getJson(url) {
 }
 
 /**
- * Read-only floor plan of the tenant's centre. Hot desks are green when free
- * for the chosen slot, red when booked and grey when closed; every other
- * shape is faded and takes no clicks. Clicking a green desk fills the
- * booking form. Talks to the form only through HOT_DESK_EVENTS, and every
- * slot state comes from the server.
+ * Read-only floor plan of the tenant's centre, for picking one kind of unit
+ * (a hot desk, a meeting room, ...) given by the ``kind`` prop. Units of that
+ * kind are coloured by the server's state for the chosen slot; every other
+ * shape is faded and takes no clicks. Clicking a free unit fills the form.
+ *
+ * Talks to its form only through pickerEvents(kind); what it picks, where
+ * it reads from and what it says come from pickerKind(kind).
  */
-export class HotDeskFloorPicker extends Component {
-    static template = "business_center_portal.HotDeskFloorPicker";
+export class BcFloorPicker extends Component {
+    static template = "business_center_portal.BcFloorPicker";
     static components = { FloorCanvas, FloorUnitDetails };
-    static props = {};
+    static props = { kind: String };
 
     setup() {
+        this.kind = pickerKind(this.props.kind);
+        this.events = pickerEvents(this.props.kind);
+        this.palette = slotPalette();
         this.state = useState({
             ready: false,
             contractId: false,
-            bookingDate: "",
-            startTime: "",
-            endTime: "",
+            params: {},
             sites: [],
             planId: false,
             store: null,
@@ -100,11 +73,11 @@ export class HotDeskFloorPicker extends Component {
         this.detailsCache = new Map();
         this.resizeObserver = new ResizeObserver(() => this.fit());
 
-        useExternalListener(document, HOT_DESK_EVENTS.options, (ev) => this.onOptions(ev.detail));
-        useExternalListener(document, HOT_DESK_EVENTS.chosen, (ev) => this.onChosen(ev.detail));
+        useExternalListener(document, this.events.options, (ev) => this.onOptions(ev.detail));
+        useExternalListener(document, this.events.chosen, (ev) => this.onChosen(ev.detail));
         useEffect(
             () => {
-                document.dispatchEvent(new CustomEvent(HOT_DESK_EVENTS.ready));
+                document.dispatchEvent(new CustomEvent(this.events.ready));
             },
             () => [],
         );
@@ -114,7 +87,7 @@ export class HotDeskFloorPicker extends Component {
         useEffect(
             () => {
                 if (this.state.store) {
-                    colourBySlot(this.state.store, this.state.slot);
+                    this.colourBySlot(this.state.store, this.state.slot);
                     this.onSelect();
                 }
             },
@@ -133,6 +106,10 @@ export class HotDeskFloorPicker extends Component {
         return this.state.sites.filter((site) => site.note).map((site) => site.note);
     }
 
+    get legend() {
+        return this.kind.legend.map((code) => ({ code, name: this.palette[code].name, color: this.palette[code].color }));
+    }
+
     get selected() {
         return this.state.store ? this.state.store.selected : null;
     }
@@ -141,63 +118,75 @@ export class HotDeskFloorPicker extends Component {
         return this.state.store ? Math.round(this.state.store.view.zoom * 100) : 100;
     }
 
+    /** A saved shape linked to a unit of this picker's kind. */
+    isTarget(obj) {
+        return obj.link_key === this.kind.linkKey && Boolean(obj.id);
+    }
+
     slotOf(obj) {
         return this.state.slot[obj.id] || CLOSED;
     }
 
     get selectedStatus() {
         const obj = this.selected;
-        if (!obj || !isHotDesk(obj)) {
-            return undefined;
-        }
-        if (this.state.slotError) {
+        if (!obj || !this.isTarget(obj) || this.state.slotError) {
             return undefined;
         }
         const state = this.slotOf(obj);
-        if (state === FREE) {
-            return { label: _t("Free for your time"), tone: "pickable" };
-        }
-        if (state === BOOKED) {
-            return { label: _t("Booked for your time"), tone: "booked" };
-        }
-        return { label: _t("Not open for booking"), tone: "unpickable" };
+        const tone = state === FREE ? "pickable" : state === BOOKED ? "booked" : "unpickable";
+        return { label: this.palette[state].name, tone };
     }
 
     get selectedNote() {
         const obj = this.selected;
-        if (!obj || !isHotDesk(obj)) {
+        if (!obj || !this.isTarget(obj) || this.state.slotError) {
             return undefined;
         }
-        if (this.state.slotError) {
-            return undefined;
-        }
-        const state = this.slotOf(obj);
-        if (state === BOOKED) {
-            return _t("This desk is taken for part of your time. Pick a green desk or change the time.");
-        }
-        if (state === CLOSED) {
-            return _t("This desk is not open for booking right now.");
-        }
-        return undefined;
+        return this.kind.notes[this.slotOf(obj)];
     }
 
     isPickable(obj) {
-        return isHotDesk(obj) && this.slotOf(obj) === FREE;
+        return this.isTarget(obj) && this.slotOf(obj) === FREE;
     }
 
-    /** Everything but hot desks is drawn faded and ignores clicks. */
+    /** Everything but this picker's units is drawn faded and ignores clicks. */
     isInert(obj) {
-        return !isHotDesk(obj);
+        return !this.isTarget(obj);
+    }
+
+    /**
+     * Colour this picker's units by the server's slot state (the selected
+     * free one stands out), grey every other unit, and let zones count
+     * their free units.
+     */
+    colourBySlot(store, slot) {
+        store.statusPalette = { ...store.statusPalette, ...this.palette };
+        const objects = {};
+        const targets = store.objects.filter((o) => this.isTarget(o));
+        for (const unit of targets) {
+            const state = slot[unit.id] || CLOSED;
+            objects[unit.id] = { status: state === FREE && unit.key === store.selectedKey ? PICKED : state };
+        }
+        for (const obj of store.objects) {
+            if (obj.id && obj.category === "rentable" && !this.isTarget(obj)) {
+                objects[obj.id] = { status: OTHER };
+            } else if (obj.id && obj.category === "zone") {
+                const inside = targets.filter((u) => pointInRect(centerOf(u), obj));
+                const available = inside.filter((u) => slot[u.id] === FREE).length;
+                objects[obj.id] = { status: available ? FREE : CLOSED, available, total: inside.length };
+            }
+        }
+        store.setStatuses({ objects, summary: {}, at: false, time_dependent: false, computed_at: false });
     }
 
     // ------------------------------------------------------------------
     // MARK: FORM EVENTS
     // ------------------------------------------------------------------
-    async onOptions({ contractId, bookingDate, startTime, endTime, sites }) {
+    async onOptions({ contractId, params, sites }) {
         if (contractId !== this.state.contractId) {
             this.detailsCache.clear();
         }
-        Object.assign(this.state, { ready: true, contractId, bookingDate, startTime, endTime, sites });
+        Object.assign(this.state, { ready: true, contractId, params: params || {}, sites: sites || [] });
         if (this.plans.some((p) => p.id && p.id === this.state.planId)) {
             await this.loadSlots();
         } else {
@@ -208,7 +197,7 @@ export class HotDeskFloorPicker extends Component {
 
     onChosen({ id }) {
         const store = this.state.store;
-        const obj = store && store.objects.find((o) => isHotDesk(o) && o.link_res_id === id);
+        const obj = store && store.objects.find((o) => this.isTarget(o) && o.link_res_id === id);
         if (obj && store.selectedKey !== obj.key) {
             store.select(obj.key);
         }
@@ -218,7 +207,7 @@ export class HotDeskFloorPicker extends Component {
         const obj = this.selected;
         this.loadDetails(obj);
         if (obj && this.isPickable(obj)) {
-            document.dispatchEvent(new CustomEvent(HOT_DESK_EVENTS.picked, { detail: { id: obj.link_res_id } }));
+            document.dispatchEvent(new CustomEvent(this.events.picked, { detail: { id: obj.link_res_id } }));
         }
     }
 
@@ -235,7 +224,7 @@ export class HotDeskFloorPicker extends Component {
             this.state.store = null;
             return;
         }
-        const data = await getJson(`/my/hot-desks/floor/${planId}?contract_id=${this.state.contractId}`);
+        const data = await getJson(`${this.kind.floorUrl(planId)}?contract_id=${this.state.contractId}`);
         // Ignore a floor that arrives after another tab was clicked.
         if (this.state.planId !== planId) {
             return;
@@ -249,16 +238,11 @@ export class HotDeskFloorPicker extends Component {
         if (!planId) {
             return;
         }
-        const params = new URLSearchParams({
-            contract_id: this.state.contractId,
-            booking_date: this.state.bookingDate,
-            start_time: this.state.startTime,
-            end_time: this.state.endTime,
-        });
+        const params = new URLSearchParams({ ...this.state.params, contract_id: this.state.contractId });
         let slot = {};
         let failed = false;
         try {
-            slot = await getJson(`/my/hot-desks/floor/${planId}/slots?${params}`);
+            slot = await getJson(`${this.kind.slotsUrl(planId)}?${params}`);
         } catch {
             failed = true;
         }
@@ -270,7 +254,7 @@ export class HotDeskFloorPicker extends Component {
     }
 
     async loadDetails(obj) {
-        if (!obj || !isHotDesk(obj)) {
+        if (!obj || !this.isTarget(obj)) {
             this.state.details = false;
             this.state.detailsLoading = false;
             return;
@@ -284,12 +268,12 @@ export class HotDeskFloorPicker extends Component {
         this.state.detailsLoading = true;
         let details = false;
         try {
-            details = await getJson(`/my/hot-desks/desk/${id}?contract_id=${this.state.contractId}`);
+            details = await getJson(`${this.kind.detailsUrl(id)}?contract_id=${this.state.contractId}`);
             this.detailsCache.set(id, details);
         } catch {
             details = false;
         } finally {
-            // Ignore an answer that arrives after another desk was clicked.
+            // Ignore an answer that arrives after another unit was clicked.
             if (this.selected && this.selected.link_res_id === id) {
                 this.state.details = details;
                 this.state.detailsLoading = false;
@@ -327,4 +311,4 @@ export class HotDeskFloorPicker extends Component {
     }
 }
 
-registry.category("public_components").add("business_center_portal.HotDeskFloorPicker", HotDeskFloorPicker);
+registry.category("public_components").add("business_center_portal.BcFloorPicker", BcFloorPicker);

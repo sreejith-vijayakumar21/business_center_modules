@@ -330,7 +330,7 @@
                     <!-- STEP 2 : DESK -->
                     <section class="o_bc_card">
                         <div class="o_bc_step"><span class="o_bc_num">2</span>Pick a desk</div>
-                        <owl-component name="business_center_portal.HotDeskFloorPicker"/>
+                        <owl-component name="business_center_portal.BcFloorPicker" props='{"kind": "hot_desk"}'/>
                         <div class="row g-3 mt-1 align-items-end">
                             <div class="col-md-6">
                                 <label class="o_bc_label" for="hd_desk_id">Or choose from the list</label>
