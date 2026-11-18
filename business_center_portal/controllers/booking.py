@@ -2,8 +2,6 @@
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from collections import OrderedDict
-from urllib.parse import urlencode
-
 from psycopg2 import IntegrityError
 
 from odoo import _, fields, http
@@ -173,12 +171,14 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
         if redirect:
             return redirect
 
+        reason = self._booking_cancel_block_reason(booking_sudo)
         values = {
             'booking': booking_sudo,
             'page_name': 'booking',
-            'can_cancel': self._can_cancel_booking(booking_sudo),
-            'cancel_block_reason': self._booking_cancel_block_reason(booking_sudo),
+            'can_cancel': not reason,
+            'cancel_block_reason': reason,
             'error': kw.get('error', ''),
+            **self._bc_cancel_dialog_values(booking_sudo),
         }
         return request.render('business_center_portal.portal_booking_page', values)
 
@@ -186,11 +186,10 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
     #   MARK: BOOKING CANCELLATION
     # ------------------------------------------------------------------
     def _booking_cancel_block_reason(self, booking_sudo):
-        """Why this member may not cancel this booking, or False if they may.
-        An employee can only undo what they booked themselves; a corporate admin
-        can undo anything on the company's contracts. A slot that has already
-        started, or whose overage is already on an invoice, is the centre's to
-        reverse."""
+        """Why this member may neither cancel nor ask to cancel this booking,
+        or False if they may. An employee acts on what they booked; a
+        corporate admin on anything of the company's contracts. Whether it is
+        free or a request is the booking's call (_bc_can_cancel_free)."""
 
         user = request.env.user
         if booking_sudo.state == 'cancelled':
@@ -200,8 +199,9 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
         if not self._bc_is_tenant_admin() and booking_sudo.user_id != user:
             return _("Only the person who made this booking, or your company's "
                      "administrator, can cancel it.")
-        if booking_sudo._is_in_past():
-            return _("This slot has already started and can no longer be cancelled.")
+        if booking_sudo.cancel_request_state == 'pending':
+            return _("You have already asked to cancel this booking. The business "
+                     "centre will reply by email.")
         invoiced = booking_sudo.contract_id.charge_ids.filtered(
             lambda c: c.booking_id == booking_sudo and c.state == 'invoiced')
         if invoiced:
@@ -210,34 +210,33 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
         return False
 
     def _can_cancel_booking(self, booking_sudo):
-        """Whether this member may cancel this booking."""
+        """Whether this member may cancel, or ask to cancel, this booking."""
 
         return not self._booking_cancel_block_reason(booking_sudo)
 
     @http.route(['/my/bookings/<int:booking_id>/cancel'], type='http',
                 auth='user', website=True, methods=['POST'])
     def portal_booking_cancel(self, booking_id, **post):
-        """Cancel one of the member's own bookings, releasing the slot and
-        returning the wallet hours it drew."""
+        """Cancel one of the member's bookings inside its free window,
+        releasing the slot and returning the wallet hours it drew."""
 
         booking_sudo, redirect = self._bc_get_booking_sudo(booking_id)
         if redirect:
             return redirect
+        return self._bc_cancel_free(booking_sudo, '/my/bookings/%s' % booking_id,
+                                    self._booking_cancel_block_reason(booking_sudo))
 
-        reason = self._booking_cancel_block_reason(booking_sudo)
-        if reason:
-            return request.redirect('/my/bookings/%s?%s' % (
-                booking_id, urlencode({'error': reason})))
+    @http.route(['/my/bookings/<int:booking_id>/request-cancel'], type='http',
+                auth='user', website=True, methods=['POST'])
+    def portal_booking_request_cancel(self, booking_id, reason=None, **post):
+        """Ask the business centre to cancel once free cancellation has
+        ended; a manager decides whether anything is charged."""
 
-        try:
-            booking_sudo.action_cancel()
-            request.env.flush_all()
-        except (UserError, ValidationError) as exc:
-            request.env.cr.rollback()
-            return request.redirect('/my/bookings/%s?%s' % (
-                booking_id, urlencode({'error': exc.args[0]})))
-
-        return request.redirect('/my/bookings/%s' % booking_id)
+        booking_sudo, redirect = self._bc_get_booking_sudo(booking_id)
+        if redirect:
+            return redirect
+        return self._bc_request_cancel(booking_sudo, '/my/bookings/%s' % booking_id,
+                                       self._booking_cancel_block_reason(booking_sudo), reason)
 
     # ------------------------------------------------------------------
     #   MARK: SCOPE HELPERS
@@ -334,8 +333,9 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
         }
 
     def _room_slot_states(self, plan, selection):
-        """'free', 'booked', 'closed' or 'small' for every meeting room drawn
-        on ``plan``, keyed by shape id, for the chosen slot and group size."""
+        """'free', 'booked', 'small', 'hours' (outside opening hours) or
+        'closed' for every meeting room drawn on ``plan``, keyed by shape id,
+        for the chosen slot and group size."""
 
         center_rooms = self._center_rooms(selection['contract'].center_id)
         held = request.env['business.center.booking'].sudo()._slot_held(
@@ -352,9 +352,13 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
                 return 'free'
             if room_id in held_ids:
                 return 'booked'
-            if room_id in bookable_ids and not self._room_fits(room, selection['attendees']):
+            if room_id not in bookable_ids:
+                # Withdrawn from booking, in maintenance or not ready yet.
+                return 'closed'
+            if not self._room_fits(room, selection['attendees']):
                 return 'small'
-            return 'closed'
+            # Bookable, free and big enough: the times fall outside its opening hours.
+            return 'hours'
 
         return self._bc_floor_slot_states(plan, MEETING_ROOM_LINK_KEY, state_of)
 

@@ -79,6 +79,8 @@
                             <span t-if="booking.state == 'confirmed'" class="badge rounded-pill text-bg-success">Confirmed</span>
                             <span t-elif="booking.state == 'draft'"   class="badge rounded-pill text-bg-info">Draft</span>
                             <span t-else=""                           class="badge rounded-pill text-bg-secondary">Cancelled</span>
+                            <span t-if="booking.cancel_request_state == 'pending'"
+                                  class="badge rounded-pill text-bg-warning ms-1">Cancellation requested</span>
                         </td>
                     </tr>
                 </tbody>
@@ -98,8 +100,10 @@
                         <span t-if="booking.state == 'confirmed'" class="badge text-bg-success">Confirmed</span>
                         <span t-elif="booking.state == 'draft'"   class="badge text-bg-info">Draft</span>
                         <span t-else=""                           class="badge text-bg-secondary">Cancelled</span>
+                        <span t-if="booking.cancel_request_state == 'pending'"
+                              class="badge text-bg-warning">Cancellation requested</span>
                     </h5>
-                    <button t-if="booking.state == 'confirmed'" type="button"
+                    <button t-if="booking.state == 'confirmed' and booking.cancel_request_state != 'pending'" type="button"
                             t-attf-class="btn btn-sm #{'btn-outline-danger' if can_cancel else 'btn-outline-secondary'}"
                             data-bs-toggle="modal" data-bs-target="#o_bc_cancel_booking">
                         <i class="fa fa-times me-1"/>Cancel booking
@@ -108,6 +112,22 @@
             </div>
             <div t-if="error" class="alert alert-danger d-flex align-items-center" role="alert">
                 <i class="fa fa-exclamation-circle me-2"/><t t-esc="error"/>
+            </div>
+            <div t-if="booking.cancel_request_state == 'pending'" class="alert alert-warning" role="alert">
+                <i class="fa fa-hourglass-half me-2"/>
+                You asked to cancel this booking on <span t-field="booking.cancel_requested_at"/>.
+                The business centre will reply by email; until then the room stays booked.
+                <div class="small mt-1"><strong>Your reason:</strong> <t t-esc="booking.cancel_request_reason"/></div>
+            </div>
+            <div t-elif="booking.cancel_request_state == 'rejected'" class="alert alert-info" role="alert">
+                <i class="fa fa-info-circle me-2"/>
+                The business centre kept this booking: your cancellation request was declined.
+                <div t-if="booking.cancel_reason" class="small mt-1"><strong>Note:</strong> <t t-esc="booking.cancel_reason"/></div>
+            </div>
+            <div t-elif="booking.cancel_request_state == 'accepted'" class="alert alert-info" role="alert">
+                <i class="fa fa-info-circle me-2"/>
+                Your cancellation request was accepted<t t-if="booking.cancel_outcome">: <span t-field="booking.cancel_outcome"/></t>.
+                <div t-if="booking.cancel_reason" class="small mt-1"><strong>Note:</strong> <t t-esc="booking.cancel_reason"/></div>
             </div>
 
             <div class="row">
@@ -163,45 +183,86 @@
                 </tbody>
             </table>
 
-            <div t-if="booking.state == 'confirmed'" class="modal fade" id="o_bc_cancel_booking"
-                 tabindex="-1" aria-hidden="true">
+            <div t-if="booking.state == 'confirmed' and booking.cancel_request_state != 'pending'"
+                 class="modal fade o_bc_cancel_dialog" id="o_bc_cancel_booking" tabindex="-1" aria-hidden="true"
+                 t-att-data-free-seconds="free_seconds_left if (can_cancel and can_cancel_free) else None">
                 <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
+
+                    <!-- Inside the free window: cancel at once -->
+                    <div t-if="can_cancel and can_cancel_free" class="modal-content o_bc_cancel_free">
                         <div class="modal-header">
-                            <h5 class="modal-title">
-                                <t t-if="can_cancel">Cancel this booking?</t>
-                                <t t-else="">This booking can't be cancelled</t>
-                            </h5>
-                            <button type="button" class="btn-close"
-                                    data-bs-dismiss="modal" aria-label="Close"/>
+                            <h5 class="modal-title">Cancel this booking?</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
                         </div>
                         <div class="modal-body">
                             <p class="mb-1">
-                                <span t-field="booking.meeting_room_id"/> on
-                                <span t-field="booking.booking_date"/>,
+                                <span t-field="booking.meeting_room_id"/> on <span t-field="booking.booking_date"/>,
                                 <span t-field="booking.selected_slot_display"/>.
                             </p>
-                            <p t-if="can_cancel" class="text-muted small mb-0">
-                                The slot is released and any wallet hours it used go back
-                                to your contract's monthly credits.
+                            <p class="text-muted small mb-0">
+                                The room is released and any wallet hours it used go back to your
+                                contract's monthly credits.
                             </p>
-                            <p t-else="" class="text-muted small mb-0" t-esc="cancel_block_reason"/>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-                                <t t-if="can_cancel">Keep booking</t>
-                                <t t-else="">Close</t>
-                            </button>
-                            <form t-if="can_cancel" method="post" class="d-inline"
-                                  t-attf-action="/my/bookings/#{booking.id}/cancel">
-                                <input type="hidden" name="csrf_token"
-                                       t-att-value="request.csrf_token()"/>
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep booking</button>
+                            <form method="post" class="d-inline" t-attf-action="/my/bookings/#{booking.id}/cancel">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <button type="submit" class="btn btn-danger">
                                     <i class="fa fa-times me-1"/>Cancel booking
                                 </button>
                             </form>
                         </div>
                     </div>
+
+                    <!-- After the free window: ask the business centre -->
+                    <form t-if="can_cancel" method="post"
+                          t-attf-action="/my/bookings/#{booking.id}/request-cancel"
+                          t-attf-class="modal-content o_bc_cancel_request #{'d-none' if can_cancel_free else ''}">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <div class="modal-header">
+                            <h5 class="modal-title">Request cancellation</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-1">
+                                <span t-field="booking.meeting_room_id"/> on <span t-field="booking.booking_date"/>,
+                                <span t-field="booking.selected_slot_display"/>.
+                            </p>
+                            <p class="text-muted small">
+                                <t t-if="free_cancel_minutes">
+                                    Free cancellation ends <t t-esc="free_cancel_minutes"/> minutes before the start.
+                                </t>
+                                <t t-else="">This booking has already started.</t>
+                                The business centre decides whether anything is charged and replies by email.
+                                Until then the room stays booked.
+                            </p>
+                            <label class="o_bc_label" for="o_bc_cancel_reason">Why do you want to cancel?</label>
+                            <textarea name="reason" id="o_bc_cancel_reason" class="form-control" rows="3"
+                                      required="required" maxlength="1000"/>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep booking</button>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fa fa-paper-plane me-1"/>Send request
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Not allowed for this member -->
+                    <div t-if="not can_cancel" class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">This booking can't be cancelled here</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted small mb-0" t-esc="cancel_block_reason"/>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </t>

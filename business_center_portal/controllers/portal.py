@@ -1,8 +1,10 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from urllib.parse import urlencode
+
 from odoo import _, fields
-from odoo.exceptions import UserError
+from odoo.exceptions import UserError, ValidationError
 from odoo.http import request
 
 from odoo.addons.portal.controllers.portal import CustomerPortal
@@ -191,3 +193,66 @@ class BusinessCenterPortal(CustomerPortal):
 
         return request.env['ir.binary']._get_image_stream_from(
             record, field_name, width=480, height=360).get_response()
+        
+    # ------------------------------------------------------------------------------
+    #   MARK: CANCELLATION HELPERS
+    # ------------------------------------------------------------------------------
+    # Shared by every booking page (hot desks, meeting rooms, ...). The
+    # rules (free window, request, who may) are the booking model's; these
+    # only run them and send the member back to the page.
+
+    @staticmethod
+    def _bc_cancel_dialog_values(booking):
+        """What a booking page's cancel dialog needs: whether cancelling is
+        still free, the seconds left (counted down in the browser) and the
+        cut-off in minutes."""
+
+        return {
+            'can_cancel_free': booking._bc_can_cancel_free(),
+            'free_seconds_left': int(booking._bc_free_cancel_minutes_left() * 60),
+            'free_cancel_minutes': booking._bc_free_cancel_policy_minutes(),
+        }
+
+    @staticmethod
+    def _bc_redirect_with_error(url, message=None):
+        """Back to ``url``, with ``message`` shown at the top if any."""
+
+        return request.redirect('%s?%s' % (url, urlencode({'error': message})) if message else url)
+
+    def _bc_run_booking_action(self, operation, url):
+        """Run ``operation`` and come back to ``url``, or roll back and show
+        the error there."""
+
+        try:
+            operation()
+            request.env.flush_all()
+        except (UserError, ValidationError) as exc:
+            request.env.cr.rollback()
+            return self._bc_redirect_with_error(url, exc.args[0])
+        return request.redirect(url)
+
+    def _bc_cancel_free(self, booking, url, block_reason):
+        """Cancel ``booking`` at once inside its free window, or come back
+        with why not."""
+
+        if not block_reason and not booking._bc_can_cancel_free():
+            block_reason = _("Free cancellation has ended for this booking. Please send a "
+                             "cancellation request instead.")
+        if block_reason:
+            return self._bc_redirect_with_error(url, block_reason)
+        return self._bc_run_booking_action(booking.action_cancel, url)
+
+    def _bc_request_cancel(self, booking, url, block_reason, reason):
+        """Ask the business centre to cancel ``booking``; still inside the
+        free window (the page was left open), it simply cancels."""
+
+        if block_reason:
+            return self._bc_redirect_with_error(url, block_reason)
+
+        def operation():
+            if booking._bc_can_cancel_free():
+                booking.action_cancel()
+            else:
+                booking.action_request_cancel(reason)
+
+        return self._bc_run_booking_action(operation, url)

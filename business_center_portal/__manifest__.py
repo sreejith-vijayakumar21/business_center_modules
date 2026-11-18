@@ -56,6 +56,7 @@ Tenant portal for Business Center.
             # Floor picker shared by the hot desk and meeting room forms.
             'business_center_portal/static/src/floor_picker/*',
             'business_center_portal/static/src/js/portal_hot_desk.js',
+            'business_center_portal/static/src/js/cancel_dialog.js',
         ],
     },
     'installable': True,
