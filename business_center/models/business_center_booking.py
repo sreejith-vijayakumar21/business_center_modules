@@ -77,12 +77,13 @@ class BusinessCenterBooking(models.Model):
                                 related='contract_id.center_id', store=True)
     meeting_room_id = fields.Many2one(
         'business.center.space', string='Meeting Room', required=True,
-        domain="[('space_type', '=', 'meeting_room'), "
-               "('center_id', '=', center_id), "
-               "('is_bookable', '=', True), "
-               "('state', 'in', ('available', 'occupied'))]")
+        domain="[('id', 'in', available_room_ids)]")
     currency_id = fields.Many2one('res.currency', string='Currency', default=lambda self: self.env.company.currency_id)
     company_id = fields.Many2one(related='contract_id.company_id', store=True, string='Company')
+    available_room_ids = fields.Many2many(
+        'business.center.space', string='Free Meeting Rooms', compute='_compute_available_room_ids',
+        help="Meeting rooms of the contract's centre open for booking, open for the "
+             "chosen time and not booked by anyone else, for the dropdown and the floor picker.")
     
     _no_double_booking = models.Constraint(
         """EXCLUDE USING gist (
@@ -174,6 +175,26 @@ class BusinessCenterBooking(models.Model):
 
         for rec in self:
             rec.chargeable_hours_display = rec._float_to_duration(rec.chargeable_hours)
+            
+    @api.depends('center_id', 'booking_date', 'start_time', 'end_time')
+    def _compute_available_room_ids(self):
+        """Bookable meeting rooms of the contract's centre that are free for
+        the slot, by the same rule as the portal (_bc_free_rooms). A booking
+        never blocks itself."""
+
+        Space = self.env['business.center.space']
+        for rec in self:
+            if not rec.center_id:
+                rec.available_room_ids = Space
+                continue
+            rooms = Space.search([
+                ('space_type', '=', 'meeting_room'),
+                ('center_id', '=', rec.center_id.id),
+                ('is_bookable', '=', True),
+                ('state', 'in', ('available', 'occupied')),
+            ])
+            rec.available_room_ids = self._bc_free_rooms(
+                rooms, rec.booking_date, rec.start_time, rec.end_time, rec._origin.id or 0)
             
     @api.model_create_multi
     def create(self, vals_list):
@@ -438,16 +459,17 @@ class BusinessCenterBooking(models.Model):
             raise UserError(_("Only a confirmed booking can be cancelled here."))
 
     @api.model
-    def _bc_free_rooms(self, rooms, booking_date, start_time, end_time):
+    def _bc_free_rooms(self, rooms, booking_date, start_time, end_time, exclude_id=0):
         """The rooms among ``rooms`` open for the whole slot and not held by
-        another booking. Without a valid slot, every room counts as free."""
+        another booking (``exclude_id`` is the booking being edited). Without
+        a valid slot, every room counts as free."""
 
         if not (booking_date and end_time > start_time):
             return rooms
         open_rooms = rooms.filtered(
             lambda r: r.min_booking_hour <= start_time
             and (not r.max_booking_hour or end_time <= r.max_booking_hour))
-        return open_rooms - self._slot_held(open_rooms, booking_date, start_time, end_time)
+        return open_rooms - self._slot_held(open_rooms, booking_date, start_time, end_time, exclude_id)
 
     def _bc_cancel_answer_partners(self):
         """The person who booked is told the answer, and whoever sent the request."""
