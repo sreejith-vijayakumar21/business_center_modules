@@ -192,7 +192,9 @@ class BusinessCenterProviderMixin(models.AbstractModel):
     def _bc_booking_statuses(self, records, at, booking_model, resource_field, holding_states):
         """Statuses of bookable units at ``at``: draft and maintenance come
         from the unit; otherwise a holding booking running then makes it
-        occupied, one later the same day reserved, none available."""
+        occupied, one later the same day reserved. With no booking it is
+        available, or shown as maintenance when it is withdrawn from booking,
+        so nobody reads a unit they cannot book as free."""
 
         statuses = {rec.id: STATE_MAP.get(rec.state, "unknown") for rec in records}
         bookable = records.filtered(lambda r: r.state in ("available", "occupied"))
@@ -212,7 +214,7 @@ class BusinessCenterProviderMixin(models.AbstractModel):
             elif mine:
                 statuses[rec.id] = "reserved"
             else:
-                statuses[rec.id] = "available"
+                statuses[rec.id] = "available" if rec.is_bookable else "maintenance"
         return statuses
     
     @api.model
