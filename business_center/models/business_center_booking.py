@@ -14,13 +14,17 @@ class BusinessCenterBooking(models.Model):
     
     _name = 'business.center.booking'
     _description = 'A central registry of business center bookings'
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.slot.booking.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.slot.booking.mixin',
+                'business.center.cancel.request.mixin']
     _order = 'name desc'
 
     # What the shared slot rules book: the meeting room, open per its own hours.
     _slot_resource_field = 'meeting_room_id'
     _slot_hours_path = 'meeting_room_id'
     _slot_blocking_states = ('confirmed',)
+    # What the shared cancellation request rules use for meeting rooms.
+    _bc_free_cancel_field = 'bc_meeting_room_free_cancel_minutes'
+    _bc_cancel_answer_template = 'business_center.mail_template_meeting_room_cancel_answer'
     
     # ------------------------------------------------------------------------------
     #   MARK: FIELDS
@@ -221,8 +225,10 @@ class BusinessCenterBooking(models.Model):
             return True
 
         if not self.env.user.has_group('business_center.group_bc_manager'):
+            # A customer asking to cancel writes only the request fields.
+            changed = set(vals) - {'state'} - self._bc_cancel_request_fields()
             for booking in self:
-                if booking.state != 'draft' and set(vals) - {'state'}:
+                if booking.state != 'draft' and changed:
                     raise UserError(_("A confirmed booking can only be cancelled."))
         return super().write(vals)
     
@@ -424,12 +430,13 @@ class BusinessCenterBooking(models.Model):
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
     def _bc_check_settle(self):
-        """The charge decision wizard cancels a confirmed booking that has started."""
+        """The charge decision wizard cancels a confirmed booking that has
+        started, or answers its customer's cancellation request."""
 
         self.ensure_one()
         if self.state != 'confirmed':
             raise UserError(_("Only a confirmed booking can be cancelled here."))
-        
+
     @api.model
     def _bc_free_rooms(self, rooms, booking_date, start_time, end_time):
         """The rooms among ``rooms`` open for the whole slot and not held by
@@ -441,6 +448,11 @@ class BusinessCenterBooking(models.Model):
             lambda r: r.min_booking_hour <= start_time
             and (not r.max_booking_hour or end_time <= r.max_booking_hour))
         return open_rooms - self._slot_held(open_rooms, booking_date, start_time, end_time)
+
+    def _bc_cancel_answer_partners(self):
+        """The person who booked is told the answer, and whoever sent the request."""
+
+        return self.user_id.partner_id | super()._bc_cancel_answer_partners()
     
     def _bc_refund_wallet_hours(self, hours):
         """Give ``hours`` drawn by this booking back to the contract's wallet,
@@ -541,7 +553,9 @@ class BusinessCenterBooking(models.Model):
                 })
 
         self.with_context(bc_state_from_action=True).write(vals)
-    
+        if self._bc_close_cancel_request('accepted'):
+            self._bc_send_cancel_answer()
+
     def _create_overage_charge(self, overage_hours):
         """Raise a pending contract charge for the meeting-room hours over wallet credit."""
         

@@ -49,6 +49,14 @@
                                 minutes before the start
                             </div>
                         </setting>
+                        <setting string="Meeting Room Cancellation"
+                                 help="After this point members send a cancellation request instead, and a manager decides the charge.">
+                            <div class="mt-2">
+                                Free cancellation up to
+                                <field name="bc_meeting_room_free_cancel_minutes" class="oe_inline" style="width: 4rem;"/>
+                                minutes before the start
+                            </div>
+                        </setting>
                     </block>
                 </app>
             </xpath>

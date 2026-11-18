@@ -4,7 +4,7 @@
 
 {
     'name': 'Business Center',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.3.0',
     'category': 'Generic Modules',
     'sequence': 10,
     'author': 'Infintor Solutions',
@@ -29,6 +29,7 @@
         'data/asset_service_data.xml',
         'data/hot_desk_data.xml',
         'data/hot_desk_mail_data.xml',
+        'data/meeting_room_mail_data.xml',
         'data/mail_activity_type_data.xml',
         'data/mail_template_contract_data.xml',
         'data/mail_template_data.xml',

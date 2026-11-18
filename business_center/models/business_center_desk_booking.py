@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
-from markupsafe import Markup
-
 from odoo import _, api, fields, models
 from odoo.exceptions import UserError, ValidationError
 from odoo.tools import format_date
@@ -21,13 +19,17 @@ class BusinessCenterDeskBooking(models.Model):
 
     _name = 'business.center.desk.booking'
     _description = 'Hot Desk Booking'
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.slot.booking.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.slot.booking.mixin',
+                'business.center.cancel.request.mixin']
     _order = 'booking_date desc, start_time desc, id desc'
 
     # What the shared slot rules book: the hot desk, open per its coworking space.
     _slot_resource_field = 'desk_id'
     _slot_hours_path = 'space_id'
     _slot_blocking_states = ('confirmed', 'checked_in')
+    # What the shared cancellation request rules use for hot desks.
+    _bc_free_cancel_field = 'bc_hot_desk_free_cancel_minutes'
+    _bc_cancel_answer_template = 'business_center.mail_template_hot_desk_cancel_answer'
 
     # ------------------------------------------------------------------------------
     #   MARK: FIELDS
@@ -97,17 +99,6 @@ class BusinessCenterDeskBooking(models.Model):
     ], string='Charge Decision', readonly=True, copy=False, tracking=True)
     cancel_reason = fields.Text(string='Decision Reason', readonly=True, copy=False)
     cancelled_by_id = fields.Many2one('res.users', string='Decided By', readonly=True, copy=False)
-    cancel_request_state = fields.Selection([
-        ('pending', 'Requested'),
-        ('accepted', 'Accepted'),
-        ('rejected', 'Rejected'),
-        ('withdrawn', 'Withdrawn'),
-    ], string='Cancellation Request', readonly=True, copy=False, tracking=True,
-        help="The customer asked to cancel after free cancellation ended; the "
-             "desk stays held until a manager answers.")
-    cancel_requested_at = fields.Datetime(string='Requested At', readonly=True, copy=False)
-    cancel_requested_by_id = fields.Many2one('res.users', string='Requested By', readonly=True, copy=False)
-    cancel_request_reason = fields.Text(string="Customer's Reason", readonly=True, copy=False)
     company_id = fields.Many2one(related='center_id.company_id', store=True, string='Company')
     currency_id = fields.Many2one(related='company_id.currency_id', string='Currency')
 
@@ -331,38 +322,6 @@ class BusinessCenterDeskBooking(models.Model):
             answered.write({'cancel_outcome': 'waive', 'cancelled_by_id': self.env.uid})
             answered._bc_send_cancel_answer()
             
-    def action_request_cancel(self, reason):
-        """The customer asks to cancel once free cancellation has ended. The
-        booking stays confirmed and the desk stays held; the centre manager
-        decides with Decide Cancellation whether to cancel (and charge) or
-        keep it."""
-
-        reason = (reason or '').strip()
-        if not reason:
-            raise UserError(_("Please tell us why you want to cancel."))
-        for rec in self:
-            if rec.state != 'confirmed':
-                raise UserError(_("Only a confirmed booking can be cancelled."))
-            if rec.cancel_request_state == 'pending':
-                raise UserError(_("A cancellation of %s has already been requested.", rec.name))
-        self.write({
-            'cancel_request_state': 'pending',
-            'cancel_requested_at': fields.Datetime.now(),
-            'cancel_requested_by_id': self.env.uid,
-            'cancel_request_reason': reason,
-        })
-        for rec in self:
-            rec.message_post(body=Markup("<p><b>%s</b></p><p>%s</p>") % (
-                _("The customer asked to cancel this booking."), reason))
-            rec.activity_schedule(
-                'mail.mail_activity_data_todo',
-                summary=_("Cancellation request"),
-                note=_("%(booking)s: the customer asked to cancel (%(reason)s). Open it "
-                       "and use Decide Cancellation to cancel it, with or without a "
-                       "charge, or keep it.", booking=rec.name, reason=reason),
-                user_id=(rec.center_id.manager_id or self.env.user).id,
-            )
-
     def action_release(self):
         """Free the desk of a booking the customer will not use, said by the
         reminder link. Before the start it is a plain free cancellation;
@@ -438,71 +397,11 @@ class BusinessCenterDeskBooking(models.Model):
 
         return self._slot_held(desks, booking_date, start_time, end_time, exclude_id)
         
-    def _bc_minutes_to_start(self):
-        """Minutes until the slot starts by the centre's clock (negative once
-        started), counting whole days for bookings on other dates."""
+    def _bc_cancel_answer_partners(self):
+        """The desk user is told the answer, and whoever sent the request."""
 
-        self.ensure_one()
-        today, hour = (self.company_id or self.env.company)._bc_clock()
-        days = (self.booking_date - today).days
-        return (days * 24 + self.start_time - hour) * 60.0
+        return self.partner_id | super()._bc_cancel_answer_partners()
 
-    def _bc_free_cancel_minutes_left(self):
-        """Minutes left to cancel for free: until the company's cut-off
-        before the start. Zero or less means a request is needed."""
-
-        self.ensure_one()
-        policy = self.company_id or self.env.company
-        return self._bc_minutes_to_start() - policy.bc_hot_desk_free_cancel_minutes
-
-    def _bc_can_cancel_free(self):
-        """Whether the customer may still cancel without asking."""
-
-        return self._bc_free_cancel_minutes_left() > 0
-
-    def _bc_close_cancel_request(self, answer):
-        """Close the pending cancellation requests among these bookings as
-        ``answer`` ('accepted', 'rejected' or 'withdrawn') and tick off the
-        manager's to-do. Returns the bookings that had one."""
-
-        pending = self.filtered(lambda b: b.cancel_request_state == 'pending')
-        if pending:
-            pending.write({'cancel_request_state': answer})
-            label = dict(self._fields['cancel_request_state']._description_selection(self.env))[answer]
-            pending.activity_feedback(['mail.mail_activity_data_todo'],
-                                      feedback=_("Cancellation request: %s", label))
-        return pending
-
-    def _bc_reject_cancel_request(self, reason):
-        """Keep the booking: the manager declined the customer's request."""
-
-        self.ensure_one()
-        if self.cancel_request_state != 'pending' or self.state != 'confirmed':
-            raise UserError(_("%s has no open cancellation request.", self.name))
-        self.write({'cancel_reason': reason, 'cancelled_by_id': self.env.uid})
-        self._bc_close_cancel_request('rejected')
-        self._bc_send_cancel_answer()
-
-    def _bc_send_cancel_answer(self):
-        """Send the answer to a cancellation request to the desk user and,
-        when someone else asked, to them too. Posted in the chatter as a
-        customer message, so staff can see on the booking that the customer
-        was told, and what."""
-
-        template = self.env.ref('business_center.mail_template_hot_desk_cancel_answer',
-                                raise_if_not_found=False)
-        if not template:
-            return
-        for rec in self:
-            partners = (rec.partner_id | rec.cancel_requested_by_id.partner_id).filtered('email')
-            if partners:
-                rec.message_post_with_source(
-                    template,
-                    message_type='comment',
-                    subtype_xmlid='mail.mt_comment',
-                    partner_ids=partners.ids,
-                )
-        
     def _bc_mark_no_show(self):
         """Release the desk of a booking nobody checked in to; a manager
         decides the charge."""

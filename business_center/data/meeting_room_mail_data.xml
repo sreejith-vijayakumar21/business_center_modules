@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Answer to a customer's request to cancel a meeting room booking. -->
+        <record id="mail_template_meeting_room_cancel_answer" model="mail.template">
+            <field name="name">Meeting Room: Cancellation Request Answer</field>
+            <field name="model_id" ref="model_business_center_booking"/>
+            <field name="subject">Your cancellation request for {{ object.name }}</field>
+            <field name="partner_to">{{ object.user_id.partner_id.id }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="body_html" type="html">
+<div>
+    <p>Dear <t t-out="object.user_id.partner_id.name"/>,</p>
+    <t t-if="object.cancel_request_state == 'rejected'">
+        <p>We could not cancel your meeting room booking <strong t-out="object.name"/> for
+           <strong t-out="object.meeting_room_id.name"/> on <t t-out="format_date(object.booking_date)"/>,
+           <t t-out="object.selected_slot_display"/>. The booking stays as it was.</p>
+    </t>
+    <t t-else="">
+        <p>Your meeting room booking <strong t-out="object.name"/> for
+           <strong t-out="object.meeting_room_id.name"/> on <t t-out="format_date(object.booking_date)"/>
+           has been cancelled.</p>
+        <p t-if="object.cancel_outcome in (False, 'waive')">
+            Nothing is charged, and the wallet hours it used are back on your contract
+            (within the same month).
+        </p>
+        <p t-else="">
+            The business centre kept <t t-if="object.cancel_outcome == 'used'">the time used</t><t t-else="">the whole booking</t>:
+            <t t-if="object.overage_amount">
+                an extra charge of <t t-out="format_amount(object.overage_amount, object.currency_id)"/>
+                goes on your next invoice.
+            </t>
+            <t t-else="">it is covered by your wallet hours.</t>
+        </p>
+    </t>
+    <p t-if="object.cancel_reason">Note from the business centre: <t t-out="object.cancel_reason"/></p>
+    <p>Kind regards,<br/><t t-out="object.company_id.name"/></p>
+</div>
+            </field>
+            <field name="auto_delete" eval="True"/>
+        </record>
+
+    </data>
+</odoo>
