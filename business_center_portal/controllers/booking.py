@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
 
 from collections import OrderedDict
 from urllib.parse import urlencode
@@ -243,16 +244,7 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
         admin may book against any of the company's contracts. Desk-only
         contracts are excluded - meeting-room booking rides on office space.
         """
-        user = request.env.user
-        partner = user.partner_id.commercial_partner_id
-        domain = [
-            ('partner_id', 'child_of', partner.id),
-            ('state', '=', 'active'),
-            ('is_wallet_eligible', '=', True),
-        ]
-        if not self._bc_is_tenant_admin():
-            domain.append(('contact_ids', 'in', [user.partner_id.id]))
-        return request.env['business.center.contract'].sudo().search(domain)
+        return self._bc_member_contracts([('is_wallet_eligible', '=', True)])
 
     def _rooms_for_center(self, center):
         """Bookable meeting rooms in the centre the contract's assets sit in."""

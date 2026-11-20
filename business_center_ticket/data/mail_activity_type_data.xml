@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="mail_activity_type_ticket" model="mail.activity.type">
+            <field name="name">Handle Ticket</field>
+            <field name="summary">Handle the support ticket</field>
+            <field name="res_model">business.center.ticket</field>
+            <field name="icon">fa-life-ring</field>
+            <field name="delay_count">0</field>
+        </record>
+    </data>
+</odoo>

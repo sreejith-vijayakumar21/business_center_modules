@@ -58,14 +58,7 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
         company's for a corporate admin, the ones they are named on for an
         employee. Desk-only contracts qualify too."""
 
-        user = request.env.user
-        domain = [
-            ('partner_id', 'child_of', user.partner_id.commercial_partner_id.id),
-            ('state', '=', 'active'),
-        ]
-        if not self._bc_is_tenant_admin():
-            domain.append(('contact_ids', 'in', [user.partner_id.id]))
-        return request.env['business.center.contract'].sudo().search(domain)
+        return self._bc_member_contracts()
 
     def _hot_desk_contract(self, contract_id):
         """One of the member's contracts, or an empty recordset."""

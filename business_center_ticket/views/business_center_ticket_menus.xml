@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <menuitem id="bc_ticket_menu"
+              name="Tickets"
+              parent="business_center.business_center_menu_root"
+              action="action_business_center_ticket"
+              sequence="15"/>
+
+    <menuitem id="business_center_ticket_category_menu"
+              name="Ticket Categories"
+              parent="business_center.business_center_configuration_menu"
+              action="action_business_center_ticket_category"
+              sequence="20"/>
+
+</odoo>

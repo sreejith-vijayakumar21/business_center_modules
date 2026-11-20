@@ -1,3 +1,6 @@
+# -*- coding: utf-8 -*-
+# Part of Odoo. See LICENSE file for full copyright and licensing details.
+
 from odoo import models
 
 
@@ -12,6 +15,7 @@ class PortalWizardUser(models.TransientModel):
         privileged tenant role, so a forgotten role never falls back to Odoo's
         stock access to all of the company's invoices.
         """
+        
         Contract = self.env['business.center.contract'].sudo()
         untagged_tenants = self.mapped('partner_id').filtered(
             lambda p: not p.bc_role and Contract.search_count(

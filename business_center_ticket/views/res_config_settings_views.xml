@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.business.center.ticket</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="business_center.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='business_center']" position="inside">
+                <block title="Support Tickets" name="bc_ticket_setting">
+                    <setting string="Response Targets"
+                             help="Hours within which a ticket should be resolved, by priority. A ticket past its target is flagged and escalated to the centre's manager.">
+                        <div class="mt-2">
+                            Urgent
+                            <field name="bc_ticket_hours_urgent" class="oe_inline" style="width: 4rem;"/>
+                            h, High
+                            <field name="bc_ticket_hours_high" class="oe_inline" style="width: 4rem;"/>
+                            h
+                        </div>
+                        <div class="mt-1">
+                            Normal
+                            <field name="bc_ticket_hours_normal" class="oe_inline" style="width: 4rem;"/>
+                            h, Low
+                            <field name="bc_ticket_hours_low" class="oe_inline" style="width: 4rem;"/>
+                            h
+                        </div>
+                    </setting>
+                    <setting string="Reopening"
+                             help="After this the resolved ticket is closed automatically. Use 0 to close at once.">
+                        <div class="mt-2">
+                            Members can reopen a resolved ticket for
+                            <field name="bc_ticket_reopen_days" class="oe_inline" style="width: 4rem;"/>
+                            days
+                        </div>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

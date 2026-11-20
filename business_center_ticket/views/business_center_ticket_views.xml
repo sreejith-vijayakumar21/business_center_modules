@@ -1,0 +1,215 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- FORM VIEW -->
+    <record id="business_center_ticket_view_form" model="ir.ui.view">
+        <field name="name">business.center.ticket.view.form</field>
+        <field name="model">business.center.ticket</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_start" string="Start" type="object" class="btn-primary"
+                            invisible="state not in ('new', 'waiting')"/>
+                    <button name="action_resolve" string="Resolve" type="object" class="btn-primary"
+                            invisible="state != 'in_progress'"/>
+                    <button name="action_resolve" string="Resolve" type="object"
+                            invisible="state not in ('new', 'waiting')"/>
+                    <button name="action_wait_member" string="Wait on Member" type="object"
+                            invisible="state not in ('new', 'in_progress')"/>
+                    <button name="action_close" string="Close" type="object"
+                            invisible="state != 'resolved'"/>
+                    <button name="action_reopen" string="Reopen" type="object"
+                            invisible="state not in ('resolved', 'closed')"/>
+                    <button name="action_take_out_of_service" string="Take Out of Service" type="object"
+                            groups="business_center.group_bc_manager"
+                            invisible="state not in ('new', 'in_progress', 'waiting') or (not space_id and not desk_id)"/>
+                    <button name="action_cancel" string="Cancel" type="object"
+                            invisible="state not in ('new', 'in_progress', 'waiting')"/>
+                    <field name="state" widget="statusbar"
+                           statusbar_visible="new,in_progress,resolved,closed"/>
+                </header>
+                <sheet>
+                    <widget name="web_ribbon" title="Overdue" bg_color="text-bg-danger" invisible="not is_overdue"/>
+                    <field name="is_overdue" invisible="1"/>
+                    <div class="oe_title">
+                        <span class="text-muted"><field name="name" readonly="1"/></span>
+                        <h1><field name="subject" placeholder="e.g. Wi-Fi keeps dropping in office 204"/></h1>
+                    </div>
+                    <group>
+                        <group string="Reported">
+                            <field name="partner_id" readonly="state != 'new'"/>
+                            <field name="commercial_partner_id"/>
+                            <field name="contract_id" readonly="state != 'new'" options="{'no_create': True}"/>
+                            <field name="center_id" readonly="state != 'new'" options="{'no_create': True}"/>
+                            <field name="space_id" options="{'no_create': True}"/>
+                            <field name="desk_id" options="{'no_create': True}"/>
+                        </group>
+                        <group string="Handling">
+                            <field name="category_id" options="{'no_create': True}"/>
+                            <field name="topic" invisible="not topic and not category_id.ask_topic"
+                                   required="category_id.ask_topic"/>
+                            <field name="priority" widget="priority"/>
+                            <field name="user_id" widget="many2one_avatar_user"/>
+                            <field name="deadline"/>
+                            <field name="started_at" invisible="not started_at"/>
+                            <field name="resolved_at" invisible="not resolved_at"/>
+                            <field name="closed_at" invisible="not closed_at"/>
+                            <field name="resolution_hours" widget="float_time" invisible="not resolved_at"/>
+                            <field name="reopen_count" invisible="not reopen_count"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Problem" name="problem">
+                            <field name="description" placeholder="What is wrong, where, and since when?"/>
+                            <separator string="Photos"/>
+                            <field name="photo_ids" widget="many2many_binary"/>
+                        </page>
+                        <page string="Resolution" name="resolution">
+                            <p class="text-muted">
+                                What was done. This text is sent to the member when you click Resolve.
+                            </p>
+                            <field name="resolution" readonly="state in ('resolved', 'closed', 'cancelled')"
+                                   placeholder="e.g. Replaced the access point in the corridor; signal tested in the office."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- LIST VIEW -->
+    <record id="business_center_ticket_view_list" model="ir.ui.view">
+        <field name="name">business.center.ticket.view.list</field>
+        <field name="model">business.center.ticket</field>
+        <field name="arch" type="xml">
+            <list decoration-danger="is_overdue">
+                <field name="name"/>
+                <field name="subject"/>
+                <field name="category_id"/>
+                <field name="topic" optional="show"/>
+                <field name="priority" widget="priority"/>
+                <field name="commercial_partner_id"/>
+                <field name="partner_id" optional="hide"/>
+                <field name="center_id" optional="show"/>
+                <field name="unit_display" optional="hide"/>
+                <field name="user_id" widget="many2one_avatar_user"/>
+                <field name="create_date" string="Reported On"/>
+                <field name="deadline" optional="show"/>
+                <field name="resolution_hours" widget="float_time" optional="show"/>
+                <field name="is_overdue" column_invisible="1"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'new'"
+                       decoration-primary="state == 'in_progress'"
+                       decoration-warning="state == 'waiting'"
+                       decoration-success="state in ('resolved', 'closed')"
+                       decoration-muted="state == 'cancelled'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- KANBAN VIEW: columns are the stages; cards move only through the buttons. -->
+    <record id="business_center_ticket_view_kanban" model="ir.ui.view">
+        <field name="name">business.center.ticket.view.kanban</field>
+        <field name="model">business.center.ticket</field>
+        <field name="arch" type="xml">
+            <kanban default_group_by="state" records_draggable="0" group_create="0"
+                    group_delete="0" group_edit="0" quick_create="0">
+                <field name="is_overdue"/>
+                <field name="state"/>
+                <templates>
+                    <t t-name="card">
+                        <div class="d-flex justify-content-between">
+                            <field name="name" class="text-muted small"/>
+                            <span t-if="record.is_overdue.raw_value" class="badge text-bg-danger">Overdue</span>
+                        </div>
+                        <field name="subject" class="fw-bold fs-5"/>
+                        <field name="category_display" class="text-muted"/>
+                        <div class="text-muted small">
+                            <field name="commercial_partner_id"/> · <field name="center_id"/>
+                        </div>
+                        <footer>
+                            <field name="priority" widget="priority" readonly="1"/>
+                            <field name="deadline" widget="remaining_days"
+                                   invisible="state not in ('new', 'in_progress')"/>
+                            <field name="user_id" widget="many2one_avatar_user" class="ms-auto"/>
+                        </footer>
+                    </t>
+                </templates>
+            </kanban>
+        </field>
+    </record>
+
+    <!-- PIVOT VIEW -->
+    <record id="business_center_ticket_view_pivot" model="ir.ui.view">
+        <field name="name">business.center.ticket.view.pivot</field>
+        <field name="model">business.center.ticket</field>
+        <field name="arch" type="xml">
+            <pivot string="Tickets">
+                <field name="category_id" type="row"/>
+                <field name="state" type="col"/>
+                <field name="resolution_hours" type="measure" widget="float_time"/>
+            </pivot>
+        </field>
+    </record>
+
+    <!-- GRAPH VIEW -->
+    <record id="business_center_ticket_view_graph" model="ir.ui.view">
+        <field name="name">business.center.ticket.view.graph</field>
+        <field name="model">business.center.ticket</field>
+        <field name="arch" type="xml">
+            <graph string="Tickets" type="bar">
+                <field name="create_date" interval="week"/>
+                <field name="category_id"/>
+            </graph>
+        </field>
+    </record>
+
+    <!-- SEARCH VIEW -->
+    <record id="business_center_ticket_view_search" model="ir.ui.view">
+        <field name="name">business.center.ticket.view.search</field>
+        <field name="model">business.center.ticket</field>
+        <field name="arch" type="xml">
+            <search string="Tickets">
+                <field name="name" string="Ticket" filter_domain="['|', ('name', 'ilike', self), ('subject', 'ilike', self)]"/>
+                <field name="commercial_partner_id"/>
+                <field name="partner_id"/>
+                <field name="center_id"/>
+                <field name="category_id"/>
+                <field name="user_id"/>
+                <filter name="filter_my" string="My Tickets" domain="[('user_id', '=', uid)]"/>
+                <separator/>
+                <filter name="filter_open" string="Open"
+                        domain="[('state', 'in', ('new', 'in_progress', 'waiting'))]"/>
+                <filter name="filter_waiting" string="Waiting on Member" domain="[('state', '=', 'waiting')]"/>
+                <filter name="filter_resolved" string="Resolved" domain="[('state', 'in', ('resolved', 'closed'))]"/>
+                <separator/>
+                <filter name="filter_overdue" string="Overdue" domain="[('is_overdue', '=', True)]"/>
+                <filter name="filter_urgent" string="High or Urgent" domain="[('priority', 'in', ('2', '3'))]"/>
+                <group>
+                    <filter name="groupby_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="groupby_category" string="Category" context="{'group_by': 'category_id'}"/>
+                    <filter name="groupby_center" string="Business Center" context="{'group_by': 'center_id'}"/>
+                    <filter name="groupby_user" string="Assigned To" context="{'group_by': 'user_id'}"/>
+                    <filter name="groupby_tenant" string="Tenant" context="{'group_by': 'commercial_partner_id'}"/>
+                    <filter name="groupby_month" string="Reported Month" context="{'group_by': 'create_date:month'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ACTION -->
+    <record id="action_business_center_ticket" model="ir.actions.act_window">
+        <field name="name">Tickets</field>
+        <field name="res_model">business.center.ticket</field>
+        <field name="view_mode">kanban,list,form,pivot,graph</field>
+        <field name="search_view_id" ref="business_center_ticket_view_search"/>
+        <field name="context">{'search_default_filter_open': 1}</field>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">No tickets to handle</p>
+            <p>Members raise internet, facilities and maintenance tickets from their portal.
+               You can also create one here when a member calls or walks in.</p>
+        </field>
+    </record>
+
+</odoo>
