@@ -1,0 +1,86 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- FORM: contracts button and Membership tab -->
+    <record id="view_partner_form_bc_membership" model="ir.ui.view">
+        <field name="name">res.partner.form.bc.membership</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[@name='button_box']" position="inside">
+                <button name="action_view_bc_contracts" type="object"
+                        class="oe_stat_button" icon="fa-id-card-o"
+                        groups="business_center.group_bc_user"
+                        invisible="not bc_contract_count">
+                    <field name="bc_contract_count" widget="statinfo" string="Contracts"/>
+                </button>
+            </xpath>
+            <xpath expr="//notebook" position="inside">
+                <page string="Membership" name="bc_membership"
+                      groups="business_center.group_bc_user"
+                      invisible="bc_membership_state == 'none'">
+                    <group>
+                        <group>
+                            <field name="bc_membership_state" widget="badge"
+                                   decoration-success="bc_membership_state == 'active'"
+                                   decoration-warning="bc_membership_state == 'expiring'"
+                                   decoration-info="bc_membership_state == 'upcoming'"
+                                   decoration-danger="bc_membership_state == 'expired'"/>
+                            <field name="bc_membership_contract_id"
+                                   invisible="not bc_membership_contract_id"/>
+                            <field name="bc_membership_center_ids" widget="many2many_tags"
+                                   invisible="not bc_membership_center_ids"/>
+                            <field name="bc_membership_named" invisible="is_company"/>
+                        </group>
+                        <group>
+                            <field name="bc_member_since" invisible="not bc_member_since"/>
+                            <field name="bc_membership_starts_on"
+                                   invisible="not bc_membership_starts_on"/>
+                            <field name="bc_membership_valid_until"
+                                   invisible="not bc_membership_valid_until"/>
+                        </group>
+                    </group>
+                </page>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- LIST: status column -->
+    <record id="view_partner_tree_bc_membership" model="ir.ui.view">
+        <field name="name">res.partner.list.bc.membership</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_tree"/>
+        <field name="arch" type="xml">
+            <xpath expr="//list" position="inside">
+                <field name="bc_membership_state" widget="badge" optional="show"
+                       groups="business_center.group_bc_user"
+                       decoration-success="bc_membership_state == 'active'"
+                       decoration-warning="bc_membership_state == 'expiring'"
+                       decoration-info="bc_membership_state == 'upcoming'"
+                       decoration-danger="bc_membership_state == 'expired'"/>
+            </xpath>
+        </field>
+    </record>
+
+    <!-- SEARCH: membership filters -->
+    <record id="view_res_partner_filter_bc_membership" model="ir.ui.view">
+        <field name="name">res.partner.search.bc.membership</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_res_partner_filter"/>
+        <field name="arch" type="xml">
+            <xpath expr="//search" position="inside">
+                <separator/>
+                <filter name="filter_bc_member_active" string="Active Members"
+                        groups="business_center.group_bc_user"
+                        domain="[('bc_membership_state', 'in', ['active', 'expiring'])]"/>
+                <filter name="filter_bc_member_expiring" string="Membership Expiring Soon"
+                        groups="business_center.group_bc_user"
+                        domain="[('bc_membership_state', '=', 'expiring')]"/>
+                <filter name="filter_bc_member_expired" string="Membership Expired"
+                        groups="business_center.group_bc_user"
+                        domain="[('bc_membership_state', '=', 'expired')]"/>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>
