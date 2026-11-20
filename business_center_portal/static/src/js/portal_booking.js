@@ -1,34 +1,56 @@
-/** Booking form: refresh availability, click-to-fill slots, live cost summary. */
+import { pickerEvents } from "@business_center_portal/floor_picker/picker_events";
+
+const EVENTS = pickerEvents("meeting_room");
+
+/**
+ * Meeting room booking form: the rooms free for the date, time and group
+ * size, the picked room's day strip, the wallet and cost summary, and the
+ * floor picker kept in step through pickerEvents("meeting_room").
+ * Availability always comes from the server.
+ */
 function initBookingForm() {
-    const form = document.getElementById('o_bc_booking_form');
+    const form = document.getElementById("o_bc_booking_form");
     if (!form) {
         return;
     }
-    const contract = document.getElementById('contract_id');
-    const room = document.getElementById('meeting_room_id');
-    const date = document.getElementById('booking_date');
-    const slots = document.getElementById('o_bc_slots');
-    const hours = document.getElementById('o_bc_hours');
-    const wallet = document.getElementById('o_bc_wallet');
-    const startEl = document.getElementById('start_time');
-    const endEl = document.getElementById('end_time');
-    const summary = document.getElementById('o_bc_summary');
+    const byId = (id) => document.getElementById(id);
+    const contract = byId("contract_id");
+    const date = byId("booking_date");
+    const startEl = byId("start_time");
+    const endEl = byId("end_time");
+    const attendees = byId("attendees");
+    const room = byId("meeting_room_id");
+    const hint = byId("o_bc_room_hint");
+    const slots = byId("o_bc_slots");
+    const hours = byId("o_bc_hours");
+    const rateEl = byId("o_bc_rate");
+    const wallet = byId("o_bc_wallet");
+    const summary = byId("o_bc_summary");
+    const symbol = form.dataset.currency || "";
 
-    let rate = parseFloat(form.dataset.rate || '0');
     let walletHours = parseFloat(wallet.textContent) || 0;
+    let options = { contractId: Number(contract.value), params: {}, sites: [] };
 
+    const send = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
+    const announce = () => send(EVENTS.options, options);
+    const slotParams = () => ({
+        booking_date: date.value,
+        start_time: startEl.value,
+        end_time: endEl.value,
+        attendees: attendees.value,
+    });
     const toHHMM = (value) => {
         const total = Math.round(parseFloat(value) * 60);
-        const h = String(Math.floor(total / 60)).padStart(2, '0');
-        const m = String(total % 60).padStart(2, '0');
-        return `${h}:${m}`;
+        return `${String(Math.floor(total / 60)).padStart(2, "0")}:${String(total % 60).padStart(2, "0")}`;
     };
-
     const toFloat = (value) => {
-        if (!value) { return null; }
-        const [h, m] = value.split(':');
+        if (!value) {
+            return null;
+        }
+        const [h, m] = value.split(":");
         return parseInt(h, 10) + parseInt(m, 10) / 60;
     };
+    const roomRate = () => parseFloat((room.selectedOptions[0] || {}).dataset?.rate || "0");
 
     const setSummary = (cls, html) => {
         summary.className = `o_bc_summary ${cls}`;
@@ -39,32 +61,37 @@ function initBookingForm() {
         const s = toFloat(startEl.value);
         const e = toFloat(endEl.value);
         if (s === null || e === null) {
-            setSummary('o_bc_summary_idle', 'Pick a start and end time to see the cost.');
-            return;
+            return setSummary("o_bc_summary_idle", "Pick a start and end time to see the cost.");
         }
         if (e <= s) {
-            setSummary('o_bc_summary_bad', 'The end time must be after the start time.');
-            return;
+            return setSummary("o_bc_summary_bad", "The end time must be after the start time.");
         }
-        // Length is limited only by the room's opening hours, checked on the server.
+        if (!room.value) {
+            return setSummary("o_bc_summary_idle", "Pick a room to see the cost.");
+        }
         const used = e - s;
         const fmt = (n) => (Math.round(n * 100) / 100).toString();
         if (used <= walletHours) {
-            setSummary('o_bc_summary_ok',
+            return setSummary("o_bc_summary_ok",
                 `<strong>${fmt(used)} hr</strong> from your wallet · ` +
                 `<span>${fmt(walletHours - used)} hr will remain</span>`);
-        } else {
-            const extra = used - walletHours;
-            const cost = (extra * rate).toFixed(2);
-            setSummary('o_bc_summary_warn',
-                `<strong>${fmt(used)} hr</strong> booked · ${fmt(walletHours)} hr from wallet · ` +
-                `<strong>${fmt(extra)} hr</strong> billed extra (≈ ${cost})`);
         }
+        const extra = used - walletHours;
+        setSummary("o_bc_summary_warn",
+            `<strong>${fmt(used)} hr</strong> booked · ${fmt(walletHours)} hr from wallet · ` +
+            `<strong>${fmt(extra)} hr</strong> billed extra (≈ ${symbol}${(extra * roomRate()).toFixed(2)})`);
     };
 
-    const refresh = async () => {
+    /** The picked room's opening hours, rate and day strip. */
+    const refreshStrip = async () => {
+        rateEl.textContent = room.value ? `${symbol}${roomRate().toFixed(2)}` : "—";
+        if (!room.value) {
+            slots.innerHTML = '<span class="o_bc_dim small">Pick a room to see its day.</span>';
+            hours.textContent = "—";
+            return;
+        }
         const params = new URLSearchParams({
-            contract_id: contract ? contract.value : '',
+            contract_id: contract.value,
             meeting_room_id: room.value,
             booking_date: date.value,
         });
@@ -74,53 +101,79 @@ function initBookingForm() {
             const data = await response.json();
             slots.innerHTML = data.slots ||
                 '<span class="o_bc_dim small">No availability to show for this day.</span>';
-            hours.textContent = data.hours;
-            wallet.textContent = data.wallet;
-            walletHours = parseFloat(data.wallet) || 0;
-            rate = parseFloat(data.rate) || 0;
-
-            const ids = data.rooms.map((r) => String(r.id));
-            if (!data.rooms.length) {
-                room.replaceChildren();
-                slots.innerHTML =
-                    '<span class="o_bc_dim small">No bookable meeting rooms in this centre.</span>';
-                updateSummary();
-                return;
-            }
-            if (!ids.includes(room.value)) {
-                room.replaceChildren(
-                    ...data.rooms.map((r) => new Option(r.name, r.id)));
-                refresh();
-                return;
-            }
-            updateSummary();
-        } catch (error) {
-            slots.innerHTML =
-                '<span class="text-danger small">Could not load availability. Please retry.</span>';
+            hours.textContent = data.hours || "—";
+        } catch {
+            slots.innerHTML = '<span class="text-danger small">Could not load availability. Please retry.</span>';
         }
     };
 
-    [contract, room, date].forEach((el) => el && el.addEventListener('change', refresh));
-    [startEl, endEl].forEach((el) => el && el.addEventListener('input', updateSummary));
+    /** Free rooms for the date, time and group; tells the floor picker. */
+    const refreshRooms = async () => {
+        const params = new URLSearchParams({ contract_id: contract.value, ...slotParams() });
+        hint.textContent = "Loading free rooms…";
+        try {
+            const response = await fetch(`/my/bookings/rooms?${params}`);
+            const data = await response.json();
+            const keep = room.value;
+            const opts = data.rooms.map((r) => {
+                const opt = new Option(r.name, r.id);
+                opt.dataset.rate = r.rate;
+                return opt;
+            });
+            room.replaceChildren(new Option("Choose a room…", ""), ...opts);
+            if (data.rooms.some((r) => String(r.id) === keep)) {
+                room.value = keep;
+            }
+            hint.textContent = data.rooms.length
+                ? `${data.rooms.length} room(s) free for this time.`
+                : "No meeting room is free for this time and group size.";
+            wallet.textContent = data.wallet;
+            walletHours = parseFloat(data.wallet) || 0;
+            options = { contractId: Number(contract.value), params: slotParams(), sites: data.sites };
+            announce();
+            if (room.value !== keep) {
+                send(EVENTS.chosen, { id: Number(room.value) });
+            }
+            await refreshStrip();
+            updateSummary();
+        } catch {
+            hint.textContent = "Could not load the free rooms. Please retry.";
+        }
+    };
 
-    slots.addEventListener('click', (ev) => {
-        const box = ev.target.closest('.o_bc_slot_free');
+    const pickRoom = (id) => {
+        room.value = String(id);
+        refreshStrip();
+        updateSummary();
+    };
+
+    [contract, date, startEl, endEl, attendees].forEach((el) => el && el.addEventListener("change", refreshRooms));
+    room.addEventListener("change", () => {
+        send(EVENTS.chosen, { id: Number(room.value) });
+        refreshStrip();
+        updateSummary();
+    });
+    document.addEventListener(EVENTS.ready, announce);
+    document.addEventListener(EVENTS.picked, (ev) => pickRoom(ev.detail.id));
+
+    // A free box on the picked room's day strip fills the times.
+    slots.addEventListener("click", (ev) => {
+        const box = ev.target.closest(".o_bc_slot_free");
         if (!box) {
             return;
         }
-        slots.querySelectorAll('.o_bc_slot_active')
-             .forEach((el) => el.classList.remove('o_bc_slot_active'));
-        box.classList.add('o_bc_slot_active');
+        slots.querySelectorAll(".o_bc_slot_active").forEach((el) => el.classList.remove("o_bc_slot_active"));
+        box.classList.add("o_bc_slot_active");
         startEl.value = toHHMM(box.dataset.start);
         endEl.value = toHHMM(box.dataset.end);
-        updateSummary();
+        refreshRooms();
     });
 
-    updateSummary();
+    refreshRooms();
 }
 
-if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', initBookingForm);
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initBookingForm);
 } else {
     initBookingForm();
 }

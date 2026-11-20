@@ -275,6 +275,23 @@ class BusinessCenterSlotBookingMixin(models.AbstractModel):
         self.ensure_one()
         return self._slot_other_bookings().filtered(
             lambda b: b.start_time < self.end_time and b.end_time > self.start_time)[:1]
+        
+    @api.model
+    def _slot_held(self, resources, booking_date, start_time, end_time, exclude_id=0):
+        """The resources among ``resources`` held by a booking overlapping the
+        slot. One rule for every booking model, so the forms, the portal
+        floor plans and the confirmation agree on "booked"."""
+
+        if not (resources and booking_date and end_time > start_time):
+            return resources.browse()
+        return self.search([
+            (self._slot_resource_field, 'in', resources.ids),
+            ('state', 'in', self._slot_blocking_states),
+            ('booking_date', '=', booking_date),
+            ('start_time', '<', end_time),
+            ('end_time', '>', start_time),
+            ('id', '!=', exclude_id),
+        ]).mapped(self._slot_resource_field)
 
     def _slot_check_free(self):
         """Raise when another holding booking overlaps this slot. Called

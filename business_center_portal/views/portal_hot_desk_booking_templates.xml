@@ -172,7 +172,7 @@
             </p>
 
             <div t-if="booking.state == 'confirmed' and booking.cancel_request_state != 'pending'"
-                 class="modal fade" id="o_bc_cancel_hot_desk" tabindex="-1" aria-hidden="true"
+                class="modal fade o_bc_cancel_dialog" id="o_bc_cancel_hot_desk" tabindex="-1" aria-hidden="true"
                  t-att-data-free-seconds="free_seconds_left if (can_cancel and can_cancel_free) else None">
                 <div class="modal-dialog modal-dialog-centered">
 
@@ -330,7 +330,7 @@
                     <!-- STEP 2 : DESK -->
                     <section class="o_bc_card">
                         <div class="o_bc_step"><span class="o_bc_num">2</span>Pick a desk</div>
-                        <owl-component name="business_center_portal.HotDeskFloorPicker"/>
+                        <owl-component name="business_center_portal.BcFloorPicker" props='{"kind": "hot_desk"}'/>
                         <div class="row g-3 mt-1 align-items-end">
                             <div class="col-md-6">
                                 <label class="o_bc_label" for="hd_desk_id">Or choose from the list</label>

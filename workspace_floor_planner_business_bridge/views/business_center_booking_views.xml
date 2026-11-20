@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Meeting room booking: pick a free room on the floor plan of the
+         contract's centre; it fills the meeting room field. -->
+    <record id="business_center_booking_view_form_floor_picker" model="ir.ui.view">
+        <field name="name">business.center.booking.form.floor.picker</field>
+        <field name="model">business.center.booking</field>
+        <field name="inherit_id" ref="business_center.business_center_booking_view_form"/>
+        <field name="arch" type="xml">
+            <field name="meeting_room_id" position="before">
+                <field name="available_room_ids" invisible="1"/>
+                <widget name="bc_floor_picker" colspan="2"
+                        invisible="state != 'draft' or not contract_id"
+                        options="{'title': 'Pick a meeting room from the floor plan',
+                                  'targets': {'bc_meeting_room': {'field': 'meeting_room_id',
+                                                                  'options_field': 'available_room_ids'}}}"/>
+            </field>
+        </field>
+    </record>
+
+</odoo>

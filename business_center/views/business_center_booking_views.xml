@@ -10,6 +10,9 @@
                 <header>
                     <button name="action_confirm" string="Confirm" type="object"
                             class="btn-primary" invisible="state != 'draft'"/>
+                    <button name="action_decide_cancel_request" string="Decide Cancellation" type="object"
+                            class="btn-primary" groups="business_center.group_bc_manager"
+                            invisible="cancel_request_state != 'pending' or state != 'confirmed'"/>
                     <button name="action_cancel" string="Cancel" type="object"
                             invisible="state not in ('draft', 'confirmed')"/>
                     <button name="action_reset_to_draft" string="Reset to Draft" type="object"
@@ -57,6 +60,26 @@
                             <field name="currency_id" invisible="1"/>
                         </group>
                     </group>
+                    <field name="cancel_request_state" invisible="1"/>
+                    <div class="alert alert-warning" role="alert"
+                         invisible="cancel_request_state != 'pending' or state != 'confirmed'">
+                        The customer asked to cancel this booking. The room stays booked until a
+                        manager answers with <strong>Decide Cancellation</strong>.
+                    </div>
+                    <group string="Cancellation Request" invisible="not cancel_request_state">
+                        <group>
+                            <field name="cancel_request_state"/>
+                            <field name="cancel_requested_by_id"/>
+                            <field name="cancel_requested_at"/>
+                            <field name="cancelled_by_id" string="Answered By"
+                                   invisible="cancel_request_state != 'rejected'"/>
+                        </group>
+                        <group>
+                            <field name="cancel_request_reason"/>
+                            <field name="cancel_reason" string="Answer"
+                                   invisible="cancel_request_state != 'rejected'"/>
+                        </group>
+                    </group>
                     <group string="Cancellation" invisible="state != 'cancelled' or not cancel_outcome">
                         <group>
                             <field name="cancel_outcome"/>
@@ -92,6 +115,10 @@
                 <field name="chargeable_hours" invisible="1"/>
                 <field name="chargeable_hours_display"/>
                 <field name="overage_amount" string="Extra Charge"/>
+                <field name="cancel_request_state" optional="show" widget="badge"
+                       decoration-warning="cancel_request_state == 'pending'"
+                       decoration-success="cancel_request_state == 'accepted'"
+                       decoration-muted="cancel_request_state in ('rejected', 'withdrawn')"/>
                 <field name="state" widget="badge"
                     decoration-info="state == 'draft'"
                     decoration-success="state == 'confirmed'"
@@ -100,11 +127,39 @@
         </field>
     </record>
 
+    <!-- SEARCH VIEW -->
+    <record id="business_center_booking_view_search" model="ir.ui.view">
+        <field name="name">business.center.booking.view.search</field>
+        <field name="model">business.center.booking</field>
+        <field name="arch" type="xml">
+            <search string="Meeting Room Bookings">
+                <field name="name"/>
+                <field name="meeting_room_id"/>
+                <field name="contract_id"/>
+                <field name="user_id"/>
+                <filter name="filter_today" string="Today"
+                        domain="[('booking_date', '=', context_today().strftime('%Y-%m-%d'))]"/>
+                <separator/>
+                <filter name="filter_confirmed" string="Confirmed" domain="[('state', '=', 'confirmed')]"/>
+                <filter name="filter_cancelled" string="Cancelled" domain="[('state', '=', 'cancelled')]"/>
+                <separator/>
+                <filter name="filter_cancel_requested" string="Cancellation Requested"
+                        domain="[('cancel_request_state', '=', 'pending')]"/>
+                <group>
+                    <filter name="groupby_room" string="Meeting Room" context="{'group_by': 'meeting_room_id'}"/>
+                    <filter name="groupby_date" string="Date" context="{'group_by': 'booking_date'}"/>
+                    <filter name="groupby_state" string="Status" context="{'group_by': 'state'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
     <!-- ACTION -->
     <record id="action_business_center_booking" model="ir.actions.act_window">
         <field name="name">Business Center Booking</field>
         <field name="res_model">business.center.booking</field>
         <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="business_center_booking_view_search"/>
     </record>
 
 </odoo>

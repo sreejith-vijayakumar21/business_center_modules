@@ -1,12 +1,10 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <templates xml:space="preserve">
 
-    <t t-name="business_center_portal.HotDeskFloorPicker">
+    <t t-name="business_center_portal.BcFloorPicker">
         <div class="o_fp_viewer o_bc_hd_picker">
             <div t-if="!plans.length" class="o_bc_hd_picker_empty">
-                <t t-if="state.ready">
-                    No hot desk of your centre is drawn on a floor plan. Choose from the list below.
-                </t>
+                <t t-if="state.ready" t-esc="kind.empty"/>
                 <t t-else="">Loading the floor plan…</t>
             </div>
             <t t-else="">
@@ -20,12 +18,11 @@
                         <span class="fw-bold" t-esc="plan.name"/>
                         <span t-if="!plan.id" class="text-muted small">No layout</span>
                         <span t-elif="plan.pickable" class="o_bc_hd_floor_count"><t t-esc="plan.pickable"/> free</span>
-                        <span t-else="" class="o_bc_hd_floor_full">Fully booked</span>
+                        <span t-else="" class="o_bc_hd_floor_full">None free</span>
                     </button>
                 </div>
                 <div t-if="state.slotError" class="alert alert-warning py-2 mb-0 small" role="alert">
-                    <i class="fa fa-exclamation-triangle me-1"/>
-                    Could not load which desks are free. Choose from the list below, or reload the page.
+                    <i class="fa fa-exclamation-triangle me-1"/><t t-esc="kind.loadError"/>
                 </div>
                 <div class="o_bc_hd_picker_body">
                     <div class="o_bc_hd_canvas" t-ref="area">
@@ -49,9 +46,10 @@
                                       selected="!!selected" status="selectedStatus" note="selectedNote"/>
                 </div>
                 <div class="o_bc_legend">
-                    <span><i class="o_bc_dot o_bc_dot_free"/>Free for your time: click to pick</span>
-                    <span><i class="o_bc_dot o_bc_dot_booked"/>Booked for your time</span>
-                    <span><i class="o_bc_dot o_bc_dot_closed"/>Not open for booking</span>
+                    <span t-foreach="legend" t-as="item" t-key="item.code">
+                        <i class="o_bc_dot" t-attf-style="background: {{ item.color }};"/>
+                        <t t-esc="item.name"/><t t-if="item.code === 'free'">: click to pick</t>
+                    </span>
                     <span><i class="o_bc_dot o_bc_dot_other"/>Other spaces (not bookable here)</span>
                 </div>
             </t>

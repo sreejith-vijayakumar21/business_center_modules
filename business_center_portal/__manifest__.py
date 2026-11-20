@@ -53,10 +53,10 @@ Tenant portal for Business Center.
             'workspace_floor_planner/static/src/floor_planner/canvas/*',
             'workspace_floor_planner/static/src/floor_planner/picker/floor_unit_details.*',
             'workspace_floor_planner/static/src/floor_planner/picker/pickability.js',
-            # Hot desk booking form and its floor picker.
-            'business_center_portal/static/src/js/hot_desk_events.js',
+            # Floor picker shared by the hot desk and meeting room forms.
+            'business_center_portal/static/src/floor_picker/*',
             'business_center_portal/static/src/js/portal_hot_desk.js',
-            'business_center_portal/static/src/hot_desk_picker/*',
+            'business_center_portal/static/src/js/cancel_dialog.js',
         ],
     },
     'installable': True,
