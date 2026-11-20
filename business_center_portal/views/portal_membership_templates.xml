@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- CARD: shared by /my and /my/account -->
+    <template id="portal_membership_card" name="Portal: Membership Card">
+        <t t-set="m" t-value="bc_membership"/>
+        <div t-if="m" class="card mb-3 o_bc_membership_card">
+            <t t-set="badge" t-value="{'active': 'success', 'expiring': 'warning',
+                                       'upcoming': 'primary', 'expired': 'danger'}.get(m['state'], 'secondary')"/>
+            <div class="card-body d-flex flex-wrap align-items-center gap-3">
+                <div class="flex-grow-1">
+                    <div class="text-muted text-uppercase small mb-1">Membership</div>
+                    <div class="d-flex flex-wrap align-items-center gap-2">
+                        <span t-attf-class="badge rounded-pill text-bg-#{badge}" t-out="m['label']"/>
+                        <strong t-out="m['company'].name"/>
+                        <span t-if="m['centers']" class="text-muted">
+                            · <t t-out="', '.join(m['centers'].mapped('name'))"/>
+                        </span>
+                    </div>
+                    <div class="small text-muted mt-1">
+                        <t t-if="m['state'] in ('active', 'expiring')">
+                            Valid until <span t-out="m['valid_until']" t-options="{'widget': 'date'}"/>
+                            <t t-if="m['state'] == 'expiring'">
+                                <t t-if="m['days_left'] &gt; 0">(<t t-out="m['days_left']"/> days left)</t>
+                                <t t-else="">(ends today)</t>
+                            </t>
+                        </t>
+                        <t t-elif="m['state'] == 'upcoming'">
+                            Starts on <span t-out="m['starts_on']" t-options="{'widget': 'date'}"/>
+                        </t>
+                        <t t-else="">
+                            Ended on <span t-out="m['valid_until']" t-options="{'widget': 'date'}"/>
+                        </t>
+                        <t t-if="m['member_since']">
+                            · Member since <span t-out="m['member_since']" t-options="{'widget': 'date'}"/>
+                        </t>
+                    </div>
+                    <div t-if="not m['named']" class="small text-warning-emphasis mt-1">
+                        <i class="fa fa-info-circle me-1" role="img" aria-label="Info"/>
+                        You are not named on your company's contract yet, so you cannot
+                        book desks or rooms. Ask your company administrator to add you.
+                    </div>
+                </div>
+                <div t-if="m['contracts']" class="d-flex flex-wrap gap-2">
+                    <a t-foreach="m['contracts']" t-as="contract"
+                       class="btn btn-sm btn-outline-secondary"
+                       t-attf-href="/my/contracts/#{contract.id}">
+                        <i class="fa fa-file-text-o me-1"/><t t-out="contract.name"/>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </template>
+
+    <!-- /my: card above the document tiles -->
+    <template id="portal_my_home_membership" name="Portal My Home: Membership"
+              inherit_id="portal.portal_my_home" priority="30">
+        <xpath expr="//div[hasclass('o_portal_docs')]" position="before">
+            <t t-call="business_center_portal.portal_membership_card"/>
+        </xpath>
+    </template>
+
+    <!-- /my/account: card above the details form -->
+    <template id="portal_my_details_membership" name="Portal My Details: Membership"
+              inherit_id="portal.portal_my_details">
+        <xpath expr="//form" position="before">
+            <t t-call="business_center_portal.portal_membership_card"/>
+        </xpath>
+    </template>
+
+</odoo>
+
+</odoo>

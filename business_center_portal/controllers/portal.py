@@ -108,3 +108,50 @@ class BusinessCenterPortal(CustomerPortal):
             return ''
         total = round(value * 60)
         return '%02d:%02d' % (total // 60, total % 60)
+    
+    # ------------------------------------------------------------------------------
+    #   MARK: MEMBERSHIP HELPERS
+    # ------------------------------------------------------------------------------
+    def _prepare_portal_layout_values(self):
+        """Add the member's membership card values; /my and /my/account
+        show the card."""
+
+        values = super()._prepare_portal_layout_values()
+        values['bc_membership'] = self._bc_membership_values()
+        return values
+
+    def _bc_membership_values(self):
+        """What the membership card shows the signed-in member, or {} when
+        they have none (or are staff browsing the portal).
+
+        The status is the company's. Centres are the ones this member can
+        use: every running contract's for a tenant admin, only those they
+        are named on for an employee, so an employee is never pointed at a
+        centre they cannot book. Contract numbers are for tenant admins."""
+
+        user = request.env.user
+        if not user.share:
+            return {}
+        partner = user.partner_id.sudo()
+        state = partner.bc_membership_state
+        if state == 'none':
+            return {}
+        is_admin = self._bc_is_tenant_admin()
+        usable = self._bc_member_contracts()
+        running = state in ('active', 'expiring')
+        valid_until = partner.bc_membership_valid_until
+        labels = dict(partner._fields['bc_membership_state']._description_selection(request.env))
+        return {
+            'state': state,
+            'label': labels.get(state, state),
+            'company': partner.commercial_partner_id,
+            'member_since': partner.bc_member_since,
+            'starts_on': partner.bc_membership_starts_on,
+            'valid_until': valid_until,
+            'days_left': (valid_until - self._bc_today()).days
+                         if state == 'expiring' and valid_until else 0,
+            'centers': usable.center_id if running else partner.bc_membership_center_ids,
+            'is_admin': is_admin,
+            'named': is_admin or not running or bool(usable),
+            'contracts': usable if is_admin else usable.browse(),
+        }
