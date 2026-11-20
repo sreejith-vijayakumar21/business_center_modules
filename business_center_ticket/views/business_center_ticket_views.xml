@@ -46,8 +46,7 @@
                         </group>
                         <group string="Handling">
                             <field name="category_id" options="{'no_create': True}"/>
-                            <field name="topic" invisible="not topic and not category_id.ask_topic"
-                                   required="category_id.ask_topic"/>
+                            <field name="topic" invisible="not topic and not category_id.ask_topic"/>
                             <field name="priority" widget="priority"/>
                             <field name="user_id" widget="many2one_avatar_user"/>
                             <field name="deadline"/>
