@@ -9,6 +9,31 @@
     </record>
 
     <!--
+        Staff. Rules of different groups are OR'ed, and a manager is also a
+        user, so the manager's rule wins: managers see every ticket. A user
+        sees the tickets assigned to them, the unassigned ones (so nothing
+        waits unseen), and any ticket they follow (a manager adds them as a
+        follower to bring them in). The multi-company rule above, being
+        global, still applies to both.
+    -->
+    <record id="rule_bc_ticket_user_own" model="ir.rule">
+        <field name="name">Ticket: users see their own, unassigned and followed tickets</field>
+        <field name="model_id" ref="model_business_center_ticket"/>
+        <field name="domain_force">['|', '|',
+            ('user_id', '=', user.id),
+            ('user_id', '=', False),
+            ('message_partner_ids', 'in', [user.partner_id.id])]</field>
+        <field name="groups" eval="[(4, ref('business_center.group_bc_user'))]"/>
+    </record>
+
+    <record id="rule_bc_ticket_manager_all" model="ir.rule">
+        <field name="name">Ticket: managers see all tickets</field>
+        <field name="model_id" ref="model_business_center_ticket"/>
+        <field name="domain_force">[(1, '=', 1)]</field>
+        <field name="groups" eval="[(4, ref('business_center.group_bc_manager'))]"/>
+    </record>
+
+    <!--
         Tenants: read only, so links in emails open the portal page. The
         portal pages themselves read with sudo() inside the same scope.
         Two rules on two groups are OR'ed: an employee sees the tickets they

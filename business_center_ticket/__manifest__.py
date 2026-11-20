@@ -4,7 +4,7 @@
 
 {
     'name': 'Business Center Tickets',
-    'version': '19.0.1.1.0',
+    'version': '19.0.1.2.0',
     'category': 'Generic Modules',
     'sequence': 11,
     'author': 'Infintor Solutions',
