@@ -16,5 +16,11 @@
             <field name="sequence">30</field>
             <field name="description">Furniture, doors, plumbing, electrical or equipment repairs</field>
         </record>
+        <record id="ticket_category_other" model="business.center.ticket.category">
+            <field name="name">Other</field>
+            <field name="sequence">99</field>
+            <field name="description">Anything else: tell us what it is about</field>
+            <field name="ask_topic" eval="True"/>
+        </record>
     </data>
 </odoo>

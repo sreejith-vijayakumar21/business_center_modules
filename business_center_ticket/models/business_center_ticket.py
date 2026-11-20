@@ -58,6 +58,10 @@ class BusinessCenterTicket(models.Model):
     ], string='Status', default='new', required=True, tracking=True, copy=False, group_expand=True)
     category_id = fields.Many2one('business.center.ticket.category', string='Category',
                                   required=True, tracking=True, ondelete='restrict')
+    topic = fields.Char(string='Topic', tracking=True,
+                        help="What the problem is about, in the member's words, for a "
+                             "category that asks for it (such as Other).")
+    category_display = fields.Char(string='About', compute='_compute_category_display')
     priority = fields.Selection([
         ('0', 'Low'),
         ('1', 'Normal'),
@@ -108,6 +112,15 @@ class BusinessCenterTicket(models.Model):
 
         for rec in self:
             rec.unit_display = rec.desk_id.name or rec.space_id.name or _("General / common area")
+            
+    @api.depends('category_id', 'topic')
+    def _compute_category_display(self):
+        """The category, with the member's topic when it asks for one,
+        e.g. 'Other: Printer jammed'."""
+
+        for rec in self:
+            name = rec.category_id.name or ''
+            rec.category_display = '%s: %s' % (name, rec.topic) if rec.topic else name
 
     @api.depends('deadline', 'state')
     def _compute_is_overdue(self):
@@ -234,6 +247,14 @@ class BusinessCenterTicket(models.Model):
                 raise ValidationError(_(
                     "%(desk)s is not in %(center)s.",
                     desk=rec.desk_id.display_name, center=rec.center_id.display_name))
+                
+    @api.constrains('category_id', 'topic')
+    def _check_topic(self):
+        """A category that asks for a topic needs one."""
+
+        for rec in self:
+            if rec.category_id.ask_topic and not (rec.topic or '').strip():
+                raise ValidationError(_("Tell us in a few words what the problem is about."))
 
     # ------------------------------------------------------------------------------
     #   MARK: BUTTON ACTION METHODS

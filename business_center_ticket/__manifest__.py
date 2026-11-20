@@ -4,7 +4,7 @@
 
 {
     'name': 'Business Center Tickets',
-    'version': '19.0.1.0.0',
+    'version': '19.0.1.1.0',
     'category': 'Generic Modules',
     'sequence': 11,
     'author': 'Infintor Solutions',
@@ -38,6 +38,11 @@ Support tickets for Business Center.
         'views/business_center_ticket_menus.xml',
         'views/portal_ticket_templates.xml',
     ],
+    'assets': {
+        'web.assets_frontend': [
+            'business_center_ticket/static/src/js/portal_ticket.js',
+        ],
+    },
     'installable': True,
     'application': False,
     'license': 'Other proprietary',

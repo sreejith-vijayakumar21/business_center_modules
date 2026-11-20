@@ -20,6 +20,10 @@ class BusinessCenterTicketCategory(models.Model):
     active = fields.Boolean(default=True)
     description = fields.Char(string='Shown to Members', translate=True,
                               help="One line telling members what to report under this category.")
+    ask_topic = fields.Boolean(
+        string='Members Describe the Topic',
+        help="For a catch-all category such as Other: the member writes in a few "
+             "words what the problem is about, and it is saved on the ticket.")
     assignee_ids = fields.One2many('business.center.ticket.category.assignee', 'category_id',
                                    string='Assignees per Centre')
 

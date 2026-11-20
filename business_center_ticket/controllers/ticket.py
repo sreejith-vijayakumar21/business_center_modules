@@ -258,7 +258,7 @@ class BusinessCenterTicketPortal(BusinessCenterPortal):
             return denied
         contracts, contract = self._ticket_form_contract(post.get('contract_id'))
         form = {key: (post.get(key) or '').strip()
-                for key in ('subject', 'description', 'priority', 'category_id', 'unit')}
+                for key in ('subject', 'description', 'priority', 'category_id', 'unit', 'topic')}
 
         def fail(message):
             return request.render('business_center_ticket.portal_ticket_form',
@@ -273,6 +273,8 @@ class BusinessCenterTicketPortal(BusinessCenterPortal):
             return fail(_("This contract has no business centre yet. Please contact the business centre."))
         if not category:
             return fail(_("Pick what the problem is about."))
+        if category.ask_topic and not form['topic']:
+            return fail(_("Tell us in a few words what the problem is about."))
         if not form['subject'] or not form['description']:
             return fail(_("Give the ticket a subject and describe the problem."))
         if form['priority'] not in dict(Ticket._fields['priority'].selection):
@@ -284,6 +286,7 @@ class BusinessCenterTicketPortal(BusinessCenterPortal):
                 'description': form['description'],
                 'priority': form['priority'],
                 'category_id': category.id,
+                'topic': form['topic'] if category.ask_topic else False,
                 'partner_id': request.env.user.partner_id.id,
                 'contract_id': contract.id,
                 'center_id': contract.center_id.id,

@@ -46,6 +46,8 @@
                         </group>
                         <group string="Handling">
                             <field name="category_id" options="{'no_create': True}"/>
+                            <field name="topic" invisible="not topic and not category_id.ask_topic"
+                                   required="category_id.ask_topic"/>
                             <field name="priority" widget="priority"/>
                             <field name="user_id" widget="many2one_avatar_user"/>
                             <field name="deadline"/>
@@ -85,6 +87,7 @@
                 <field name="name"/>
                 <field name="subject"/>
                 <field name="category_id"/>
+                <field name="topic" optional="show"/>
                 <field name="priority" widget="priority"/>
                 <field name="commercial_partner_id"/>
                 <field name="partner_id" optional="hide"/>
@@ -121,7 +124,7 @@
                             <span t-if="record.is_overdue.raw_value" class="badge text-bg-danger">Overdue</span>
                         </div>
                         <field name="subject" class="fw-bold fs-5"/>
-                        <field name="category_id" class="text-muted"/>
+                        <field name="category_display" class="text-muted"/>
                         <div class="text-muted small">
                             <field name="commercial_partner_id"/> · <field name="center_id"/>
                         </div>

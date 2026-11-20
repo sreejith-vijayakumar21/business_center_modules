@@ -90,7 +90,7 @@
                     <tr t-foreach="tickets" t-as="ticket">
                         <td><a t-attf-href="/my/tickets/#{ticket.id}" t-esc="ticket.name"/></td>
                         <td><span t-esc="ticket.subject"/></td>
-                        <td><span t-esc="ticket.category_id.name"/></td>
+                        <td><t t-esc="ticket.category_display"/></td>
                         <td t-if="is_tenant_admin"><span t-esc="ticket.partner_id.name"/></td>
                         <td class="text-end"><span t-field="ticket.create_date" t-options="{'widget': 'date'}"/></td>
                         <td class="text-center">
@@ -123,7 +123,7 @@
             <div class="row">
                 <div class="col-md-6 mb-3">
                     <h6 class="text-muted text-uppercase small">Ticket</h6>
-                    <div><strong>Category:</strong> <t t-esc="ticket.category_id.name"/></div>
+                    <div><strong>Category:</strong> <t t-esc="ticket.category_display"/></div>
                     <div><strong>Priority:</strong> <span t-field="ticket.priority"/></div>
                     <div><strong>Where:</strong> <t t-esc="ticket.unit_display"/>, <t t-esc="ticket.center_id.name"/></div>
                     <div><strong>Reported by:</strong> <t t-esc="ticket.partner_id.name"/></div>
@@ -252,10 +252,18 @@
                                 <select name="category_id" id="tk_category_id" class="form-select" required="required">
                                     <option value="">Choose…</option>
                                     <option t-foreach="categories" t-as="opt" t-att-value="opt.id"
+                                            t-att-data-ask-topic="'1' if opt.ask_topic else None"
                                             t-att-selected="'selected' if str(opt.id) == form.get('category_id') else None">
                                         <t t-esc="opt.name"/><t t-if="opt.description"> (<t t-esc="opt.description"/>)</t>
                                     </option>
                                 </select>
+                                <div class="col-md-6" id="tk_topic_box"
+                                    t-att-class="None if (categories.filtered(lambda c: str(c.id) == form.get('category_id')).ask_topic) else 'd-none'">
+                                    <label class="o_bc_label" for="tk_topic">What is it about?</label>
+                                    <input type="text" name="topic" id="tk_topic" class="form-control"
+                                        maxlength="80" t-att-value="form.get('topic')"
+                                        placeholder="e.g. Printer, parking, noise"/>
+                                </div>
                             </div>
                             <div class="col-md-6">
                                 <label class="o_bc_label" for="tk_unit">Where?</label>
