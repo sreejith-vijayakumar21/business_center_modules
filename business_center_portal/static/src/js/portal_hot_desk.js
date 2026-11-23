@@ -1,7 +1,9 @@
-import { HOT_DESK_EVENTS } from "@business_center_portal/js/hot_desk_events";
+import { pickerEvents } from "@business_center_portal/floor_picker/picker_events";
+
+const EVENTS = pickerEvents("hot_desk");
 
 /** Hot desk booking form: free desks for the slot, the cost summary, and the
- * floor picker kept in step through HOT_DESK_EVENTS. */
+ * floor picker kept in step through pickerEvents("hot_desk"). */
 function initHotDeskForm() {
     const form = document.getElementById("o_bc_hot_desk_form");
     if (!form) {
@@ -19,15 +21,13 @@ function initHotDeskForm() {
     const symbol = form.dataset.currency || "";
     const slotOptions = (sites) => ({
         contractId: Number(contract.value),
-        bookingDate: date.value,
-        startTime: start.value,
-        endTime: end.value,
+        params: { booking_date: date.value, start_time: start.value, end_time: end.value },
         sites,
     });
     let options = slotOptions([]);
 
     const send = (name, detail) => document.dispatchEvent(new CustomEvent(name, { detail }));
-    const announce = () => send(HOT_DESK_EVENTS.options, options);
+    const announce = () => send(EVENTS.options, options);
     const toFloat = (value) => {
         if (!value) {
             return null;
@@ -103,40 +103,19 @@ function initHotDeskForm() {
 
     [contract, date, start, end].forEach((el) => el.addEventListener("change", refresh));
     desk.addEventListener("change", () => {
-        send(HOT_DESK_EVENTS.chosen, { id: Number(desk.value) });
+        send(EVENTS.chosen, { id: Number(desk.value) });
         updateSummary();
     });
-    document.addEventListener(HOT_DESK_EVENTS.ready, announce);
-    document.addEventListener(HOT_DESK_EVENTS.picked, (ev) => {
+    document.addEventListener(EVENTS.ready, announce);
+    document.addEventListener(EVENTS.picked, (ev) => {
         desk.value = String(ev.detail.id);
         updateSummary();
     });
     refresh();
 }
 
-/** Cancel dialog on a booking's page: once free cancellation has ended
- * while the page was open, show the cancellation request form instead.
- * The server's seconds-left is counted down here, so the member's own clock
- * and time zone don't matter; the server checks again on submit. */
-function initHotDeskCancelDialog() {
-    const modal = document.getElementById("o_bc_cancel_hot_desk");
-    if (!modal || modal.dataset.freeSeconds === undefined) {
-        return;
-    }
-    const freeUntil = Date.now() + Number(modal.dataset.freeSeconds) * 1000;
-    modal.addEventListener("show.bs.modal", () => {
-        const ended = Date.now() >= freeUntil;
-        modal.querySelector(".o_bc_cancel_free").classList.toggle("d-none", ended);
-        modal.querySelector(".o_bc_cancel_request").classList.toggle("d-none", !ended);
-    });
+if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initHotDeskForm);
+} else {
+    initHotDeskForm();
 }
-function onReady(callback) {
-    if (document.readyState === "loading") {
-        document.addEventListener("DOMContentLoaded", callback);
-    } else {
-        callback();
-    }
-}
-
-onReady(initHotDeskForm);
-onReady(initHotDeskCancelDialog);

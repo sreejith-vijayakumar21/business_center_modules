@@ -1,6 +1,6 @@
 {
     'name': 'Business Center Floor Layouts',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.3.0',
     'category': 'Services',
     'sequence': 10,
     'author': 'Infintor Solutions',
@@ -23,6 +23,7 @@ Connects Workspace Floor Planner to the Business Center app:
         "security/floor_layout_security.xml",
         
         "views/business_center_desk_booking_views.xml",
+        'views/business_center_booking_views.xml',
         "views/business_center_leased_asset_views.xml",
         "views/business_center_floor_views.xml",
         "views/business_center_views.xml",

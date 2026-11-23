@@ -64,7 +64,7 @@ class BusinessCenterBookingCancelWizard(models.TransientModel):
     @api.depends('booking_ref')
     def _compute_cancel_request(self):
         """Whether the booking carries an open customer cancellation request.
-        Only hot desks have one; other booking models simply have none."""
+        Hot desks and meeting rooms have one; other booking models simply have none."""
 
         for wiz in self:
             booking = wiz.booking_ref

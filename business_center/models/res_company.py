@@ -41,6 +41,12 @@ class ResCompany(models.Model):
              "minutes before it starts. After that they send a cancellation "
              "request and a manager decides the charge. 0 keeps cancellation "
              "free right up to the start.")
+    bc_meeting_room_free_cancel_minutes = fields.Integer(
+        string='Meeting Room Free Cancellation Until (min before start)', default=0,
+        help="Members cancel a meeting room booking for free until this many "
+             "minutes before it starts. After that they send a cancellation "
+             "request and a manager decides the charge. 0 keeps cancellation "
+             "free right up to the start.")
     # ------------------------------------------------------------------------------
     #   MARK: CONSTRAINT/ONCHANGE METHODS
     # ------------------------------------------------------------------------------
@@ -58,12 +64,12 @@ class ResCompany(models.Model):
                     reminder=company.bc_hot_desk_reminder_minutes,
                     release=company.bc_hot_desk_checkin_grace))
                 
-    @api.constrains('bc_hot_desk_free_cancel_minutes')
+    @api.constrains('bc_hot_desk_free_cancel_minutes', 'bc_meeting_room_free_cancel_minutes')
     def _check_hot_desk_free_cancel(self):
-        """The free cancellation cut-off cannot be negative."""
+        """The free cancellation cut-offs cannot be negative."""
 
         for company in self:
-            if company.bc_hot_desk_free_cancel_minutes < 0:
+            if min(company.bc_hot_desk_free_cancel_minutes, company.bc_meeting_room_free_cancel_minutes) < 0:
                 raise ValidationError(_("The free cancellation cut-off cannot be negative."))
 
 

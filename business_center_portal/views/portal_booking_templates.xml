@@ -24,7 +24,7 @@
             <t t-set="breadcrumbs_searchbar" t-value="True"/>
 
             <t t-call="portal.portal_searchbar">
-                <t t-set="title">Bookings</t>
+                <t t-set="title">Meeting Room Bookings</t>
             </t>
             <div class="mb-3">
                 <a href="/my/bookings/new" class="btn btn-primary btn-sm">
@@ -66,14 +66,9 @@
                         </td>
                         <td><span t-field="booking.meeting_room_id"/></td>
                         <td>
-                            <t t-if="booking.user_id">
-                                <span class="o_bc_who">
-                                    <img class="o_bc_avatar"
-                                         t-attf-src="/web/image/res.users/#{booking.user_id.id}/avatar_128"
-                                         t-att-alt="booking.user_id.name"
-                                         t-att-title="booking.user_id.name"/>
-                                    <span t-field="booking.user_id.name"/>
-                                </span>
+                            <!-- Initials, not the res.users avatar: portal users may not read other users. -->
+                            <t t-if="booking.user_id" t-call="business_center_portal.portal_hot_desk_person">
+                                <t t-set="person" t-value="booking.user_id.partner_id"/>
                             </t>
                             <span t-else="" class="text-muted small">&#8212;</span>
                         </td>
@@ -84,6 +79,8 @@
                             <span t-if="booking.state == 'confirmed'" class="badge rounded-pill text-bg-success">Confirmed</span>
                             <span t-elif="booking.state == 'draft'"   class="badge rounded-pill text-bg-info">Draft</span>
                             <span t-else=""                           class="badge rounded-pill text-bg-secondary">Cancelled</span>
+                            <span t-if="booking.cancel_request_state == 'pending'"
+                                  class="badge rounded-pill text-bg-warning ms-1">Cancellation requested</span>
                         </td>
                     </tr>
                 </tbody>
@@ -103,8 +100,10 @@
                         <span t-if="booking.state == 'confirmed'" class="badge text-bg-success">Confirmed</span>
                         <span t-elif="booking.state == 'draft'"   class="badge text-bg-info">Draft</span>
                         <span t-else=""                           class="badge text-bg-secondary">Cancelled</span>
+                        <span t-if="booking.cancel_request_state == 'pending'"
+                              class="badge text-bg-warning">Cancellation requested</span>
                     </h5>
-                    <button t-if="booking.state == 'confirmed'" type="button"
+                    <button t-if="booking.state == 'confirmed' and booking.cancel_request_state != 'pending'" type="button"
                             t-attf-class="btn btn-sm #{'btn-outline-danger' if can_cancel else 'btn-outline-secondary'}"
                             data-bs-toggle="modal" data-bs-target="#o_bc_cancel_booking">
                         <i class="fa fa-times me-1"/>Cancel booking
@@ -113,6 +112,22 @@
             </div>
             <div t-if="error" class="alert alert-danger d-flex align-items-center" role="alert">
                 <i class="fa fa-exclamation-circle me-2"/><t t-esc="error"/>
+            </div>
+            <div t-if="booking.cancel_request_state == 'pending'" class="alert alert-warning" role="alert">
+                <i class="fa fa-hourglass-half me-2"/>
+                You asked to cancel this booking on <span t-field="booking.cancel_requested_at"/>.
+                The business centre will reply by email; until then the room stays booked.
+                <div class="small mt-1"><strong>Your reason:</strong> <t t-esc="booking.cancel_request_reason"/></div>
+            </div>
+            <div t-elif="booking.cancel_request_state == 'rejected'" class="alert alert-info" role="alert">
+                <i class="fa fa-info-circle me-2"/>
+                The business centre kept this booking: your cancellation request was declined.
+                <div t-if="booking.cancel_reason" class="small mt-1"><strong>Note:</strong> <t t-esc="booking.cancel_reason"/></div>
+            </div>
+            <div t-elif="booking.cancel_request_state == 'accepted'" class="alert alert-info" role="alert">
+                <i class="fa fa-info-circle me-2"/>
+                Your cancellation request was accepted<t t-if="booking.cancel_outcome">: <span t-field="booking.cancel_outcome"/></t>.
+                <div t-if="booking.cancel_reason" class="small mt-1"><strong>Note:</strong> <t t-esc="booking.cancel_reason"/></div>
             </div>
 
             <div class="row">
@@ -168,45 +183,86 @@
                 </tbody>
             </table>
 
-            <div t-if="booking.state == 'confirmed'" class="modal fade" id="o_bc_cancel_booking"
-                 tabindex="-1" aria-hidden="true">
+            <div t-if="booking.state == 'confirmed' and booking.cancel_request_state != 'pending'"
+                 class="modal fade o_bc_cancel_dialog" id="o_bc_cancel_booking" tabindex="-1" aria-hidden="true"
+                 t-att-data-free-seconds="free_seconds_left if (can_cancel and can_cancel_free) else None">
                 <div class="modal-dialog modal-dialog-centered">
-                    <div class="modal-content">
+
+                    <!-- Inside the free window: cancel at once -->
+                    <div t-if="can_cancel and can_cancel_free" class="modal-content o_bc_cancel_free">
                         <div class="modal-header">
-                            <h5 class="modal-title">
-                                <t t-if="can_cancel">Cancel this booking?</t>
-                                <t t-else="">This booking can't be cancelled</t>
-                            </h5>
-                            <button type="button" class="btn-close"
-                                    data-bs-dismiss="modal" aria-label="Close"/>
+                            <h5 class="modal-title">Cancel this booking?</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
                         </div>
                         <div class="modal-body">
                             <p class="mb-1">
-                                <span t-field="booking.meeting_room_id"/> on
-                                <span t-field="booking.booking_date"/>,
+                                <span t-field="booking.meeting_room_id"/> on <span t-field="booking.booking_date"/>,
                                 <span t-field="booking.selected_slot_display"/>.
                             </p>
-                            <p t-if="can_cancel" class="text-muted small mb-0">
-                                The slot is released and any wallet hours it used go back
-                                to your contract's monthly credits.
+                            <p class="text-muted small mb-0">
+                                The room is released and any wallet hours it used go back to your
+                                contract's monthly credits.
                             </p>
-                            <p t-else="" class="text-muted small mb-0" t-esc="cancel_block_reason"/>
                         </div>
                         <div class="modal-footer">
-                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">
-                                <t t-if="can_cancel">Keep booking</t>
-                                <t t-else="">Close</t>
-                            </button>
-                            <form t-if="can_cancel" method="post" class="d-inline"
-                                  t-attf-action="/my/bookings/#{booking.id}/cancel">
-                                <input type="hidden" name="csrf_token"
-                                       t-att-value="request.csrf_token()"/>
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep booking</button>
+                            <form method="post" class="d-inline" t-attf-action="/my/bookings/#{booking.id}/cancel">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
                                 <button type="submit" class="btn btn-danger">
                                     <i class="fa fa-times me-1"/>Cancel booking
                                 </button>
                             </form>
                         </div>
                     </div>
+
+                    <!-- After the free window: ask the business centre -->
+                    <form t-if="can_cancel" method="post"
+                          t-attf-action="/my/bookings/#{booking.id}/request-cancel"
+                          t-attf-class="modal-content o_bc_cancel_request #{'d-none' if can_cancel_free else ''}">
+                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                        <div class="modal-header">
+                            <h5 class="modal-title">Request cancellation</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                        </div>
+                        <div class="modal-body">
+                            <p class="mb-1">
+                                <span t-field="booking.meeting_room_id"/> on <span t-field="booking.booking_date"/>,
+                                <span t-field="booking.selected_slot_display"/>.
+                            </p>
+                            <p class="text-muted small">
+                                <t t-if="free_cancel_minutes">
+                                    Free cancellation ends <t t-esc="free_cancel_minutes"/> minutes before the start.
+                                </t>
+                                <t t-else="">This booking has already started.</t>
+                                The business centre decides whether anything is charged and replies by email.
+                                Until then the room stays booked.
+                            </p>
+                            <label class="o_bc_label" for="o_bc_cancel_reason">Why do you want to cancel?</label>
+                            <textarea name="reason" id="o_bc_cancel_reason" class="form-control" rows="3"
+                                      required="required" maxlength="1000"/>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Keep booking</button>
+                            <button type="submit" class="btn btn-warning">
+                                <i class="fa fa-paper-plane me-1"/>Send request
+                            </button>
+                        </div>
+                    </form>
+
+                    <!-- Not allowed for this member -->
+                    <div t-if="not can_cancel" class="modal-content">
+                        <div class="modal-header">
+                            <h5 class="modal-title">This booking can't be cancelled here</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"/>
+                        </div>
+                        <div class="modal-body">
+                            <p class="text-muted small mb-0" t-esc="cancel_block_reason"/>
+                        </div>
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-light" data-bs-dismiss="modal">Close</button>
+                        </div>
+                    </div>
+
                 </div>
             </div>
         </t>
@@ -239,57 +295,82 @@
                     <i class="fa fa-exclamation-circle me-2"/><t t-esc="error"/>
                 </div>
 
-                    <form method="post" action="/my/bookings/new" id="o_bc_booking_form"
-                      t-att-data-rate="room.hourly_rate">
+                <form method="post" action="/my/bookings/new" id="o_bc_booking_form"
+                      t-att-data-currency="room.currency_id.symbol or ''">
                     <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
 
-                    <!-- STEP 1 : WHERE -->
+                    <!-- STEP 1 : WHEN -->
                     <section class="o_bc_card">
-                        <div class="o_bc_step"><span class="o_bc_num">1</span>Where and when</div>
+                        <div class="o_bc_step"><span class="o_bc_num">1</span>When and how many</div>
                         <div class="row g-3">
                             <div class="col-md-4" t-if="len(contracts) &gt; 1">
-                                <label class="o_bc_label" for="contract_id">Contract</label>
+                                <label class="o_bc_label" for="contract_id">Business centre and contract</label>
                                 <select name="contract_id" id="contract_id" class="form-select">
-                                    <t t-foreach="contracts" t-as="opt">
-                                        <option t-att-value="opt.id"
-                                                t-att-selected="'selected' if opt == contract else None"
-                                                t-esc="opt.name"/>
-                                    </t>
+                                    <option t-foreach="contracts" t-as="opt" t-att-value="opt.id"
+                                            t-att-selected="'selected' if opt == contract else None">
+                                        <t t-esc="opt.center_id.name or 'No centre'"/> · <t t-esc="opt.name"/>
+                                    </option>
                                 </select>
                             </div>
                             <div class="col-md-4" t-else="">
-                                <label class="o_bc_label">Contract</label>
-                                <div class="form-control-plaintext" t-esc="contract.name"/>
-                                <input type="hidden" name="contract_id" id="contract_id"
-                                       t-att-value="contract.id"/>
-                            </div>
-                            <div class="col-md-4">
-                                <label class="o_bc_label" for="meeting_room_id">Meeting room</label>
-                                <select name="meeting_room_id" id="meeting_room_id" class="form-select">
-                                    <t t-foreach="rooms" t-as="opt">
-                                        <option t-att-value="opt.id"
-                                                t-att-selected="'selected' if opt == room else None"
-                                                t-esc="opt.display_name"/>
-                                    </t>
-                                </select>
+                                <label class="o_bc_label">Business centre and contract</label>
+                                <div class="form-control-plaintext">
+                                    <t t-esc="contract.center_id.name"/> · <t t-esc="contract.name"/>
+                                </div>
+                                <input type="hidden" name="contract_id" id="contract_id" t-att-value="contract.id"/>
                             </div>
                             <div class="col-md-4">
                                 <label class="o_bc_label" for="booking_date">Date</label>
-                                <input type="date" name="booking_date" id="booking_date"
-                                    class="form-control" t-att-value="booking_date"
-                                    t-att-min="today"/>
+                                <input type="date" name="booking_date" id="booking_date" class="form-control"
+                                       t-att-value="booking_date" t-att-min="today"/>
+                            </div>
+                            <div class="col-md-4">
+                                <label class="o_bc_label" for="attendees">Attendees (optional)</label>
+                                <input type="number" name="attendees" id="attendees" class="form-control"
+                                       min="1" max="500" step="1" t-att-value="attendees"
+                                       placeholder="Hides rooms that are too small"/>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="o_bc_label" for="start_time">From</label>
+                                <input type="time" name="start_time" id="start_time"
+                                       class="form-control o_bc_time" t-att-value="start_hhmm" required="required"/>
+                            </div>
+                            <div class="col-6 col-md-3">
+                                <label class="o_bc_label" for="end_time">To</label>
+                                <input type="time" name="end_time" id="end_time"
+                                       class="form-control o_bc_time" t-att-value="end_hhmm" required="required"/>
+                            </div>
+                        </div>
+                    </section>
+
+                    <!-- STEP 2 : ROOM -->
+                    <section class="o_bc_card">
+                        <div class="o_bc_step"><span class="o_bc_num">2</span>Pick a room</div>
+                        <owl-component name="business_center_portal.BcFloorPicker" props='{"kind": "meeting_room"}'/>
+                        <div class="row g-3 mt-1 align-items-end">
+                            <div class="col-md-6">
+                                <label class="o_bc_label" for="meeting_room_id">Or choose from the list</label>
+                                <select name="meeting_room_id" id="meeting_room_id" class="form-select" required="required">
+                                    <option value="">Choose a room…</option>
+                                    <option t-foreach="room_options" t-as="opt" t-att-value="opt['id']"
+                                            t-att-data-rate="opt['rate']"
+                                            t-att-selected="'selected' if opt['id'] == room_id else None"
+                                            t-esc="opt['name']"/>
+                                </select>
+                            </div>
+                            <div class="col-md-6">
+                                <div id="o_bc_room_hint" class="text-muted small"/>
                             </div>
                         </div>
 
                         <div class="o_bc_meta">
                             <div class="o_bc_chip">
                                 <i class="fa fa-clock-o"/>
-                                <span id="o_bc_hours" t-esc="room.operating_hours_display"/>
+                                <span id="o_bc_hours" t-esc="room.operating_hours_display or '—'"/>
                             </div>
                             <div class="o_bc_chip">
                                 <i class="fa fa-tag"/>
-                                <span t-if="room.currency_id" t-field="room.hourly_rate"/>
-                                <span t-else="">&#8212;</span>
+                                <span id="o_bc_rate">—</span>
                                 <span class="o_bc_dim">/hr</span>
                             </div>
                             <div t-if="contract.is_wallet_eligible" class="o_bc_chip o_bc_chip_wallet">
@@ -303,11 +384,8 @@
                                 <span class="o_bc_dim">free hrs — all hours billed</span>
                             </div>
                         </div>
-                    </section>
 
-                    <!-- STEP 2 : AVAILABILITY -->
-                    <section class="o_bc_card">
-                        <div class="o_bc_step"><span class="o_bc_num">2</span>Pick a slot</div>
+                        <div class="o_bc_label mt-3">The room's day (click a free time to use it)</div>
                         <div id="o_bc_slots" class="o_bc_slots" t-out="slots_html"/>
                         <div class="o_bc_legend">
                             <span><i class="o_bc_dot o_bc_dot_free"/>Available</span>
@@ -315,25 +393,11 @@
                         </div>
                     </section>
 
-                    <!-- STEP 3 : TIME -->
+                    <!-- STEP 3 : CONFIRM -->
                     <section class="o_bc_card">
-                        <div class="o_bc_step"><span class="o_bc_num">3</span>Confirm your time</div>
-                        <div class="row g-3 align-items-end">
-                            <div class="col-6 col-md-3">
-                                <label class="o_bc_label" for="start_time">From</label>
-                                <input type="time" name="start_time" id="start_time"
-                                    class="form-control o_bc_time" required="required"/>
-                            </div>
-                            <div class="col-6 col-md-3">
-                                <label class="o_bc_label" for="end_time">To</label>
-                                <input type="time" name="end_time" id="end_time"
-                                    class="form-control o_bc_time" required="required"/>
-                            </div>
-                            <div class="col-md-6">
-                                <div id="o_bc_summary" class="o_bc_summary o_bc_summary_idle">
-                                    Pick a start and end time to see the cost.
-                                </div>
-                            </div>
+                        <div class="o_bc_step"><span class="o_bc_num">3</span>Confirm</div>
+                        <div id="o_bc_summary" class="o_bc_summary o_bc_summary_idle">
+                            Pick a room and a time to see the cost.
                         </div>
                     </section>
 

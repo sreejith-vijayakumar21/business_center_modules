@@ -14,13 +14,17 @@ class BusinessCenterBooking(models.Model):
     
     _name = 'business.center.booking'
     _description = 'A central registry of business center bookings'
-    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.slot.booking.mixin']
+    _inherit = ['mail.thread', 'mail.activity.mixin', 'business.center.slot.booking.mixin',
+                'business.center.cancel.request.mixin']
     _order = 'name desc'
 
     # What the shared slot rules book: the meeting room, open per its own hours.
     _slot_resource_field = 'meeting_room_id'
     _slot_hours_path = 'meeting_room_id'
     _slot_blocking_states = ('confirmed',)
+    # What the shared cancellation request rules use for meeting rooms.
+    _bc_free_cancel_field = 'bc_meeting_room_free_cancel_minutes'
+    _bc_cancel_answer_template = 'business_center.mail_template_meeting_room_cancel_answer'
     
     # ------------------------------------------------------------------------------
     #   MARK: FIELDS
@@ -73,12 +77,13 @@ class BusinessCenterBooking(models.Model):
                                 related='contract_id.center_id', store=True)
     meeting_room_id = fields.Many2one(
         'business.center.space', string='Meeting Room', required=True,
-        domain="[('space_type', '=', 'meeting_room'), "
-               "('center_id', '=', center_id), "
-               "('is_bookable', '=', True), "
-               "('state', 'in', ('available', 'occupied'))]")
+        domain="[('id', 'in', available_room_ids)]")
     currency_id = fields.Many2one('res.currency', string='Currency', default=lambda self: self.env.company.currency_id)
     company_id = fields.Many2one(related='contract_id.company_id', store=True, string='Company')
+    available_room_ids = fields.Many2many(
+        'business.center.space', string='Free Meeting Rooms', compute='_compute_available_room_ids',
+        help="Meeting rooms of the contract's centre open for booking, open for the "
+             "chosen time and not booked by anyone else, for the dropdown and the floor picker.")
     
     _no_double_booking = models.Constraint(
         """EXCLUDE USING gist (
@@ -171,6 +176,26 @@ class BusinessCenterBooking(models.Model):
         for rec in self:
             rec.chargeable_hours_display = rec._float_to_duration(rec.chargeable_hours)
             
+    @api.depends('center_id', 'booking_date', 'start_time', 'end_time')
+    def _compute_available_room_ids(self):
+        """Bookable meeting rooms of the contract's centre that are free for
+        the slot, by the same rule as the portal (_bc_free_rooms). A booking
+        never blocks itself."""
+
+        Space = self.env['business.center.space']
+        for rec in self:
+            if not rec.center_id:
+                rec.available_room_ids = Space
+                continue
+            rooms = Space.search([
+                ('space_type', '=', 'meeting_room'),
+                ('center_id', '=', rec.center_id.id),
+                ('is_bookable', '=', True),
+                ('state', 'in', ('available', 'occupied')),
+            ])
+            rec.available_room_ids = self._bc_free_rooms(
+                rooms, rec.booking_date, rec.start_time, rec.end_time, rec._origin.id or 0)
+            
     @api.model_create_multi
     def create(self, vals_list):
         """Assign a sequence reference (e.g. B/2026/M00001) to new bookings unless a
@@ -221,8 +246,10 @@ class BusinessCenterBooking(models.Model):
             return True
 
         if not self.env.user.has_group('business_center.group_bc_manager'):
+            # A customer asking to cancel writes only the request fields.
+            changed = set(vals) - {'state'} - self._bc_cancel_request_fields()
             for booking in self:
-                if booking.state != 'draft' and set(vals) - {'state'}:
+                if booking.state != 'draft' and changed:
                     raise UserError(_("A confirmed booking can only be cancelled."))
         return super().write(vals)
     
@@ -424,11 +451,30 @@ class BusinessCenterBooking(models.Model):
     #   MARK: HELPER METHODS
     # ------------------------------------------------------------------------------
     def _bc_check_settle(self):
-        """The charge decision wizard cancels a confirmed booking that has started."""
+        """The charge decision wizard cancels a confirmed booking that has
+        started, or answers its customer's cancellation request."""
 
         self.ensure_one()
         if self.state != 'confirmed':
             raise UserError(_("Only a confirmed booking can be cancelled here."))
+
+    @api.model
+    def _bc_free_rooms(self, rooms, booking_date, start_time, end_time, exclude_id=0):
+        """The rooms among ``rooms`` open for the whole slot and not held by
+        another booking (``exclude_id`` is the booking being edited). Without
+        a valid slot, every room counts as free."""
+
+        if not (booking_date and end_time > start_time):
+            return rooms
+        open_rooms = rooms.filtered(
+            lambda r: r.min_booking_hour <= start_time
+            and (not r.max_booking_hour or end_time <= r.max_booking_hour))
+        return open_rooms - self._slot_held(open_rooms, booking_date, start_time, end_time, exclude_id)
+
+    def _bc_cancel_answer_partners(self):
+        """The person who booked is told the answer, and whoever sent the request."""
+
+        return self.user_id.partner_id | super()._bc_cancel_answer_partners()
     
     def _bc_refund_wallet_hours(self, hours):
         """Give ``hours`` drawn by this booking back to the contract's wallet,
@@ -529,7 +575,9 @@ class BusinessCenterBooking(models.Model):
                 })
 
         self.with_context(bc_state_from_action=True).write(vals)
-    
+        if self._bc_close_cancel_request('accepted'):
+            self._bc_send_cancel_answer()
+
     def _create_overage_charge(self, overage_hours):
         """Raise a pending contract charge for the meeting-room hours over wallet credit."""
         
