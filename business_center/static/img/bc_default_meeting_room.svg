@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 480 360">
+  <rect width="480" height="360" fill="#eef2f7"/>
+  <rect y="240" width="480" height="120" fill="#dfe6ef"/>
+  <rect x="150" y="40" width="180" height="100" rx="6" fill="#46566b"/>
+  <rect x="158" y="48" width="164" height="84" rx="3" fill="#9cc3ea"/>
+  <polyline points="175,115 210,90 240,105 280,70 305,80" fill="none" stroke="#ffffff" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="236" y="140" width="8" height="30" fill="#7d8fa6"/>
+  <rect x="40" y="60" width="70" height="90" rx="6" fill="#ffffff" stroke="#c9d4e2" stroke-width="3"/>
+  <rect x="370" y="60" width="70" height="90" rx="6" fill="#ffffff" stroke="#c9d4e2" stroke-width="3"/>
+  <ellipse cx="240" cy="250" rx="170" ry="38" fill="#b48a6a"/>
+  <ellipse cx="240" cy="244" rx="170" ry="38" fill="#c79d7c"/>
+  <g fill="#7d8fa6">
+    <rect x="95" y="190" width="40" height="28" rx="8"/>
+    <rect x="170" y="180" width="40" height="28" rx="8"/>
+    <rect x="270" y="180" width="40" height="28" rx="8"/>
+    <rect x="345" y="190" width="40" height="28" rx="8"/>
+    <rect x="95" y="285" width="40" height="28" rx="8"/>
+    <rect x="170" y="295" width="40" height="28" rx="8"/>
+    <rect x="270" y="295" width="40" height="28" rx="8"/>
+    <rect x="345" y="285" width="40" height="28" rx="8"/>
+  </g>
+  <rect x="200" y="232" width="30" height="20" rx="3" fill="#46566b"/>
+  <rect x="255" y="236" width="22" height="14" rx="3" fill="#f4c27a"/>
+</svg>

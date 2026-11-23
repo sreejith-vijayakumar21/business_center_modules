@@ -34,4 +34,8 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.bc_hot_desk_free_cancel_minutes', readonly=False)
     bc_meeting_room_free_cancel_minutes = fields.Integer(
         related='company_id.bc_meeting_room_free_cancel_minutes', readonly=False)
+    bc_coworking_photo = fields.Image(
+        related='company_id.bc_coworking_photo', readonly=False)
+    bc_meeting_room_photo = fields.Image(
+        related='company_id.bc_meeting_room_photo', readonly=False)
 

@@ -442,3 +442,32 @@ class BusinessCenterSpace(models.Model):
         for desk in self.desk_ids:
             items += desk._bc_upcoming_commitments()
         return items
+    
+    def _bc_photo_kind(self):
+        """Which default photo this space falls back to: 'meeting_room',
+        'coworking' (also used by its hot desks), or False for offices."""
+
+        self.ensure_one()
+        if self.space_type == 'meeting_room':
+            return 'meeting_room'
+        if self.is_coworking:
+            return 'coworking'
+        return False
+
+    def _bc_default_photo(self):
+        """``(company, field)`` when the company has uploaded a default photo
+        for this kind of space, ``(False, url)`` for the built-in picture,
+        ``(False, False)`` when there is none. Sudo: portal users read it."""
+
+        self.ensure_one()
+        company = (self.company_id or self.env.company).sudo()
+        field, url = company._bc_default_photo(self._bc_photo_kind())
+        return (company, field) if field else (False, url)
+
+    def _bc_has_photo(self):
+        """Whether the panel has something to show: the space's own photo or
+        a default."""
+
+        self.ensure_one()
+        owner, url = self._bc_default_photo()
+        return bool(self.image_1920 or owner or url)
