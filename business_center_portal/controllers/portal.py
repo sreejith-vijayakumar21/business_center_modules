@@ -193,6 +193,17 @@ class BusinessCenterPortal(CustomerPortal):
 
         return request.env['ir.binary']._get_image_stream_from(
             record, field_name, width=480, height=360).get_response()
+        
+    def _bc_space_photo_response(self, space):
+        """The photo a portal panel shows for ``space``: its own, else the
+        company's default for its kind, else the built-in picture."""
+
+        if space.image_1920:
+            return self._bc_image_response(space)
+        company, value = space._bc_default_photo()
+        if company:
+            return self._bc_image_response(company, value)
+        return request.redirect(value) if value else request.not_found()
 
     # ------------------------------------------------------------------------------
     #   MARK: CANCELLATION HELPERS

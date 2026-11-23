@@ -482,7 +482,7 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
             return request.not_found()
         # The backend image URL needs read access on spaces: serve it here.
         space = desk.space_id
-        image_url = '/my/hot-desks/photo/%s' % space.id if space.image_1920 else False
+        image_url = '/my/hot-desks/photo/%s' % space.id if space._bc_has_photo() else False
         return request.make_json_response(self._bc_unit_details(HOT_DESK_LINK_KEY, desk, image_url))
 
     @http.route(['/my/hot-desks/photo/<int:space_id>'], type='http', auth='user', methods=['GET'])
@@ -496,4 +496,4 @@ class BusinessCenterHotDeskPortal(BusinessCenterPortal):
         if not (space and space.is_coworking
                 and space.center_id in self._hot_desk_contracts().center_id):
             return request.not_found()
-        return self._bc_image_response(space)
+        return self._bc_space_photo_response(space)

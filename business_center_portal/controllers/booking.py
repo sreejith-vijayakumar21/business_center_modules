@@ -536,7 +536,7 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
         room = self._center_rooms(contract.center_id).filtered(lambda r: r.id == room_id)
         if not room:
             return request.not_found()
-        image_url = '/my/bookings/room/%s/photo' % room.id if room.image_1920 else False
+        image_url = '/my/bookings/room/%s/photo' % room.id if room._bc_has_photo() else False
         return request.make_json_response(self._bc_unit_details(MEETING_ROOM_LINK_KEY, room, image_url))
 
     @http.route(['/my/bookings/room/<int:room_id>/photo'], type='http', auth='user', methods=['GET'])
@@ -550,4 +550,4 @@ class BusinessCenterBookingPortal(BusinessCenterPortal):
         room = request.env['business.center.space'].sudo().browse(room_id).exists()
         if not (room and room.space_type == 'meeting_room' and room.center_id in centers):
             return request.not_found()
-        return self._bc_image_response(room)
+        return self._bc_space_photo_response(room)
