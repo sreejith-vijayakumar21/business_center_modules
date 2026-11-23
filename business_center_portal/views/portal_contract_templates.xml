@@ -17,7 +17,26 @@
         </xpath>
     </template>
 
-    <!-- LIST -->
+    <!-- BADGES: shared by the contract cards and the contract page -->
+    <template id="portal_contract_state_badge" name="Portal: Contract Status Badge">
+        <span t-if="contract.state == 'upcoming'" class="badge rounded-pill text-bg-primary">Upcoming</span>
+        <span t-elif="contract.state == 'active'" class="badge rounded-pill text-bg-success">Running</span>
+        <span t-elif="contract.state == 'draft'" class="badge rounded-pill text-bg-info">Draft</span>
+        <span t-elif="contract.state == 'expired'" class="badge rounded-pill text-bg-danger">Expired</span>
+        <span t-else="" class="badge rounded-pill text-bg-secondary">Cancelled</span>
+    </template>
+
+    <template id="portal_contract_ending_badge" name="Portal: Contract Ending Badge">
+        <span t-if="card['ending_soon']" class="badge rounded-pill text-bg-warning">
+            <t t-if="card['days_left'] &gt; 0">Ends in <t t-out="card['days_left']"/> days</t>
+            <t t-else="">Ends today</t>
+        </span>
+        <span t-elif="card['renewal']" class="badge rounded-pill text-bg-light border">
+            <i class="fa fa-refresh me-1"/>Renewed as <t t-out="card['renewal'].name"/>
+        </span>
+    </template>
+
+    <!-- LIST: one card per contract -->
     <template id="portal_my_contracts" name="My Contracts">
         <t t-call="portal.portal_layout">
             <t t-set="breadcrumbs_searchbar" t-value="True"/>
@@ -26,56 +45,60 @@
                 <t t-set="title">Contracts</t>
             </t>
 
-            <t t-if="not contracts">
-                <div class="alert alert-warning" role="alert">
-                    There are currently no contracts for your account.
-                </div>
-            </t>
+            <div t-if="not contracts" class="alert alert-info mt-3" role="alert">
+                No contracts match this filter.
+                <a href="/my/contracts?filterby=all">Show all contracts</a>
+            </div>
 
-            <t t-if="contracts" t-call="portal.portal_table">
-                <thead>
-                    <tr class="active">
-                        <th>Contract</th>
-                        <th>Leased Assets</th>
-                        <th class="text-end">Start Date</th>
-                        <th class="text-end">End Date</th>
-                        <th class="text-center">Auto Renew</th>
-                        <th class="text-center">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr t-foreach="contracts" t-as="contract">
-                        <td>
-                            <a t-attf-href="/my/contracts/#{contract.id}">
-                                <span t-field="contract.name"/>
-                            </a>
-                        </td>
-                        <td>
-                            <t t-set="assets" t-value="contract.leased_asset_ids"/>
-                            <t t-foreach="assets[:2]" t-as="asset">
-                                <span class="badge rounded-pill text-bg-light border me-1"
-                                      t-esc="asset.display_name"/>
-                            </t>
-                            <span t-if="len(assets) &gt; 2" class="text-muted small">
-                                +<t t-esc="len(assets) - 2"/> more
-                            </span>
-                        </td>
-                        <td class="text-end"><span t-field="contract.date_start"/></td>
-                        <td class="text-end"><span t-field="contract.date_end"/></td>
-                        <td class="text-center">
-                            <i t-if="contract.auto_renew" class="fa fa-check text-success"/>
-                            <i t-else="" class="fa fa-minus text-muted"/>
-                        </td>
-                        <td class="text-center">
-                            <span t-if="contract.state == 'upcoming'"   class="badge rounded-pill text-bg-primary">Upcoming</span>
-                            <span t-elif="contract.state == 'active'"   class="badge rounded-pill text-bg-success">Running</span>
-                            <span t-elif="contract.state == 'draft'"   class="badge rounded-pill text-bg-info">Draft</span>
-                            <span t-elif="contract.state == 'expired'" class="badge rounded-pill text-bg-danger">Expired</span>
-                            <span t-else=""                            class="badge rounded-pill text-bg-secondary">Cancelled</span>
-                        </td>
-                    </tr>
-                </tbody>
-            </t>
+            <div t-if="contracts" class="row g-3 mt-1">
+                <div t-foreach="contracts" t-as="contract" class="col-md-6">
+                    <t t-set="card" t-value="cards[contract.id]"/>
+                    <a t-attf-href="/my/contracts/#{contract.id}"
+                       class="card h-100 text-reset text-decoration-none o_bc_contract_card">
+                        <div class="card-body">
+                            <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+                                <h6 class="mb-0 me-auto" t-out="contract.name"/>
+                                <t t-call="business_center_portal.portal_contract_ending_badge"/>
+                                <t t-call="business_center_portal.portal_contract_state_badge"/>
+                            </div>
+                            <div t-if="contract.center_id" class="text-muted small mb-2">
+                                <i class="fa fa-building-o me-1"/><t t-out="contract.center_id.name"/>
+                            </div>
+                            <div t-if="card['assets']" class="mb-2">
+                                <span t-foreach="card['assets']" t-as="asset"
+                                      class="badge rounded-pill text-bg-light border me-1" t-out="asset"/>
+                            </div>
+                            <div class="d-flex flex-wrap justify-content-between gap-2 small">
+                                <div>
+                                    <div class="text-muted">Period</div>
+                                    <span t-field="contract.date_start"/> → <span t-field="contract.date_end"/>
+                                    <i t-if="contract.auto_renew" class="fa fa-refresh text-success ms-1"
+                                       title="Renews automatically" role="img" aria-label="Auto renew"/>
+                                </div>
+                                <div class="text-end">
+                                    <div class="text-muted">Monthly rent</div>
+                                    <strong t-out="card['monthly_rent']"
+                                            t-options="{'widget': 'monetary', 'display_currency': contract.currency_id}"/>
+                                </div>
+                            </div>
+                            <div t-if="contract.is_wallet_eligible" class="mt-3 small">
+                                <div class="d-flex justify-content-between text-muted">
+                                    <span>Free meeting-room hours</span>
+                                    <span><t t-out="contract.wallet_balance"/> / <t t-out="contract.free_hours_monthly"/> hr</span>
+                                </div>
+                                <div class="progress mt-1" style="height: 6px;" role="progressbar"
+                                     t-att-aria-valuenow="card['wallet_pct']" aria-valuemin="0" aria-valuemax="100">
+                                    <div class="progress-bar bg-success" t-attf-style="width: #{card['wallet_pct']}%"/>
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </div>
+            </div>
+
+            <div t-if="pager" class="o_portal_pager d-flex justify-content-center mt-3">
+                <t t-call="portal.pager"/>
+            </div>
         </t>
     </template>
 
@@ -89,11 +112,8 @@
                 <div class="col">
                     <h5 class="mb-1">
                         Contract <span t-field="contract.name"/>
-                        <span t-if="contract.state == 'upcoming'"   class="badge rounded-pill text-bg-primary">Upcoming</span>
-                        <span t-elif="contract.state == 'active'"   class="badge text-bg-success">Running</span>
-                        <span t-elif="contract.state == 'draft'"   class="badge text-bg-info">Draft</span>
-                        <span t-elif="contract.state == 'expired'" class="badge text-bg-danger">Expired</span>
-                        <span t-else=""                            class="badge text-bg-secondary">Cancelled</span>
+                        <t t-call="business_center_portal.portal_contract_state_badge"/>
+                        <t t-call="business_center_portal.portal_contract_ending_badge"/>
                     </h5>
                     <div t-if="contract.agreement_state == 'signed'" class="text-muted small">
                         <i class="fa fa-check-circle text-success me-1" role="img" aria-label="Signed"/>

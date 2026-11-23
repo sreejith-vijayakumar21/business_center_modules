@@ -139,19 +139,22 @@ class BusinessCenterPortal(CustomerPortal):
         is_admin = self._bc_is_tenant_admin()
         usable = self._bc_member_contracts()
         running = state in ('active', 'expiring')
-        valid_until = partner.bc_membership_valid_until
+        next_end = usable.sorted(lambda c: c._bc_covered_until())[:1]
         labels = dict(partner._fields['bc_membership_state']._description_selection(request.env))
+        valid_until = next_end._bc_covered_until() if next_end else partner.bc_membership_valid_until
         return {
             'state': state,
             'label': labels.get(state, state),
             'company': partner.commercial_partner_id,
             'member_since': partner.bc_member_since,
             'starts_on': partner.bc_membership_starts_on,
-            'valid_until': valid_until,
-            'days_left': (valid_until - self._bc_today()).days
-                         if state == 'expiring' and valid_until else 0,
+            'valid_until': valid_until if running else partner.bc_membership_valid_until,
+            'days_left': (partner.bc_membership_valid_until - self._bc_today()).days
+                         if state == 'expiring' and partner.bc_membership_valid_until else 0,
             'centers': usable.center_id if running else partner.bc_membership_center_ids,
             'is_admin': is_admin,
             'named': is_admin or not running or bool(usable),
-            'contracts': usable if is_admin else usable.browse(),
+            'running_count': len(usable) if running else 0,
+            'next_end': next_end,
+            'contracts_url': '/my/contracts' if is_admin else False,
         }

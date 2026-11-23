@@ -18,7 +18,12 @@
                         </span>
                     </div>
                     <div class="small text-muted mt-1">
-                        <t t-if="m['state'] in ('active', 'expiring')">
+                        <t t-if="m['running_count'] &gt; 1">
+                            <t t-out="m['running_count']"/> running contracts ·
+                            next ends <span t-out="m['valid_until']" t-options="{'widget': 'date'}"/>
+                            (<t t-out="m['next_end'].name"/>)
+                        </t>
+                        <t t-elif="m['state'] in ('active', 'expiring')">
                             Valid until <span t-out="m['valid_until']" t-options="{'widget': 'date'}"/>
                             <t t-if="m['state'] == 'expiring'">
                                 <t t-if="m['days_left'] &gt; 0">(<t t-out="m['days_left']"/> days left)</t>
@@ -41,13 +46,10 @@
                         book desks or rooms. Ask your company administrator to add you.
                     </div>
                 </div>
-                <div t-if="m['contracts']" class="d-flex flex-wrap gap-2">
-                    <a t-foreach="m['contracts']" t-as="contract"
-                       class="btn btn-sm btn-outline-secondary"
-                       t-attf-href="/my/contracts/#{contract.id}">
-                        <i class="fa fa-file-text-o me-1"/><t t-out="contract.name"/>
-                    </a>
-                </div>
+                <a t-if="m['contracts_url']" t-att-href="m['contracts_url']"
+                   class="btn btn-sm btn-outline-primary">
+                    View contracts <i class="fa fa-arrow-right ms-1"/>
+                </a>
             </div>
         </div>
     </template>
