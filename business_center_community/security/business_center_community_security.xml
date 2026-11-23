@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- Staff: posts of their own companies. -->
+    <record id="rule_bc_post_company" model="ir.rule">
+        <field name="name">Community post: multi-company</field>
+        <field name="model_id" ref="model_business_center_post"/>
+        <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
+    </record>
+
+    <!--
+        Members: read only, so links in emails open the portal page. They see
+        their own posts in any state, and published posts for their centres
+        or for every centre. The portal pages read with sudo() inside the
+        same scope (business.center.post._bc_portal_domain).
+    -->
+    <record id="rule_bc_post_tenant" model="ir.rule">
+        <field name="name">Community post: members see their centres' published posts and their own</field>
+        <field name="model_id" ref="model_business_center_post"/>
+        <field name="domain_force">['|',
+            ('author_id', '=', user.partner_id.id),
+            '&amp;', '&amp;', ('state', '=', 'published'),
+                '|', ('center_id', '=', False),
+                     ('center_id', 'in', user.partner_id.commercial_partner_id.bc_center_ids.ids),
+                '|', ('audience', '=', 'center'),
+                     ('author_company_id', '=', user.partner_id.commercial_partner_id.id)]</field>
+        <field name="groups" eval="[(4, ref('business_center_portal.group_bc_tenant_employee'))]"/>
+        <field name="perm_read" eval="True"/>
+        <field name="perm_write" eval="False"/>
+        <field name="perm_create" eval="False"/>
+        <field name="perm_unlink" eval="False"/>
+    </record>
+
+</odoo>

@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+        <record id="mail_activity_type_post_review" model="mail.activity.type">
+            <field name="name">Review Community Post</field>
+            <field name="summary">Approve or reject the member's post</field>
+            <field name="res_model">business.center.post</field>
+            <field name="icon">fa-check-square-o</field>
+            <field name="delay_count">0</field>
+        </record>
+    </data>
+</odoo>

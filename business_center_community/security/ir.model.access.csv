@@ -1,0 +1,4 @@
+id,name,model_id:id,group_id:id,perm_read,perm_write,perm_create,perm_unlink
+access_bc_post_user,bc.post.user,model_business_center_post,business_center.group_bc_user,1,1,1,0
+access_bc_post_manager,bc.post.manager,model_business_center_post,business_center.group_bc_manager,1,1,1,1
+access_bc_post_tenant,bc.post.tenant,model_business_center_post,business_center_portal.group_bc_tenant_employee,1,0,0,0
