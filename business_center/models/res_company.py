@@ -10,6 +10,17 @@ from odoo.exceptions import ValidationError
 
 class ResCompany(models.Model):
     _inherit = 'res.company'
+    # Kind of unit -> company field holding its default photo, and the
+    # built-in picture used when that field is empty.
+    
+    _BC_DEFAULT_PHOTO_FIELDS = {
+        'coworking': 'bc_coworking_photo',
+        'meeting_room': 'bc_meeting_room_photo',
+    }
+    _BC_BUILTIN_PHOTOS = {
+        'coworking': '/business_center/static/img/bc_default_coworking.svg',
+        'meeting_room': '/business_center/static/img/bc_default_meeting_room.svg',
+    }
 
     # ------------------------------------------------------------------------------
     #   MARK: FIELDS
@@ -47,6 +58,14 @@ class ResCompany(models.Model):
              "minutes before it starts. After that they send a cancellation "
              "request and a manager decides the charge. 0 keeps cancellation "
              "free right up to the start.")
+    bc_coworking_photo = fields.Image(
+        string='Default Coworking / Hot Desk Photo', max_width=1920, max_height=1920,
+        help="Shown for coworking spaces, and the hot desks in them, that have "
+             "no photo of their own. Leave empty to use the built-in picture.")
+    bc_meeting_room_photo = fields.Image(
+        string='Default Meeting Room Photo', max_width=1920, max_height=1920,
+        help="Shown for meeting rooms that have no photo of their own. Leave "
+             "empty to use the built-in picture.")
     # ------------------------------------------------------------------------------
     #   MARK: CONSTRAINT/ONCHANGE METHODS
     # ------------------------------------------------------------------------------
@@ -102,3 +121,15 @@ class ResCompany(models.Model):
 
         now = self._bc_now()
         return now.date(), now.hour + now.minute / 60.0
+    
+    def _bc_default_photo(self, kind):
+        """Default photo for a unit of ``kind`` ('coworking' or
+        'meeting_room'): ``(field, False)`` when this company has uploaded
+        one, ``(False, url)`` for the built-in picture, ``(False, False)``
+        for a kind without a default."""
+
+        self.ensure_one()
+        field = self._BC_DEFAULT_PHOTO_FIELDS.get(kind)
+        if field and self[field]:
+            return field, False
+        return False, self._BC_BUILTIN_PHOTOS.get(kind, False)

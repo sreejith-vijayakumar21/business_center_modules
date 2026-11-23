@@ -57,6 +57,16 @@
                                 minutes before the start
                             </div>
                         </setting>
+                        <block title="Default Photos" name="bc_default_photos">
+                        <setting string="Coworking and hot desks"
+                                 help="Shown on the floor plan for coworking spaces and their hot desks without a photo of their own. Leave empty to use the built-in picture.">
+                            <field name="bc_coworking_photo" widget="image" options="{'size': [180, 120]}"/>
+                        </setting>
+                        <setting string="Meeting rooms"
+                                 help="Shown on the floor plan for meeting rooms without a photo of their own. Leave empty to use the built-in picture.">
+                            <field name="bc_meeting_room_photo" widget="image" options="{'size': [180, 120]}"/>
+                        </setting>
+                    </block>
                     </block>
                 </app>
             </xpath>

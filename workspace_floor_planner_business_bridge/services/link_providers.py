@@ -238,11 +238,26 @@ class BusinessCenterProviderMixin(models.AbstractModel):
 
     @api.model
     def _bc_image_url(self, record):
-        """URL of ``record``'s main photo, resized for the panel, or False."""
+        """URL of ``record``'s main photo, resized for the panel, or its
+        default photo when it has none, or False."""
 
-        if not record or "image_1920" not in record._fields or not record.image_1920:
+        if not record:
             return False
-        return f"/web/image/{record._name}/{record.id}/image_1920/480x360"
+        if "image_1920" in record._fields and record.image_1920:
+            return f"/web/image/{record._name}/{record.id}/image_1920/480x360"
+        return self._bc_default_image_url(record)
+
+    @api.model
+    def _bc_default_image_url(self, record):
+        """The company's or built-in default photo of a space; units of
+        other models have none."""
+
+        if record._name != "business.center.space":
+            return False
+        company, field = record._bc_default_photo()
+        if company:
+            return f"/web/image/res.company/{company.id}/{field}/480x360"
+        return field or False
 
     @api.model
     def _bc_amount(self, record, amount):
