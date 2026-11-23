@@ -182,6 +182,9 @@ class BusinessCenterContract(models.Model):
     # and cancelled ones were withdrawn.
     _BC_MEMBERSHIP_STATES = ('upcoming', 'active', 'expired')
     
+    # A renewal in these states carries the tenancy on past this contract.
+    _BC_CONTINUING_STATES = ('upcoming', 'active')
+    
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
     # ------------------------------------------------------------------------------ 
@@ -1019,6 +1022,60 @@ class BusinessCenterContract(models.Model):
         groups = self.sudo()._read_group(
             [('partner_id', 'in', companies.ids)], ['partner_id'], ['__count'])
         return {partner.id: count for partner, count in groups}
+    
+    def _bc_is_continued(self):
+        """Whether a confirmed renewal carries this contract on."""
+
+        self.ensure_one()
+        return self.renewal_contract_id.state in self._BC_CONTINUING_STATES
+
+    def _bc_covered_until(self):
+        """Last day of the tenancy this contract starts or continues,
+        following confirmed renewals, so a renewed contract is never shown
+        as ending."""
+
+        self.ensure_one()
+        contract, seen = self, set()
+        while contract._bc_is_continued() and contract.id not in seen:
+            seen.add(contract.id)
+            contract = contract.renewal_contract_id
+        return contract.date_end
+
+    def _bc_days_left(self):
+        """Days until the tenancy ends, for a running contract; None for any
+        other state."""
+
+        self.ensure_one()
+        if self.state != 'active' or not self.date_end:
+            return None
+        return (self._bc_covered_until() - self._bc_today()).days
+
+    def _bc_is_ending_soon(self):
+        """Running and inside this contract's own Reminder Lead Days, the
+        window its renewal reminder uses. A lead time of 0 never warns."""
+
+        self.ensure_one()
+        days_left = self._bc_days_left()
+        return (days_left is not None and self.expiry_reminder_days > 0
+                and days_left <= self.expiry_reminder_days)
+
+    def _bc_monthly_rent(self):
+        """Rent billed for a full month: the agreed rent of every line."""
+
+        self.ensure_one()
+        return sum(self.leased_asset_ids.mapped('monthly_rent_total'))
+
+    def _bc_asset_summary(self):
+        """What is leased, in a few words: offices by name, desks counted,
+        e.g. ['BC01/F1/OS0003', '2 desks']."""
+
+        self.ensure_one()
+        offices = self.leased_asset_ids.filtered(lambda a: a.lease_asset_type == 'office')
+        desk_count = len(self.leased_asset_ids - offices)
+        parts = offices.space_id.mapped('display_name')
+        if desk_count:
+            parts.append(_("1 desk") if desk_count == 1 else _("%s desks", desk_count))
+        return parts
         
     # ------------------------------------------------------------------------------
     #   MARK: BUTTON ACTION METHODS
