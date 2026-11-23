@@ -20,3 +20,4 @@ from . import business_center_desk_booking
 from . import business_center_leased_asset
 from . import res_company
 from . import res_config_settings
+from . import res_partner

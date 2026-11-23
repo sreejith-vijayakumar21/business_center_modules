@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
+from collections import defaultdict
 from odoo import _, api, fields, models, Command
 from odoo.exceptions import UserError, ValidationError
 from dateutil.relativedelta import relativedelta
@@ -176,6 +177,13 @@ class BusinessCenterContract(models.Model):
     }
     
     _BC_CANCELLABLE_STATES = ('draft', 'upcoming', 'active')
+    
+    # Confirmed contracts make a company a member; drafts were never agreed
+    # and cancelled ones were withdrawn.
+    _BC_MEMBERSHIP_STATES = ('upcoming', 'active', 'expired')
+    
+    # A renewal in these states carries the tenancy on past this contract.
+    _BC_CONTINUING_STATES = ('upcoming', 'active')
     
     # ------------------------------------------------------------------------------
     #   MARK: COMPUTE/OVERRIDDEN METHODS
@@ -923,6 +931,151 @@ class BusinessCenterContract(models.Model):
             email_layout_xmlid='mail.mail_notification_layout',
         )
         self.expiry_reminder_sent_date = self._bc_today()
+        
+    @api.model
+    def _bc_membership_by_company(self, companies=None):
+        """Membership summary per tenant company, keyed by partner id.
+
+        Without ``companies``, every company that has a membership is
+        returned, which is what the contact filters search through. Sudo:
+        the status is shown to people who cannot read contracts."""
+
+        domain = [('state', 'in', self._BC_MEMBERSHIP_STATES)]
+        if companies is not None:
+            domain.append(('partner_id', 'in', companies.ids))
+        contracts = self.sudo().search(domain)
+        grouped = defaultdict(contracts.browse)
+        for contract in contracts:
+            grouped[contract.partner_id.id] |= contract
+        keys = companies.ids if companies is not None else list(grouped)
+        return {key: grouped[key]._bc_membership_summary() for key in keys}
+
+    def _bc_membership_summary(self):
+        """Membership of one tenant company, from its confirmed contracts in
+        ``self``: state, dates, centres and current contract. An empty
+        recordset gives 'none'."""
+
+        started = self.filtered(lambda c: c.state in ('active', 'expired'))
+        running = self.filtered(lambda c: c.state == 'active')
+        upcoming = self.filtered(lambda c: c.state == 'upcoming')
+        summary = {
+            'state': 'none',
+            'member_since': min(started.mapped('date_start')) if started else False,
+            'starts_on': False,
+            'valid_until': False,
+            'contract': running.sorted('date_start')[:1],
+            'centers': running.center_id,
+        }
+        if running:
+            valid_until = self._bc_coverage_end(running, upcoming)
+            summary.update(
+                valid_until=valid_until,
+                state=running[:1]._bc_membership_running_state(valid_until))
+        elif upcoming:
+            first = upcoming.sorted('date_start')[:1]
+            summary.update(state='upcoming', starts_on=first.date_start,
+                           contract=first, centers=upcoming.center_id)
+        elif started:
+            summary.update(state='expired', valid_until=max(started.mapped('date_end')))
+        return summary
+
+    @api.model
+    def _bc_coverage_end(self, running, upcoming):
+        """Last day the membership runs without a break: the latest running
+        end date, carried on by any confirmed contract (usually the renewal)
+        that starts by the next day. A later contract after a gap does not
+        extend it."""
+
+        end = max(running.mapped('date_end'))
+        for contract in upcoming.sorted('date_start'):
+            if contract.date_start <= end + relativedelta(days=1):
+                end = max(end, contract.date_end)
+        return end
+
+    def _bc_membership_running_state(self, valid_until):
+        """'expiring' once the cover ends within the company's Expiry
+        Reminder Lead Days, otherwise 'active'. A lead time of 0 never
+        flags a membership as expiring."""
+
+        self.ensure_one()
+        lead_days = self.company_id.bc_expiry_reminder_days
+        if lead_days and (valid_until - self._bc_today()).days <= lead_days:
+            return 'expiring'
+        return 'active'
+
+    @api.model
+    def _bc_named_contact_ids(self, partners):
+        """Ids of those ``partners`` named as employees on a running
+        contract, which is what lets an employee book."""
+
+        named = self.sudo().search([
+            ('state', '=', 'active'),
+            ('contact_ids', 'in', partners.ids),
+        ]).contact_ids
+        return set(named.ids) & set(partners.ids)
+
+    @api.model
+    def _bc_contract_count_by_company(self, companies):
+        """Number of contracts per tenant company, in any state, for the
+        smart button on the contact."""
+
+        groups = self.sudo()._read_group(
+            [('partner_id', 'in', companies.ids)], ['partner_id'], ['__count'])
+        return {partner.id: count for partner, count in groups}
+    
+    def _bc_is_continued(self):
+        """Whether a confirmed renewal carries this contract on."""
+
+        self.ensure_one()
+        return self.renewal_contract_id.state in self._BC_CONTINUING_STATES
+
+    def _bc_covered_until(self):
+        """Last day of the tenancy this contract starts or continues,
+        following confirmed renewals, so a renewed contract is never shown
+        as ending."""
+
+        self.ensure_one()
+        contract, seen = self, set()
+        while contract._bc_is_continued() and contract.id not in seen:
+            seen.add(contract.id)
+            contract = contract.renewal_contract_id
+        return contract.date_end
+
+    def _bc_days_left(self):
+        """Days until the tenancy ends, for a running contract; None for any
+        other state."""
+
+        self.ensure_one()
+        if self.state != 'active' or not self.date_end:
+            return None
+        return (self._bc_covered_until() - self._bc_today()).days
+
+    def _bc_is_ending_soon(self):
+        """Running and inside this contract's own Reminder Lead Days, the
+        window its renewal reminder uses. A lead time of 0 never warns."""
+
+        self.ensure_one()
+        days_left = self._bc_days_left()
+        return (days_left is not None and self.expiry_reminder_days > 0
+                and days_left <= self.expiry_reminder_days)
+
+    def _bc_monthly_rent(self):
+        """Rent billed for a full month: the agreed rent of every line."""
+
+        self.ensure_one()
+        return sum(self.leased_asset_ids.mapped('monthly_rent_total'))
+
+    def _bc_asset_summary(self):
+        """What is leased, in a few words: offices by name, desks counted,
+        e.g. ['BC01/F1/OS0003', '2 desks']."""
+
+        self.ensure_one()
+        offices = self.leased_asset_ids.filtered(lambda a: a.lease_asset_type == 'office')
+        desk_count = len(self.leased_asset_ids - offices)
+        parts = offices.space_id.mapped('display_name')
+        if desk_count:
+            parts.append(_("1 desk") if desk_count == 1 else _("%s desks", desk_count))
+        return parts
         
     # ------------------------------------------------------------------------------
     #   MARK: BUTTON ACTION METHODS

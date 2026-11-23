@@ -1,7 +1,6 @@
 # -*- coding: utf-8 -*-
 # Part of Odoo. See LICENSE file for full copyright and licensing details.
 
-from collections import OrderedDict
 from urllib.parse import quote
 
 from odoo import _, http
@@ -17,6 +16,9 @@ CONFIRMED_STATES = ('upcoming', 'active', 'expired')
 
 class BusinessCenterContractPortal(CustomerPortal):
     """Everything the portal needs for showing contracts to a member."""
+    
+    # Three cards a row on wide screens, so a page is three full rows.
+    _bc_contracts_per_page = 9
 
     def _prepare_home_portal_values(self, counters):
         """Add the number shown on the Contracts tile of the /my page."""
@@ -63,17 +65,21 @@ class BusinessCenterContractPortal(CustomerPortal):
         """The choices in the 'Sort By' dropdown on the contract list."""
         return {
             'date': {'label': _('Start Date'), 'order': 'date_start desc'},
+            'end': {'label': _('End Date'), 'order': 'date_end asc'},
             'name': {'label': _('Reference'), 'order': 'name desc'},
             'state': {'label': _('Status'), 'order': 'state'},
         }
 
     def _contract_searchbar_filters(self):
-        """The choices in the 'Filter By' dropdown on the contract list."""
+        """The choices in the 'Filter By' dropdown on the contract list.
+        Running comes first and is the default: it is what a tenant admin
+        acts on."""
         return {
-            'all': {'label': _('All'), 'domain': []},
-            'active': {'label': _('Active'), 'domain': [('state', '=', 'active')]},
+            'active': {'label': _('Running'), 'domain': [('state', '=', 'active')]},
+            'upcoming': {'label': _('Upcoming'), 'domain': [('state', '=', 'upcoming')]},
             'draft': {'label': _('Draft'), 'domain': [('state', '=', 'draft')]},
             'expired': {'label': _('Expired'), 'domain': [('state', '=', 'expired')]},
+            'all': {'label': _('All'), 'domain': []},
         }
 
     def _contract_searchbar_inputs(self):
@@ -122,7 +128,7 @@ class BusinessCenterContractPortal(CustomerPortal):
 
         searchbar_filters = self._contract_searchbar_filters()
         if not filterby:
-            filterby = 'all'
+            filterby = 'active'
         domain += searchbar_filters[filterby]['domain']
 
         searchbar_inputs = self._contract_searchbar_inputs()
@@ -136,21 +142,22 @@ class BusinessCenterContractPortal(CustomerPortal):
                       'search': search, 'search_in': search_in},
             total=contract_count,
             page=page,
-            step=self._items_per_page,
+            step=self._bc_contracts_per_page,
         )
         contracts = Contract.search(
-            domain, order=order, limit=self._items_per_page, offset=pager['offset'])
+            domain, order=order, limit=self._bc_contracts_per_page, offset=pager['offset'])
         request.session['my_contracts_history'] = contracts.ids[:100]
 
         values = self._prepare_portal_layout_values()
         values.update({
             'contracts': contracts,
+            'cards': {contract.id: self._bc_contract_card(contract) for contract in contracts},
             'page_name': 'contract',
             'pager': pager,
             'default_url': '/my/contracts',
             'searchbar_sortings': searchbar_sortings,
             'sortby': sortby,
-            'searchbar_filters': OrderedDict(sorted(searchbar_filters.items())),
+            'searchbar_filters': searchbar_filters,
             'filterby': filterby,
             'searchbar_inputs': searchbar_inputs,
             'search_in': search_in,
@@ -179,6 +186,7 @@ class BusinessCenterContractPortal(CustomerPortal):
 
         values = {
             'contract': contract_sudo,
+            'card': self._bc_contract_card(contract_sudo),
             'page_name': 'contract',
             'can_download_agreement': contract_sudo.state in CONFIRMED_STATES,
         }
@@ -231,3 +239,28 @@ class BusinessCenterContractPortal(CustomerPortal):
             return request.redirect(f'/my/contracts/{contract_id}')
         return request.env['ir.binary']._get_stream_from(attachment).get_response(
             as_attachment=bool(download))
+        
+    # ------------------------------------------------------------------------------
+    #   MARK: CARD HELPERS
+    # ------------------------------------------------------------------------------
+    def _bc_contract_card(self, contract):
+        """Values one contract card shows. The facts come from the contract
+        model; this only gathers them, plus display-ready wallet hours (the
+        stored balance keeps its full precision) and the bar's percentage.
+        Sudo: the visitor already passed the access check on the contract."""
+
+        contract = contract.sudo()
+        allowance = contract.free_hours_monthly
+        duration = request.env['business.center.time.format.mixin']._float_to_duration
+        return {
+            'assets': contract._bc_asset_summary(),
+            'monthly_rent': contract._bc_monthly_rent(),
+            'days_left': contract._bc_days_left(),
+            'ending_soon': contract._bc_is_ending_soon(),
+            'renewal': contract.renewal_contract_id if contract._bc_is_continued()
+                       else contract.browse(),
+            'wallet_left': duration(contract.wallet_balance),
+            'wallet_allowance': duration(allowance),
+            'wallet_pct': min(100, round(contract.wallet_balance / allowance * 100))
+                          if contract.is_wallet_eligible and allowance else 0,
+        }

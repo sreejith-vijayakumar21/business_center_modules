@@ -4,7 +4,7 @@
 
 {
     'name': 'Business Center',
-    'version': '19.0.1.3.0',
+    'version': '19.0.1.4.0',
     'category': 'Generic Modules',
     'sequence': 10,
     'author': 'Infintor Solutions',
@@ -52,6 +52,7 @@
         'views/business_center_desk_views.xml',
         'views/business_center_space_views.xml',
         'views/business_center_views.xml',
+        'views/res_partner_views.xml',
         'views/business_center_menus.xml'
     ],
     'assets': {

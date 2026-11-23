@@ -8,6 +8,8 @@
     'category': 'Generic Modules',
     'sequence': 11,
     'author': 'Infintor Solutions',
+    'price': 50,
+    'currency': 'USD',
     'summary': 'Internet, facilities and maintenance tickets raised by members',
     'description': """
 Support tickets for Business Center.
@@ -21,7 +23,7 @@ Support tickets for Business Center.
     'depends': [
         'business_center_portal',
     ],
-
+    'images': ['static/description/banner.png'],
     'data': [
         'security/ir.model.access.csv',
         'security/business_center_ticket_security.xml',
