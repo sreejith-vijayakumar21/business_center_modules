@@ -16,6 +16,9 @@ CONFIRMED_STATES = ('upcoming', 'active', 'expired')
 
 class BusinessCenterContractPortal(CustomerPortal):
     """Everything the portal needs for showing contracts to a member."""
+    
+    # Three cards a row on wide screens, so a page is three full rows.
+    _bc_contracts_per_page = 9
 
     def _prepare_home_portal_values(self, counters):
         """Add the number shown on the Contracts tile of the /my page."""
@@ -139,10 +142,10 @@ class BusinessCenterContractPortal(CustomerPortal):
                       'search': search, 'search_in': search_in},
             total=contract_count,
             page=page,
-            step=self._items_per_page,
+            step=self._bc_contracts_per_page,
         )
         contracts = Contract.search(
-            domain, order=order, limit=self._items_per_page, offset=pager['offset'])
+            domain, order=order, limit=self._bc_contracts_per_page, offset=pager['offset'])
         request.session['my_contracts_history'] = contracts.ids[:100]
 
         values = self._prepare_portal_layout_values()
@@ -242,11 +245,13 @@ class BusinessCenterContractPortal(CustomerPortal):
     # ------------------------------------------------------------------------------
     def _bc_contract_card(self, contract):
         """Values one contract card shows. The facts come from the contract
-        model; this only gathers them, plus the wallet bar's percentage.
+        model; this only gathers them, plus display-ready wallet hours (the
+        stored balance keeps its full precision) and the bar's percentage.
         Sudo: the visitor already passed the access check on the contract."""
 
         contract = contract.sudo()
         allowance = contract.free_hours_monthly
+        duration = request.env['business.center.time.format.mixin']._float_to_duration
         return {
             'assets': contract._bc_asset_summary(),
             'monthly_rent': contract._bc_monthly_rent(),
@@ -254,6 +259,8 @@ class BusinessCenterContractPortal(CustomerPortal):
             'ending_soon': contract._bc_is_ending_soon(),
             'renewal': contract.renewal_contract_id if contract._bc_is_continued()
                        else contract.browse(),
+            'wallet_left': duration(contract.wallet_balance),
+            'wallet_allowance': duration(allowance),
             'wallet_pct': min(100, round(contract.wallet_balance / allowance * 100))
                           if contract.is_wallet_eligible and allowance else 0,
         }

@@ -51,7 +51,7 @@
             </div>
 
             <div t-if="contracts" class="row g-3 mt-1">
-                <div t-foreach="contracts" t-as="contract" class="col-md-6">
+                <div t-foreach="contracts" t-as="contract" class="col-md-6 col-xl-4">
                     <t t-set="card" t-value="cards[contract.id]"/>
                     <a t-attf-href="/my/contracts/#{contract.id}"
                        class="card h-100 text-reset text-decoration-none o_bc_contract_card">
@@ -84,7 +84,8 @@
                             <div t-if="contract.is_wallet_eligible" class="mt-3 small">
                                 <div class="d-flex justify-content-between text-muted">
                                     <span>Free meeting-room hours</span>
-                                    <span><t t-out="contract.wallet_balance"/> / <t t-out="contract.free_hours_monthly"/> hr</span>
+                                    <span><t t-out="card['wallet_left']"/> left of <t t-out="card['wallet_allowance']"/>
+                                    </span>
                                 </div>
                                 <div class="progress mt-1" style="height: 6px;" role="progressbar"
                                      t-att-aria-valuenow="card['wallet_pct']" aria-valuemin="0" aria-valuemax="100">
