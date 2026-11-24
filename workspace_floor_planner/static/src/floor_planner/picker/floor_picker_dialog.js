@@ -73,6 +73,7 @@ export class FloorPickerDialog extends Component {
     };
 
     setup() {
+        this.orm = useService("orm");
         this.sites = uniqueSites(this.props.sites);
         const received = this.props.sites.reduce((n, s) => n + 1 + s.plans.length, 0);
         const kept = this.sites.reduce((n, s) => n + 1 + s.plans.length, 0);
