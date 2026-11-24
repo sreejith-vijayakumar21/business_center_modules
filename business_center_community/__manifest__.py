@@ -4,7 +4,7 @@
 
 {
     'name': 'Business Center Community',
-    'version': '19.0.1.2.0',
+    'version': '19.0.1.3.0',
     'category': 'Generic Modules',
     'sequence': 12,
     'author': 'Infintor Solutions',

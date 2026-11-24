@@ -18,3 +18,8 @@ class ResCompany(models.Model):
         string='Approve Member Posts First', default=True,
         help="A member's post waits for staff approval before other members "
              "see it. Turn off to publish member posts at once.")
+    bc_community_moderator_id = fields.Many2one(
+        'res.users', string='Community Moderator',
+        domain=[('share', '=', False)],
+        help="Reviews members' posts for business centres that have no "
+             "manager. Leave empty to use the first Business Center Manager.")

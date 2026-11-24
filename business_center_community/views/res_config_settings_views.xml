@@ -17,6 +17,11 @@
                              invisible="not bc_community_member_posts">
                         <field name="bc_community_moderation"/>
                     </setting>
+                    <setting string="Community Moderator"
+                             help="Reviews members' posts for business centres without a manager. Leave empty to use the first Business Center Manager."
+                             invisible="not bc_community_member_posts or not bc_community_moderation">
+                        <field name="bc_community_moderator_id" options="{'no_create': True}"/>
+                    </setting>
                 </block>
             </xpath>
         </field>
