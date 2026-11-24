@@ -7,14 +7,14 @@
 
                 <!-- Sidebar: site, then every floor with its vacancies -->
                 <aside class="o_fp_picker_side">
-                    <label t-if="props.sites.length > 1" class="o_fp_picker_side_label" for="o_fp_picker_site">
+                    <label t-if="sites.length > 1" class="o_fp_picker_side_label" for="o_fp_picker_site">
                         Site
                     </label>
-                    <select t-if="props.sites.length > 1" id="o_fp_picker_site" class="form-select"
+                    <select t-if="sites.length > 1" id="o_fp_picker_site" class="form-select"
                             t-on-change="onSiteChange">
-                        <option t-foreach="props.sites" t-as="site" t-key="site.id"
-                                t-att-value="site.id" t-att-selected="site.id === state.siteId"
-                                t-esc="site.name"/>
+                        <option t-foreach="sites" t-as="opt" t-key="opt.id"
+                                t-att-value="opt.id" t-att-selected="opt.id === state.siteId"
+                                t-esc="opt.name"/>
                     </select>
                     <div t-elif="site" class="o_fp_picker_site" t-esc="site.name"/>
 

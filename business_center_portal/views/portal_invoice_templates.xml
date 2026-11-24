@@ -36,7 +36,7 @@
         <xpath expr="//div[@id='portal_common_category']" position="inside">
             <t t-if="request.env.user.has_group('business_center_portal.group_bc_tenant_admin')">
                 <t t-call="portal.portal_docs_entry">
-                    <t t-set="icon" t-value="'/account/static/src/img/bill.svg'"/>
+                    <t t-set="icon" t-value="'/business_center_portal/static/src/img/bc_invoice_history.svg'"/>
                     <t t-set="title">Invoice History</t>
                     <t t-set="text">View and download your company's invoices</t>
                     <t t-set="url" t-value="'/my/invoices'"/>

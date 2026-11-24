@@ -11,6 +11,36 @@ import { colourByPickability } from "./pickability";
 
 const ZOOM_STEP = 1.25;
 
+/**
+ * Sites with unique ids, each with floors of unique keys: the template keys
+ * its lists on these, and a caller sending the same site or floor twice
+ * would otherwise crash the dialog (Owl duplicate key). Duplicates are
+ * merged, adding up their pickable counts, and reported once.
+ */
+function uniqueSites(sites) {
+    const byId = new Map();
+    for (const site of sites) {
+        const known = byId.get(site.id);
+        if (known) {
+            known.plans.push(...site.plans);
+        } else {
+            byId.set(site.id, { ...site, plans: [...site.plans] });
+        }
+    }
+    return [...byId.values()].map((site) => {
+        const byKey = new Map();
+        for (const plan of site.plans) {
+            const known = byKey.get(plan.key);
+            if (known) {
+                known.pickable = (known.pickable || 0) + (plan.pickable || 0);
+            } else {
+                byKey.set(plan.key, { ...plan });
+            }
+        }
+        return { ...site, plans: [...byKey.values()] };
+    });
+}
+
 
 /**
  * Pick a linked record from a floor plan instead of a dropdown.
@@ -44,7 +74,14 @@ export class FloorPickerDialog extends Component {
 
     setup() {
         this.orm = useService("orm");
-        const site = this.props.sites.find((s) => s.id === this.props.siteId) || this.props.sites[0];
+        this.sites = uniqueSites(this.props.sites);
+        const received = this.props.sites.reduce((n, s) => n + 1 + s.plans.length, 0);
+        const kept = this.sites.reduce((n, s) => n + 1 + s.plans.length, 0);
+        if (received !== kept) {
+            console.error("FloorPickerDialog: duplicate sites or floors received",
+                          JSON.stringify(this.props.sites));
+        }
+        const site = this.sites.find((s) => s.id === this.props.siteId) || this.sites[0];
         this.state = useState({
             siteId: site ? site.id : false,
             planId: this.firstPlanId(site),
@@ -89,7 +126,7 @@ export class FloorPickerDialog extends Component {
     // MARK: Getters
     // ------------------------------------------------------------------
     get site() {
-        return this.props.sites.find((s) => s.id === this.state.siteId) || null;
+        return this.sites.find((s) => s.id === this.state.siteId) || null;
     }
 
     get plans() {

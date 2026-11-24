@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 128 128" fill="none">
+<defs><linearGradient id="bg" x1="10" y1="8" x2="118" y2="120"><stop stop-color="#F0E9FF"/><stop offset="1" stop-color="#DDD0FF"/></linearGradient><linearGradient id="paper" x1="32" y1="17" x2="93" y2="111"><stop stop-color="#FFFFFF"/><stop offset="1" stop-color="#F5F0FF"/></linearGradient></defs>
+<rect x="4" y="4" width="120" height="120" rx="30" fill="url(#bg)"/>
+<circle cx="101" cy="25" r="7" fill="#F3B65D"/>
+<path d="M31 17h43l21 21v69a8 8 0 0 1-8 8H31a8 8 0 0 1-8-8V25a8 8 0 0 1 8-8Z" fill="url(#paper)" stroke="#6950A8" stroke-width="3.5" stroke-linejoin="round"/>
+<path d="M74 18v20h20" fill="#D9CCFA" stroke="#6950A8" stroke-width="3.5" stroke-linejoin="round"/>
+<path d="M39 53h38M39 65h43M39 77h29" stroke="#A28BD8" stroke-width="4.5" stroke-linecap="round"/>
+<path d="M39 94c5-7 8-7 11 0 2 5 5 5 9-1" stroke="#6950A8" stroke-width="3.5" stroke-linecap="round"/>
+<circle cx="91" cy="91" r="19" fill="#F5B36B" stroke="#A85F2C" stroke-width="3.5"/>
+<path d="m82 91 6 6 12-13" stroke="#FFF9EF" stroke-width="4.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

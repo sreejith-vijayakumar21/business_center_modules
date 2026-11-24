@@ -75,7 +75,7 @@ export class BcFloorPickerButton extends Component {
                     continue;
                 }
                 for (const plan of site.plans) {
-                    const same = known.plans.find((p) => p.id === plan.id);
+                    const same = known.plans.find((p) => p.key === plan.key);
                     if (same) {
                         same.pickable += plan.pickable;
                     } else {

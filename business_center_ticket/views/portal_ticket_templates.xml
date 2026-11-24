@@ -7,7 +7,7 @@
         <xpath expr="//div[@id='portal_common_category']" position="inside">
             <t t-if="request.env.user.has_group('business_center_portal.group_bc_tenant_employee')">
                 <t t-call="portal.portal_docs_entry">
-                    <t t-set="icon" t-value="'/portal/static/src/img/portal-connection.svg'"/>
+                    <t t-set="icon" t-value="'/business_center_ticket/static/src/img/bc_ticket.svg'"/>
                     <t t-set="title">Support Tickets</t>
                     <t t-set="text">Report an internet, facilities or maintenance problem</t>
                     <t t-set="url" t-value="'/my/tickets'"/>
