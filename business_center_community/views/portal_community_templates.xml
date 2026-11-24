@@ -1,0 +1,277 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- HOME TILE -->
+    <template id="portal_my_home_community" name="Portal My Home: Community"
+              inherit_id="portal.portal_my_home" priority="35">
+        <xpath expr="//div[@id='portal_common_category']" position="inside">
+            <t t-if="request.env.user.has_group('business_center_portal.group_bc_tenant_employee')">
+                <t t-call="portal.portal_docs_entry">
+                    <t t-set="icon" t-value="'/portal/static/src/img/portal-connection.svg'"/>
+                    <t t-set="title">Community</t>
+                    <t t-set="text">Announcements, updates and photos from your business centre</t>
+                    <t t-set="url" t-value="'/my/community'"/>
+                    <t t-set="placeholder_count" t-value="'community_count'"/>
+                    <t t-set="config_card" t-value="True"/>
+                </t>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- BREADCRUMBS -->
+    <template id="portal_breadcrumbs_community" name="Portal Breadcrumbs: Community"
+              inherit_id="portal.portal_breadcrumbs" priority="41">
+        <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+            <li t-if="page_name == 'community'" t-attf-class="breadcrumb-item #{'' if (post or post_form) else 'active'}">
+                <a t-if="post or post_form" href="/my/community">Community</a>
+                <t t-else="">Community</t>
+            </li>
+            <li t-if="page_name == 'community' and post" class="breadcrumb-item active text-truncate" t-esc="post.name"/>
+            <li t-if="page_name == 'community' and post_form" class="breadcrumb-item active">Share a post</li>
+        </xpath>
+    </template>
+
+    <!-- TYPE AND STATUS BADGES, shared by the feed and the post page -->
+    <template id="portal_community_badges" name="Community: Badges">
+        <t t-set="bc_type_tones" t-value="{'announcement': 'primary', 'update': 'info', 'photo': 'success'}"/>
+        <span t-attf-class="badge rounded-pill text-bg-#{bc_type_tones.get(post.post_type, 'secondary')}"
+              t-field="post.post_type"/>
+        <span t-if="post.is_pinned" class="badge rounded-pill text-bg-dark"><i class="fa fa-thumb-tack me-1"/>Pinned</span>
+        <span t-if="post.is_important" class="badge rounded-pill text-bg-danger">Important</span>
+        <span t-if="post.audience == 'company'" class="badge rounded-pill text-bg-light border">
+            <i class="fa fa-lock me-1"/>Only <t t-esc="post.author_company_id.name"/>
+        </span>
+        <span t-if="post.state == 'pending'" class="badge rounded-pill text-bg-warning">Awaiting approval</span>
+        <span t-elif="post.state == 'rejected'" class="badge rounded-pill text-bg-secondary">Not published</span>
+        <span t-elif="post.state == 'draft'" class="badge rounded-pill text-bg-secondary">Off the feed</span>
+    </template>
+
+    <!-- WHO AND WHEN, shared by the feed and the post page -->
+    <template id="portal_community_byline" name="Community: Byline">
+        <div class="small text-muted">
+            <t t-if="post.is_member_post">
+                <t t-esc="post.author_id.name"/><t t-if="post.author_company_id != post.author_id"> · <t t-esc="post.author_company_id.name"/></t>
+            </t>
+            <t t-else=""><t t-esc="post.company_id.name"/></t>
+            · <t t-esc="post.center_id.name or 'All business centers'"/>
+            <t t-if="post.published_at"> · <span t-field="post.published_at" t-options="{'widget': 'date'}"/></t>
+        </div>
+    </template>
+
+    <!-- FEED -->
+    <template id="portal_my_community" name="Community Feed">
+        <t t-call="portal.portal_layout">
+            <t t-set="breadcrumbs_searchbar" t-value="True"/>
+            <t t-call="portal.portal_searchbar">
+                <t t-set="title">Community</t>
+            </t>
+            <div t-if="can_post" class="mb-3">
+                <a href="/my/community/new" class="btn btn-primary btn-sm">
+                    <i class="fa fa-plus me-1"/>Share a Post
+                </a>
+            </div>
+
+            <div t-if="not posts" class="alert alert-warning" role="alert">
+                Nothing here yet.
+            </div>
+
+            <div t-foreach="posts" t-as="post" class="card mb-3">
+                <div class="row g-0">
+                    <div t-if="post.photo_ids" class="col-md-3">
+                        <a t-attf-href="/my/community/#{post.id}">
+                            <img t-attf-src="/my/community/#{post.id}/photo/#{post.photo_ids[0].id}?size=thumb"
+                                 t-att-alt="post.name" class="img-fluid rounded-start w-100"
+                                 style="height: 100%; max-height: 220px; object-fit: cover;" loading="lazy"/>
+                        </a>
+                    </div>
+                    <div t-attf-class="#{'col-md-9' if post.photo_ids else 'col-12'}">
+                        <div class="card-body">
+                            <div class="mb-1"><t t-call="business_center_community.portal_community_badges"/></div>
+                            <h5 class="card-title mb-1">
+                                <a t-attf-href="/my/community/#{post.id}" class="text-decoration-none" t-esc="post.name"/>
+                            </h5>
+                            <t t-call="business_center_community.portal_community_byline"/>
+                            <p t-if="post.summary" class="card-text mt-2 mb-2" t-esc="post.summary"/>
+                            <div class="small text-muted">
+                                <span t-if="len(post.photo_ids) &gt; 1" class="me-3">
+                                    <i class="fa fa-picture-o me-1"/><t t-esc="len(post.photo_ids)"/> photos
+                                </span>
+                                <span t-if="post.state == 'published' and post.allow_comments">
+                                    <i class="fa fa-comment-o me-1"/><t t-esc="post.comment_count"/>
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div t-if="pager" class="o_portal_pager d-flex justify-content-center my-3">
+                <t t-call="portal.pager"/>
+            </div>
+        </t>
+    </template>
+
+    <!-- POST PAGE -->
+    <template id="portal_community_post" name="Community Post Page">
+        <t t-call="portal.portal_layout">
+            <t t-set="additional_title"><t t-esc="post.name"/></t>
+
+            <div class="mt-4 mb-3">
+                <div class="mb-1"><t t-call="business_center_community.portal_community_badges"/></div>
+                <h4 class="mb-1" t-esc="post.name"/>
+                <t t-call="business_center_community.portal_community_byline"/>
+            </div>
+            <div t-if="error" class="alert alert-danger d-flex align-items-center" role="alert">
+                <i class="fa fa-exclamation-circle me-2"/><t t-esc="error"/>
+            </div>
+            <div t-if="post.state == 'pending'" class="alert alert-warning" role="alert">
+                Your post is waiting for the business centre's approval. Only you can see it for now.
+            </div>
+            <div t-elif="post.state == 'rejected'" class="alert alert-secondary" role="alert">
+                This post was not published.
+                <div t-if="post.reject_reason" class="small mt-1"><strong>Reason:</strong> <t t-esc="post.reject_reason"/></div>
+            </div>
+
+            <div t-if="post.body" class="mb-3" t-out="post.body"/>
+
+            <div t-if="post.photo_ids" class="row g-2 mb-3">
+                <div t-foreach="post.photo_ids" t-as="photo" class="col-6 col-md-4">
+                    <a t-attf-href="/my/community/#{post.id}/photo/#{photo.id}" target="_blank">
+                        <img t-attf-src="/my/community/#{post.id}/photo/#{photo.id}?size=thumb"
+                             t-att-alt="photo.name" class="img-fluid rounded border w-100"
+                             style="aspect-ratio: 1 / 1; object-fit: cover;" loading="lazy"/>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Comments -->
+            <t t-if="post.state == 'published'">
+                <h6 id="comments" class="mt-4 text-muted text-uppercase small">
+                    Comments (<t t-esc="len(comments)"/>)
+                </h6>
+                <p t-if="not comments and can_comment" class="text-muted small">Be the first to comment.</p>
+                <p t-if="not post.allow_comments" class="text-muted small">Comments are closed on this post.</p>
+                <div t-foreach="comments" t-as="comment"
+                     t-attf-class="border rounded p-3 mb-2 #{'bg-100' if comment.author_id == my_partner else ''}">
+                    <div class="d-flex justify-content-between small text-muted mb-1">
+                        <strong t-esc="comment.author_id.name"/>
+                        <span t-field="comment.date"/>
+                    </div>
+                    <div t-out="comment.body"/>
+                </div>
+
+                <form t-if="can_comment" method="post" t-attf-action="/my/community/#{post.id}/comment" class="mt-3">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                    <label class="form-label fw-bold" for="o_bc_comment_body">Add a comment</label>
+                    <textarea name="body" id="o_bc_comment_body" class="form-control" rows="2"
+                              required="required" maxlength="2000"/>
+                    <div class="form-text">
+                        <i class="fa fa-eye me-1"/>Comments are visible to everyone who can see this post.
+                        For a private request to the business centre, raise a support ticket instead.
+                    </div>
+                    <div class="text-end mt-2">
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fa fa-paper-plane me-1"/>Comment
+                        </button>
+                    </div>
+                </form>
+            </t>
+        </t>
+    </template>
+
+    <!-- SHARE A POST -->
+    <template id="portal_community_form" name="Share a Post">
+        <t t-call="portal.portal_layout">
+            <t t-set="additional_title">Share a Post</t>
+
+            <div class="o_bc_book">
+                <div class="o_bc_book_head">
+                    <h4>Share a Post</h4>
+                    <a href="/my/community" class="o_bc_back">
+                        <i class="fa fa-angle-left me-1"/>Back to the feed
+                    </a>
+                </div>
+
+                <div t-if="error" class="alert alert-danger d-flex align-items-center" role="alert">
+                    <i class="fa fa-exclamation-circle me-2"/><t t-esc="error"/>
+                </div>
+
+                <form method="post" action="/my/community/new" enctype="multipart/form-data">
+                    <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+
+                    <section class="o_bc_card">
+                        <div class="row g-3">
+                            <div class="col-md-6">
+                                <label class="o_bc_label" for="cm_post_type">What are you sharing?</label>
+                                <select name="post_type" id="cm_post_type" class="form-select">
+                                    <option value="update" t-att-selected="'selected' if form.get('post_type') == 'update' else None">An update</option>
+                                    <option value="photo" t-att-selected="'selected' if form.get('post_type') == 'photo' else None">Photos</option>
+                                </select>
+                            </div>
+                            <div class="col-md-6" t-if="len(centers) &gt; 1">
+                                <label class="o_bc_label" for="cm_center_id">For the members of</label>
+                                <select name="center_id" id="cm_center_id" class="form-select">
+                                    <option t-foreach="centers" t-as="opt" t-att-value="opt.id"
+                                            t-att-selected="'selected' if str(opt.id) == form.get('center_id') else None"
+                                            t-esc="opt.name"/>
+                                </select>
+                            </div>
+                            <div class="col-md-6" t-else="">
+                                <label class="o_bc_label">For the members of</label>
+                                <div class="form-control-plaintext" t-esc="centers[:1].name"/>
+                                <input type="hidden" name="center_id" t-att-value="centers[:1].id"/>
+                            </div>
+                            <div class="col-12">
+                                <label class="o_bc_label">Who can see it?</label>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="audience"
+                                           id="cm_audience_center" value="center"
+                                           t-att-checked="'checked' if form.get('audience', 'center') != 'company' else None"/>
+                                    <label class="form-check-label" for="cm_audience_center">
+                                        Everyone at the business centre
+                                    </label>
+                                </div>
+                                <div class="form-check">
+                                    <input class="form-check-input" type="radio" name="audience"
+                                           id="cm_audience_company" value="company"
+                                           t-att-checked="'checked' if form.get('audience') == 'company' else None"/>
+                                    <label class="form-check-label" for="cm_audience_company">
+                                        Only people from <t t-esc="my_company.name"/>
+                                    </label>
+                                </div>
+                            </div>
+                            <div class="col-12">
+                                <label class="o_bc_label" for="cm_title">Title</label>
+                                <input type="text" name="title" id="cm_title" class="form-control"
+                                       required="required" maxlength="120" t-att-value="form.get('title')"
+                                       placeholder="e.g. Friday networking breakfast"/>
+                            </div>
+                            <div class="col-12">
+                                <label class="o_bc_label" for="cm_text">Text</label>
+                                <textarea name="text" id="cm_text" class="form-control" rows="4" maxlength="5000"
+                                          placeholder="Tell the other members about it"><t t-esc="form.get('text')"/></textarea>
+                            </div>
+                            <div class="col-12">
+                                <label class="o_bc_label" for="cm_photos">Photos (up to 6, 5 MB each)</label>
+                                <input type="file" name="photos" id="cm_photos" class="form-control"
+                                       accept="image/png,image/jpeg,image/gif,image/webp" multiple="multiple"/>
+                            </div>
+                        </div>
+                        <p t-if="moderated" class="text-muted small mt-3 mb-0">
+                            The business centre reviews posts before the other members see them.
+                            You get an email when yours is published.
+                        </p>
+                    </section>
+
+                    <div class="o_bc_actions">
+                        <a href="/my/community" class="btn btn-light">Cancel</a>
+                        <button type="submit" class="btn btn-primary px-4">
+                            <i class="fa fa-check me-1"/>Share
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </t>
+    </template>
+
+</odoo>

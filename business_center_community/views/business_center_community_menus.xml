@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<odoo>
+
+    <menuitem id="bc_community_menu"
+              name="Community"
+              parent="business_center.business_center_menu_root"
+              action="action_business_center_post"
+              sequence="16"/>
+
+</odoo>

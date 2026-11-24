@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <data noupdate="1">
+
+        <!-- Important announcement, sent to the members it concerns. -->
+        <record id="mail_template_post_announcement" model="mail.template">
+            <field name="name">Community: Important Announcement</field>
+            <field name="model_id" ref="model_business_center_post"/>
+            <field name="subject">{{ object.company_id.name }}: {{ object.name }}</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="body_html" type="html">
+<div>
+    <h3 t-out="object.name"/>
+    <p style="color:#858AA0;font-size:13px;">
+        <t t-if="object.center_id"><t t-out="object.center_id.name"/></t>
+        <t t-else="">All business centers</t>
+    </p>
+    <div t-out="object.body"/>
+    <p style="margin: 24px 0;">
+        <a t-att-href="object.get_base_url() + object.access_url"
+           style="background:#6C7BF0;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">
+            Open in the community feed
+        </a>
+    </p>
+    <p>Kind regards,<br/><t t-out="object.company_id.name"/></p>
+</div>
+            </field>
+            <field name="auto_delete" eval="True"/>
+        </record>
+
+        <!-- The member's post was approved. -->
+        <record id="mail_template_post_published" model="mail.template">
+            <field name="name">Community: Post Published</field>
+            <field name="model_id" ref="model_business_center_post"/>
+            <field name="subject">Your post "{{ object.name }}" is now on the community feed</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="body_html" type="html">
+<div>
+    <p>Dear <t t-out="object.author_id.name"/>,</p>
+    <p>Your post <strong t-out="object.name"/> has been approved and is now visible to the
+       other members.</p>
+    <p style="margin: 24px 0;">
+        <a t-att-href="object.get_base_url() + object.access_url"
+           style="background:#6C7BF0;color:#fff;padding:10px 18px;border-radius:6px;text-decoration:none;">
+            View your post
+        </a>
+    </p>
+    <p>Kind regards,<br/><t t-out="object.company_id.name"/></p>
+</div>
+            </field>
+            <field name="auto_delete" eval="True"/>
+        </record>
+
+        <!-- The member's post was not approved. -->
+        <record id="mail_template_post_rejected" model="mail.template">
+            <field name="name">Community: Post Not Published</field>
+            <field name="model_id" ref="model_business_center_post"/>
+            <field name="subject">Your post "{{ object.name }}" was not published</field>
+            <field name="email_from">{{ (object.company_id.email_formatted or user.email_formatted) }}</field>
+            <field name="body_html" type="html">
+<div>
+    <p>Dear <t t-out="object.author_id.name"/>,</p>
+    <p>Your post <strong t-out="object.name"/> was not published on the community feed.</p>
+    <p t-if="object.reject_reason"><strong>Reason:</strong> <t t-out="object.reject_reason"/></p>
+    <p>You are welcome to post again.</p>
+    <p>Kind regards,<br/><t t-out="object.company_id.name"/></p>
+</div>
+            </field>
+            <field name="auto_delete" eval="True"/>
+        </record>
+
+    </data>
+</odoo>

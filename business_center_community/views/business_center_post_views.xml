@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- FORM VIEW -->
+    <record id="business_center_post_view_form" model="ir.ui.view">
+        <field name="name">business.center.post.view.form</field>
+        <field name="model">business.center.post</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_publish" string="Publish" type="object" class="btn-primary"
+                            invisible="state not in ('draft', 'pending')"/>
+                    <button name="action_reject" string="Reject" type="object"
+                            invisible="state != 'pending'"/>
+                    <button name="action_unpublish" string="Take Off the Feed" type="object"
+                            invisible="state != 'published'"/>
+                    <field name="state" widget="statusbar" statusbar_visible="draft,published"/>
+                </header>
+                <div class="alert alert-warning mb-0" role="alert" invisible="state != 'pending'">
+                    A member shared this post. <strong>Publish</strong> it, or write a
+                    Rejection Reason and <strong>Reject</strong> it; the member is emailed either way.
+                </div>
+                <sheet>
+                    <widget name="web_ribbon" title="Archived" bg_color="text-bg-danger" invisible="active"/>
+                    <field name="active" invisible="1"/>
+                    <field name="is_member_post" invisible="1"/>
+                    <div class="oe_title">
+                        <h1><field name="name" placeholder="e.g. Lift maintenance on Saturday"
+                                   readonly="is_member_post"/></h1>
+                    </div>
+                    <group>
+                        <group string="Post">
+                            <field name="post_type" readonly="is_member_post"/>
+                            <field name="center_id" options="{'no_create': True}"
+                                   placeholder="All business centers"/>
+                            <field name="company_id" groups="base.group_multi_company"/>
+                            <field name="author_id" readonly="is_member_post"/>
+                            <field name="author_company_id" invisible="not is_member_post"/>
+                            <field name="audience" readonly="is_member_post"
+                                   invisible="not is_member_post"/>
+                        </group>
+                        <group string="On the Feed">
+                            <field name="is_pinned" widget="boolean_toggle"/>
+                            <field name="is_important" widget="boolean_toggle"
+                                   invisible="post_type != 'announcement'"/>
+                            <field name="allow_comments" widget="boolean_toggle"/>
+                            <field name="expires_on"/>
+                            <field name="published_at" invisible="not published_at"/>
+                            <field name="moderated_by_id" invisible="not moderated_by_id"/>
+                            <field name="comment_count"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Text" name="text">
+                            <field name="body" readonly="is_member_post"
+                                   placeholder="What do you want to tell the members?"/>
+                        </page>
+                        <page string="Photos" name="photos">
+                            <field name="photo_ids" widget="many2many_binary"/>
+                        </page>
+                        <page string="Rejection" name="rejection"
+                              invisible="state not in ('pending', 'rejected')">
+                            <p class="text-muted">Sent to the member when you click Reject.</p>
+                            <field name="reject_reason" readonly="state == 'rejected'"
+                                   placeholder="e.g. Please keep posts related to the business centre."/>
+                        </page>
+                    </notebook>
+                </sheet>
+                <chatter/>
+            </form>
+        </field>
+    </record>
+
+    <!-- LIST VIEW -->
+    <record id="business_center_post_view_list" model="ir.ui.view">
+        <field name="name">business.center.post.view.list</field>
+        <field name="model">business.center.post</field>
+        <field name="arch" type="xml">
+            <list decoration-warning="state == 'pending'" decoration-muted="state in ('draft', 'rejected')">
+                <field name="name"/>
+                <field name="post_type"/>
+                <field name="center_id" placeholder="All"/>
+                <field name="author_id"/>
+                <field name="author_company_id" optional="show"/>
+                <field name="audience" optional="show"/>
+                <field name="published_at" optional="show"/>
+                <field name="expires_on" optional="hide"/>
+                <field name="is_pinned" widget="boolean_toggle" optional="show"/>
+                <field name="comment_count" optional="show"/>
+                <field name="state" widget="badge"
+                       decoration-info="state == 'draft'"
+                       decoration-warning="state == 'pending'"
+                       decoration-success="state == 'published'"
+                       decoration-danger="state == 'rejected'"/>
+            </list>
+        </field>
+    </record>
+
+    <!-- SEARCH VIEW -->
+    <record id="business_center_post_view_search" model="ir.ui.view">
+        <field name="name">business.center.post.view.search</field>
+        <field name="model">business.center.post</field>
+        <field name="arch" type="xml">
+            <search string="Community Posts">
+                <field name="name" string="Post" filter_domain="['|', ('name', 'ilike', self), ('body', 'ilike', self)]"/>
+                <field name="author_id"/>
+                <field name="center_id"/>
+                <filter name="filter_pending" string="Awaiting Approval" domain="[('state', '=', 'pending')]"/>
+                <filter name="filter_published" string="Published" domain="[('state', '=', 'published')]"/>
+                <filter name="filter_draft" string="Draft" domain="[('state', '=', 'draft')]"/>
+                <separator/>
+                <filter name="filter_announcement" string="Announcements" domain="[('post_type', '=', 'announcement')]"/>
+                <filter name="filter_member" string="By Members" domain="[('is_member_post', '=', True)]"/>
+                <filter name="filter_pinned" string="Pinned" domain="[('is_pinned', '=', True)]"/>
+                <filter name="filter_company_only" string="Company Only" domain="[('audience', '=', 'company')]"/>
+                <separator/>
+                <filter name="filter_archived" string="Archived" domain="[('active', '=', False)]"/>
+                <group>
+                    <filter name="groupby_state" string="Status" context="{'group_by': 'state'}"/>
+                    <filter name="groupby_type" string="Type" context="{'group_by': 'post_type'}"/>
+                    <filter name="groupby_center" string="Business Center" context="{'group_by': 'center_id'}"/>
+                </group>
+            </search>
+        </field>
+    </record>
+
+    <!-- ACTION -->
+    <record id="action_business_center_post" model="ir.actions.act_window">
+        <field name="name">Community Feed</field>
+        <field name="res_model">business.center.post</field>
+        <field name="view_mode">list,form</field>
+        <field name="search_view_id" ref="business_center_post_view_search"/>
+        <field name="help" type="html">
+            <p class="o_view_nocontent_smiling_face">Post your first announcement</p>
+            <p>Announcements and updates you publish here show on the members' portal.
+               Posts shared by members wait here for your approval.</p>
+        </field>
+    </record>
+
+</odoo>
