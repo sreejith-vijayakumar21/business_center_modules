@@ -85,8 +85,8 @@ class BusinessCenterCommunityPortal(BusinessCenterPortal):
         return {
             'all': {'label': _('Everything'), 'domain': []},
             'announcement': {'label': _('Announcements'), 'domain': [('post_type', '=', 'announcement')]},
-            'update': {'label': _('Updates'), 'domain': [('post_type', '=', 'update')]},
-            'photo': {'label': _('Photos'), 'domain': [('post_type', '=', 'photo')]},
+            'update': {'label': _('Posts'), 'domain': [('post_type', '!=', 'announcement')]},
+            'photo': {'label': _('With Photos'), 'domain': [('photo_ids', '!=', False)]},
             # The member's own posts, whatever their state.
             'mine': {'label': _('My Posts'), 'domain': [('author_id', '=', partner.id)], 'own': True},
         }
@@ -164,7 +164,7 @@ class BusinessCenterCommunityPortal(BusinessCenterPortal):
             'post_form': True,
             'centers': self._community_centers(),
             'moderated': request.env.company.sudo().bc_community_moderation,
-            'form': {'post_type': 'update', 'audience': 'center'},
+            'form': {'audience': 'center'},
             'my_company': request.env.user.partner_id.commercial_partner_id,
             'error': '',
         })
@@ -192,14 +192,13 @@ class BusinessCenterCommunityPortal(BusinessCenterPortal):
         if denied:
             return denied
         form = {key: (post.get(key) or '').strip()
-                for key in ('post_type', 'center_id', 'title', 'text', 'audience')}
+                for key in ('center_id', 'title', 'text', 'audience')}
         centers = self._community_centers()
         center = centers.filtered(lambda c: c.id == self._bc_to_int(form['center_id']))[:1] or centers[:1]
         try:
             record = request.env['business.center.post'].sudo()._bc_create_member_post(
-                request.env.user.partner_id, center, form['post_type'], form['title'],
-                form['text'], self._community_uploaded_images(),
-                audience=form['audience'] or 'center')
+                request.env.user.partner_id, center, form['title'], form['text'],
+                self._community_uploaded_images(), audience=form['audience'] or 'center')
             request.env.flush_all()
         except (UserError, ValidationError) as exc:
             request.env.cr.rollback()

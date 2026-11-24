@@ -36,6 +36,9 @@
         <t t-set="bc_type_tones" t-value="{'announcement': 'primary', 'update': 'info', 'photo': 'success'}"/>
         <span t-attf-class="badge rounded-pill text-bg-#{bc_type_tones.get(post.post_type, 'secondary')}"
               t-field="post.post_type"/>
+        <span t-if="post.photo_ids and post.post_type != 'photo'" class="badge rounded-pill text-bg-success">
+            <i class="fa fa-picture-o me-1"/>Photos
+        </span>
         <span t-if="post.is_pinned" class="badge rounded-pill text-bg-dark"><i class="fa fa-thumb-tack me-1"/>Pinned</span>
         <span t-if="post.is_important" class="badge rounded-pill text-bg-danger">Important</span>
         <span t-if="post.audience == 'company'" class="badge rounded-pill text-bg-light border">
@@ -201,13 +204,6 @@
 
                     <section class="o_bc_card">
                         <div class="row g-3">
-                            <div class="col-md-6">
-                                <label class="o_bc_label" for="cm_post_type">What are you sharing?</label>
-                                <select name="post_type" id="cm_post_type" class="form-select">
-                                    <option value="update" t-att-selected="'selected' if form.get('post_type') == 'update' else None">An update</option>
-                                    <option value="photo" t-att-selected="'selected' if form.get('post_type') == 'photo' else None">Photos</option>
-                                </select>
-                            </div>
                             <div class="col-md-6" t-if="len(centers) &gt; 1">
                                 <label class="o_bc_label" for="cm_center_id">For the members of</label>
                                 <select name="center_id" id="cm_center_id" class="form-select">
@@ -221,7 +217,7 @@
                                 <div class="form-control-plaintext" t-esc="centers[:1].name"/>
                                 <input type="hidden" name="center_id" t-att-value="centers[:1].id"/>
                             </div>
-                            <div class="col-12">
+                            <div class="col-md-6">
                                 <label class="o_bc_label">Who can see it?</label>
                                 <div class="form-check">
                                     <input class="form-check-input" type="radio" name="audience"
@@ -247,14 +243,15 @@
                                        placeholder="e.g. Friday networking breakfast"/>
                             </div>
                             <div class="col-12">
-                                <label class="o_bc_label" for="cm_text">Text</label>
+                                <label class="o_bc_label" for="cm_text">What would you like to share?</label>
                                 <textarea name="text" id="cm_text" class="form-control" rows="4" maxlength="5000"
                                           placeholder="Tell the other members about it"><t t-esc="form.get('text')"/></textarea>
                             </div>
                             <div class="col-12">
-                                <label class="o_bc_label" for="cm_photos">Photos (up to 6, 5 MB each)</label>
+                                <label class="o_bc_label" for="cm_photos">Photos <span class="text-muted fw-normal">(optional, up to 6, 5 MB each)</span></label>
                                 <input type="file" name="photos" id="cm_photos" class="form-control"
                                        accept="image/png,image/jpeg,image/gif,image/webp" multiple="multiple"/>
+                                <div class="form-text">Write something, add photos, or both.</div>
                             </div>
                         </div>
                         <p t-if="moderated" class="text-muted small mt-3 mb-0">

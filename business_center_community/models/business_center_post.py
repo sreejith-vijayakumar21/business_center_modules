@@ -6,8 +6,9 @@ from odoo.exceptions import UserError
 from odoo.tools import html2plaintext, plaintext2html
 from odoo.tools.mimetypes import guess_mimetype
 
-# What a member may post; announcements are the business centre's.
-MEMBER_POST_TYPES = ('update', 'photo')
+# A member shares one kind of post: text, photos or both. Announcements are
+# the business centre's; 'photo' only remains for posts made before.
+MEMBER_POST_TYPE = 'update'
 REVIEW_ACTIVITY = 'business_center_community.mail_activity_type_post_review'
 TENANT_GROUP = 'business_center_portal.group_bc_tenant_employee'
 MAX_PHOTOS = 6
@@ -42,7 +43,7 @@ class BusinessCenterPost(models.Model):
     name = fields.Char(string='Title', required=True, tracking=True)
     post_type = fields.Selection([
         ('announcement', 'Announcement'),
-        ('update', 'Update'),
+        ('update', 'Post'),
         ('photo', 'Photos'),
     ], string='Type', default='announcement', required=True, tracking=True)
     body = fields.Html(string='Text', sanitize=True)
@@ -296,36 +297,32 @@ class BusinessCenterPost(models.Model):
         return self.env['ir.attachment'].sudo().create(vals_list)
 
     @api.model
-    def _bc_create_member_post(self, partner, center, post_type, title, text, images=(),
+    def _bc_create_member_post(self, partner, center, title, text, images=(),
                                audience='center'):
-        """A member shares an update or photos with their centre. Depending
-        on the company's setting it waits for approval or is published at
-        once.
+        """A member shares a post with their centre: text, photos or both.
+        Depending on the company's setting it waits for approval or is
+        published at once.
 
         :param images: [(filename, bytes)]
         """
 
         policy = center.company_id or self.env.company
         title, text = (title or '').strip(), (text or '').strip()
+        images = [(name, content) for name, content in images if content]
         if not policy.bc_community_member_posts:
             raise UserError(_("Posting on the community feed is not open to members."))
         if not center or center not in self._bc_member_centers(partner):
             raise UserError(_("Pick one of your business centres."))
-        if post_type not in MEMBER_POST_TYPES:
-            raise UserError(_("Pick what you want to share."))
         if audience not in dict(AUDIENCES):
             raise UserError(_("Pick who can see your post."))
         if not title:
             raise UserError(_("Give your post a title."))
-        images = [(name, content) for name, content in images if content]
-        if post_type == 'photo' and not images:
-            raise UserError(_("Add at least one photo."))
-        if post_type == 'update' and not text:
-            raise UserError(_("Write something to share."))
+        if not (text or images):
+            raise UserError(_("Write something or add a photo."))
 
         post = self.create({
             'name': title,
-            'post_type': post_type,
+            'post_type': MEMBER_POST_TYPE,
             'body': plaintext2html(text) if text else False,
             'author_id': partner.id,
             'is_member_post': True,
