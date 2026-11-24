@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="70" height="70" viewBox="0 0 128 128" fill="none">
+<defs><linearGradient id="bg" x1="8" y1="8" x2="120" y2="120"><stop stop-color="#FFE7E8"/><stop offset="1" stop-color="#FFCBCD"/></linearGradient><linearGradient id="ticket" x1="28" y1="25" x2="100" y2="103"><stop stop-color="#FF9FA4"/><stop offset="1" stop-color="#F27680"/></linearGradient></defs>
+<rect x="4" y="4" width="120" height="120" rx="30" fill="url(#bg)"/>
+<circle cx="101" cy="26" r="7" fill="#F4C35D"/>
+<path d="M64 18c7 0 12 5 12 12v5a9 9 0 0 0 0 18v5c0 7-5 12-12 12H35c0-7-5-12-12-12v-5a9 9 0 0 0 0-18v-5c0-7 5-12 12-12h29Z" transform="rotate(45 64 64)" fill="url(#ticket)" stroke="#A84451" stroke-width="3.5" stroke-linejoin="round"/>
+<path d="m47 48 33 33" stroke="#FFF5F2" stroke-width="4.5" stroke-linecap="round" stroke-dasharray="5 7"/>
+<circle cx="64" cy="64" r="13" fill="#FFF8F2" stroke="#A84451" stroke-width="3.5"/>
+<path d="m58 64 4 4 8-9" stroke="#D65F6B" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
