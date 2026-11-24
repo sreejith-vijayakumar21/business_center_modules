@@ -113,6 +113,7 @@
                 <filter name="filter_member" string="By Members" domain="[('is_member_post', '=', True)]"/>
                 <filter name="filter_pinned" string="Pinned" domain="[('is_pinned', '=', True)]"/>
                 <filter name="filter_company_only" string="Company Only" domain="[('audience', '=', 'company')]"/>
+                <filter name="filter_with_photos" string="With Photos" domain="[('photo_ids', '!=', False)]"/>
                 <separator/>
                 <filter name="filter_archived" string="Archived" domain="[('active', '=', False)]"/>
                 <group>
