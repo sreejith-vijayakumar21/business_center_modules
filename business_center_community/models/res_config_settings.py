@@ -14,3 +14,5 @@ class ResConfigSettings(models.TransientModel):
         related='company_id.bc_community_member_posts', readonly=False)
     bc_community_moderation = fields.Boolean(
         related='company_id.bc_community_moderation', readonly=False)
+    bc_community_moderator_id = fields.Many2one(
+        related='company_id.bc_community_moderator_id', readonly=False)

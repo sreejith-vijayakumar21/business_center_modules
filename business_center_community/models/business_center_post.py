@@ -255,6 +255,23 @@ class BusinessCenterPost(models.Model):
             rec._bc_send('business_center_community.mail_template_post_announcement',
                          rec._bc_audience_partners())
             rec.important_sent = True
+            
+    def _bc_reviewer(self):
+        """Who approves this member's post: the centre's manager, else the
+        company's Community Moderator, else the company's first Business
+        Center Manager. Never a portal user: a post shared from the portal
+        is created by the member, so the current user cannot be the
+        fallback."""
+
+        self.ensure_one()
+        company = (self.center_id.company_id or self.company_id).sudo()
+        for user in (self.center_id.manager_id, company.bc_community_moderator_id):
+            if user and user.active and not user.share:
+                return user
+        managers = self.env['res.users'].sudo().search(
+            [('share', '=', False), ('company_ids', 'in', company.ids)], order='id'
+        ).filtered(lambda u: u.has_group('business_center.group_bc_manager'))
+        return managers[:1] or self.env.ref('base.user_admin')
 
     def _bc_request_review(self):
         """Ask the centre's manager to approve or reject a member's post."""
@@ -266,7 +283,7 @@ class BusinessCenterPost(models.Model):
                 note=_("%(member)s (%(company)s) shared a post on the community feed. "
                        "Publish it, or write a reason and reject it.",
                        member=rec.author_id.name, company=rec.author_company_id.name),
-                user_id=(rec.center_id.manager_id or self.env.user).id,
+                user_id=rec._bc_reviewer().id,
             )
 
     def _bc_create_images(self, images):
