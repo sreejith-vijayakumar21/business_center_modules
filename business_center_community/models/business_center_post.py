@@ -6,8 +6,8 @@ from odoo.exceptions import UserError
 from odoo.tools import html2plaintext, plaintext2html
 from odoo.tools.mimetypes import guess_mimetype
 
-# A member shares one kind of post: text, photos or both. Announcements are
-# the business centre's; 'photo' only remains for posts made before.
+# Members share one kind of post: text, photos or both. Announcements are
+# the business centre's.
 MEMBER_POST_TYPE = 'update'
 REVIEW_ACTIVITY = 'business_center_community.mail_activity_type_post_review'
 TENANT_GROUP = 'business_center_portal.group_bc_tenant_employee'
@@ -44,8 +44,10 @@ class BusinessCenterPost(models.Model):
     post_type = fields.Selection([
         ('announcement', 'Announcement'),
         ('update', 'Post'),
-        ('photo', 'Photos'),
-    ], string='Type', default='announcement', required=True, tracking=True)
+    ], string='Type', default='announcement', required=True, tracking=True,
+        help="Announcement: an official notice from the business centre, which "
+             "can be emailed as Important. Post: an ordinary update, with text, "
+             "photos or both.")
     body = fields.Html(string='Text', sanitize=True)
     summary = fields.Char(string='Summary', compute='_compute_summary')
     state = fields.Selection([
@@ -55,8 +57,12 @@ class BusinessCenterPost(models.Model):
         ('rejected', 'Rejected'),
     ], string='Status', default='draft', required=True, tracking=True, copy=False)
     active = fields.Boolean(default=True)
-    author_id = fields.Many2one('res.partner', string='Author', required=True,
-                                default=lambda self: self.env.user.partner_id)
+    author_id = fields.Many2one(
+        'res.partner', string='Author', required=True,
+        default=lambda self: self.env.user.partner_id,
+        domain="[('user_ids.share', '=', False)]",
+        help="Who wrote the post. A member's post is authored by the member; "
+             "a post created here by staff must be authored by an internal user.")
     author_company_id = fields.Many2one(related='author_id.commercial_partner_id',
                                         string="Author's Company", store=True)
     is_member_post = fields.Boolean(string='Posted by a Member', readonly=True, copy=False)
@@ -133,6 +139,17 @@ class BusinessCenterPost(models.Model):
                     "%s is a business centre post, so it is visible to everyone at "
                     "the centre. Only members can keep a post to their own company.",
                     rec.name))
+                
+    @api.constrains('author_id', 'is_member_post')
+    def _check_staff_author(self):
+        """A business centre post speaks for the centre, so its author is
+        one of the staff; only a member's post is authored by a tenant."""
+
+        for rec in self:
+            if not rec.is_member_post and not rec.author_id.user_ids.filtered(lambda u: not u.share):
+                raise UserError(_(
+                    "%(post)s is a business centre post, so its author must be one of "
+                    "your staff, not %(author)s.", post=rec.name, author=rec.author_id.name))
 
     # ------------------------------------------------------------------------------
     #   MARK: BUTTON ACTION METHODS
@@ -144,8 +161,6 @@ class BusinessCenterPost(models.Model):
         for rec in self:
             if rec.state not in ('draft', 'pending'):
                 raise UserError(_("Only a draft or a post awaiting approval can be published."))
-            if rec.post_type == 'photo' and not rec.photo_ids:
-                raise UserError(_("Add at least one photo to %s first.", rec.name))
         approved = self.filtered(lambda p: p.state == 'pending')
         self.write({
             'state': 'published',

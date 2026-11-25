@@ -33,10 +33,10 @@
 
     <!-- TYPE AND STATUS BADGES, shared by the feed and the post page -->
     <template id="portal_community_badges" name="Community: Badges">
-        <t t-set="bc_type_tones" t-value="{'announcement': 'primary', 'update': 'info', 'photo': 'success'}"/>
+        <t t-set="bc_type_tones" t-value="{'announcement': 'primary', 'update': 'info'}"/>
         <span t-attf-class="badge rounded-pill text-bg-#{bc_type_tones.get(post.post_type, 'secondary')}"
               t-field="post.post_type"/>
-        <span t-if="post.photo_ids and post.post_type != 'photo'" class="badge rounded-pill text-bg-success">
+        <span t-if="post.photo_ids" class="badge rounded-pill text-bg-success">
             <i class="fa fa-picture-o me-1"/>Photos
         </span>
         <span t-if="post.is_pinned" class="badge rounded-pill text-bg-dark"><i class="fa fa-thumb-tack me-1"/>Pinned</span>
