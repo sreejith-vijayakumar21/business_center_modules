@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <record id="res_config_settings_view_form_portal" model="ir.ui.view">
+        <field name="name">res.config.settings.view.form.inherit.business.center.portal</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="business_center.res_config_settings_view_form"/>
+        <field name="arch" type="xml">
+            <xpath expr="//app[@name='business_center']" position="inside">
+                <block title="Member Portal" name="bc_portal_setting">
+                    <setting string="Approve New Team Members"
+                             help="Members a tenant's administrator adds from My Team wait for staff approval before joining the contract and getting their invitation.">
+                        <field name="bc_team_approval"/>
+                    </setting>
+                </block>
+            </xpath>
+        </field>
+    </record>
+
+</odoo>

@@ -3,6 +3,7 @@
 
 from odoo import _, api, fields, models, Command
 from odoo.exceptions import UserError, ValidationError
+from odoo.tools import email_normalize
 
 
 class ResPartner(models.Model):
@@ -102,3 +103,91 @@ class ResPartner(models.Model):
             except (UserError, ValidationError) as exc:
                 skipped[partner] = exc.args[0]
         return skipped
+    
+    # ------------------------------------------------------------------------------
+    #   MARK: TEAM METHODS
+    # ------------------------------------------------------------------------------
+    def _bc_team_status(self):
+        """Where this member of a tenant's team stands: 'pending' (waiting for
+        approval), 'rejected', 'active' (has signed in), 'invited' (login
+        sent, never used) or 'no_access'."""
+
+        self.ensure_one()
+        last = self.env['business.center.member.request'].sudo().search(
+            [('partner_id', '=', self.id)], limit=1)
+        if last.state == 'pending':
+            return 'pending'
+        user = self.user_ids[:1]
+        if not user:
+            return 'rejected' if last.state == 'rejected' else 'no_access'
+        return 'active' if user.login_date else 'invited'
+
+    @api.model
+    def _bc_add_team_member(self, contract, name, email, role):
+        """A tenant's administrator adds someone to their team on ``contract``.
+        They join it at once and are invited, or, when the centre approves new
+        members first, a request waits for staff.
+
+        :return: 'added' or 'pending'
+        """
+
+        name, email = (name or '').strip(), email_normalize(email or '')
+        if not name:
+            raise UserError(_("Enter the member's name."))
+        if not email:
+            raise UserError(_("Enter a valid email address."))
+        if role not in dict(self._fields['bc_role'].selection):
+            raise UserError(_("Pick a role."))
+        if contract.state not in ('upcoming', 'active'):
+            raise UserError(_("Pick one of your running contracts."))
+        company = contract.partner_id
+        taken = self.env['res.users'].sudo().with_context(active_test=False).search_count([
+            ('login', '=ilike', email),
+            ('partner_id.commercial_partner_id', '!=', company.id),
+        ], limit=1)
+        if taken:
+            raise UserError(_("%s already has an account with another company. "
+                              "Please contact the business centre.", email))
+
+        partner = company.child_ids.filtered(lambda p: email_normalize(p.email or '') == email)[:1]
+        if partner:
+            partner.bc_role = role
+        else:
+            partner = self.create({'name': name, 'email': email, 'parent_id': company.id,
+                                   'type': 'contact', 'bc_role': role})
+        if partner in contract.contact_ids:
+            raise UserError(_("%s is already on this contract.", partner.name))
+
+        if contract.company_id.bc_team_approval:
+            Request = self.env['business.center.member.request']
+            if Request.search_count([('partner_id', '=', partner.id), ('contract_id', '=', contract.id),
+                                     ('state', '=', 'pending')], limit=1):
+                raise UserError(_("%s is already waiting for approval.", partner.name))
+            Request.create({'partner_id': partner.id, 'contract_id': contract.id,
+                            'role': role})._bc_request_review()
+            return 'pending'
+
+        contract.write({'contact_ids': [Command.link(partner.id)]})
+        contract.message_post(body=_("%(admin)s added %(member)s to the team.",
+                                     admin=self.env.user.name, member=partner.name))
+        return 'added'
+
+    def _bc_resend_invitation(self):
+        """Send the portal invitation again to members who have not signed in yet."""
+
+        wizard = self.env['portal.wizard'].sudo().create({'partner_ids': [Command.set(self.ids)]})
+        wizard.user_ids.action_invite_again()
+
+    def _bc_remove_from_team(self):
+        """Someone left the tenant company: take them off its running
+        contracts and revoke their portal login."""
+
+        contracts = self.env['business.center.contract'].sudo().search([
+            ('contact_ids', 'in', self.ids), ('state', 'in', ('upcoming', 'active'))])
+        if contracts:
+            contracts.write({'contact_ids': [Command.unlink(p.id) for p in self]})
+        with_login = self.filtered('user_ids')
+        if with_login:
+            wizard = self.env['portal.wizard'].sudo().create(
+                {'partner_ids': [Command.set(with_login.ids)]})
+            wizard.user_ids.action_revoke_access()
