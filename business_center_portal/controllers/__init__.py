@@ -7,3 +7,4 @@ from . import booking
 from . import invoice
 from . import hot_desk
 from . import hot_desk_booking
+from . import team

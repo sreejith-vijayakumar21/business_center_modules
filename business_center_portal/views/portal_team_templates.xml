@@ -1,0 +1,146 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+    <!-- HOME TILE: Tenant Corporate Admin only -->
+    <template id="portal_my_home_team" name="Portal My Home: My Team"
+              inherit_id="portal.portal_my_home" priority="34">
+        <xpath expr="//div[@id='portal_common_category']" position="inside">
+            <t t-if="request.env.user.has_group('business_center_portal.group_bc_tenant_admin')">
+                <t t-call="portal.portal_docs_entry">
+                    <t t-set="icon" t-value="'/business_center_portal/static/src/img/bc_team.svg'"/>
+                    <t t-set="title">My Team</t>
+                    <t t-set="text">Add your colleagues and manage their access</t>
+                    <t t-set="url" t-value="'/my/team'"/>
+                    <t t-set="placeholder_count" t-value="'team_count'"/>
+                </t>
+            </t>
+        </xpath>
+    </template>
+
+    <!-- BREADCRUMB -->
+    <template id="portal_breadcrumbs_team" name="Portal Breadcrumbs: My Team"
+              inherit_id="portal.portal_breadcrumbs" priority="42">
+        <xpath expr="//ol[hasclass('o_portal_submenu')]" position="inside">
+            <li t-if="page_name == 'team'" class="breadcrumb-item active">My Team</li>
+        </xpath>
+    </template>
+
+    <!-- PAGE -->
+    <template id="portal_my_team" name="My Team">
+        <t t-call="portal.portal_layout">
+            <t t-set="additional_title">My Team</t>
+            <t t-set="tones" t-value="{'active': ('success', 'Active'), 'invited': ('info', 'Invited'),
+                                       'pending': ('warning', 'Awaiting approval'),
+                                       'rejected': ('secondary', 'Not approved'),
+                                       'no_access': ('light', 'No access')}"/>
+            <t t-set="done_messages" t-value="{'added': 'Member added and invited by email.',
+                                              'pending': 'Request sent: the business centre will approve the new member.',
+                                              'invited': 'Invitation sent again.',
+                                              'removed': 'Member removed and their access revoked.'}"/>
+
+            <h4 class="mt-4 mb-3">My Team</h4>
+            <div t-if="error" class="alert alert-danger" role="alert">
+                <i class="fa fa-exclamation-circle me-2"/><t t-esc="error"/>
+            </div>
+            <div t-if="done_messages.get(done)" class="alert alert-success" role="status">
+                <i class="fa fa-check me-2"/><t t-esc="done_messages[done]"/>
+            </div>
+
+            <div class="row g-4">
+                <!-- Members -->
+                <div class="col-lg-8">
+                    <t t-call="portal.portal_table">
+                        <thead>
+                            <tr class="active">
+                                <th>Member</th>
+                                <th>Role</th>
+                                <th>Contracts</th>
+                                <th class="text-center">Status</th>
+                                <th class="text-end"/>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr t-foreach="rows" t-as="row">
+                                <t t-set="tone" t-value="tones.get(row['status'], ('light', ''))"/>
+                                <td>
+                                    <div>
+                                        <t t-esc="row['partner'].name"/>
+                                        <span t-if="row['is_me']" class="badge rounded-pill text-bg-primary ms-1">You</span>
+                                    </div>
+                                    <div class="small text-muted" t-esc="row['partner'].email"/>
+                                </td>
+                                <td><span t-field="row['partner'].bc_role"/></td>
+                                <td>
+                                    <span t-foreach="row['contracts']" t-as="c"
+                                          class="badge rounded-pill text-bg-light border me-1" t-esc="c.name"/>
+                                </td>
+                                <td class="text-center">
+                                    <span t-attf-class="badge rounded-pill text-bg-#{tone[0]}" t-esc="tone[1]"/>
+                                </td>
+                                <td class="text-end text-nowrap">
+                                    <form t-if="row['status'] == 'invited'" method="post" class="d-inline"
+                                          t-attf-action="/my/team/#{row['partner'].id}/invite">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <button type="submit" class="btn btn-sm btn-link">Resend invitation</button>
+                                    </form>
+                                    <form t-if="not row['is_me'] and (row['contracts'] or row['status'] in ('active', 'invited'))"
+                                          method="post" class="d-inline"
+                                          t-attf-action="/my/team/#{row['partner'].id}/remove"
+                                          onsubmit="return confirm('Remove this member and revoke their access?');">
+                                        <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                        <button type="submit" class="btn btn-sm btn-link text-danger">Remove</button>
+                                    </form>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </t>
+                </div>
+
+                <!-- Add a member -->
+                <div class="col-lg-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h6 class="mb-3">Add a member</h6>
+                            <div t-if="not contracts" class="text-muted small">
+                                Your company has no running contract to add members to.
+                            </div>
+                            <form t-else="" method="post" action="/my/team/add">
+                                <input type="hidden" name="csrf_token" t-att-value="request.csrf_token()"/>
+                                <div class="mb-2">
+                                    <label class="form-label small" for="tm_name">Name</label>
+                                    <input type="text" name="name" id="tm_name" class="form-control" required="required" maxlength="120"/>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small" for="tm_email">Email</label>
+                                    <input type="email" name="email" id="tm_email" class="form-control" required="required"/>
+                                </div>
+                                <div class="mb-2">
+                                    <label class="form-label small" for="tm_role">Role</label>
+                                    <select name="role" id="tm_role" class="form-select">
+                                        <option t-foreach="roles" t-as="r" t-att-value="r[0]" t-esc="r[1]"/>
+                                    </select>
+                                </div>
+                                <div class="mb-3">
+                                    <label class="form-label small" for="tm_contract">Contract</label>
+                                    <select name="contract_id" id="tm_contract" class="form-select">
+                                        <option t-foreach="contracts" t-as="c" t-att-value="c.id">
+                                            <t t-esc="c.name"/> · <t t-esc="c.center_id.name"/>
+                                        </option>
+                                    </select>
+                                </div>
+                                <p class="text-muted small">
+                                    <t t-if="approval">The business centre approves new members first; they are invited once approved.</t>
+                                    <t t-else="">They are added to the contract and invited by email straight away.</t>
+                                </p>
+                                <button type="submit" class="btn btn-primary w-100">
+                                    <i class="fa fa-user-plus me-1"/>Add member
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </t>
+    </template>
+
+</odoo>

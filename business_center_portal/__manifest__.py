@@ -4,7 +4,7 @@
 
 {
     'name': 'Business Center Portal',
-    'version': '19.0.1.6.0',
+    'version': '19.0.1.7.0',
     'category': 'Generic Modules',
     'sequence': 10,
     'author': 'Infintor Solutions',
@@ -34,12 +34,15 @@ Tenant portal for Business Center.
         
         'data/hot_desk_mail_data.xml',
         
+        'views/res_config_settings_views.xml',
+        'views/business_center_member_request_views.xml',
         'views/portal_hot_desk_booking_templates.xml',
         'views/portal_hot_desk_templates.xml',
         'views/portal_invoice_templates.xml',
         'views/res_partner_views.xml',
         'views/portal_contract_templates.xml',
         'views/portal_membership_templates.xml',
+        'views/portal_team_templates.xml',
         'views/portal_booking_templates.xml',
         'views/portal_templates.xml',
     ],
