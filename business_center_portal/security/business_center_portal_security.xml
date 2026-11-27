@@ -157,4 +157,10 @@
         <field name="domain_force">['|', ('company_id', '=', False), ('company_id', 'in', company_ids)]</field>
     </record>
 
+    <!-- Technical: switched on and off by Settings > Member Portal >
+         Approve New Team Members; shows the Team Requests menu. -->
+    <record id="group_bc_team_approval" model="res.groups">
+        <field name="name">Team Member Approval</field>
+    </record>
+
 </odoo>
