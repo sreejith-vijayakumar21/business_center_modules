@@ -310,3 +310,13 @@
     .o_bc_hd_picker_body { grid-template-columns: minmax(0, 1fr); height: auto; }
     .o_bc_hd_canvas { height: 320px; }
 }
+
+// Role badge on the membership card: the brand blue on a soft tint of it,
+// to sit with the pastel tiles.
+$o-bc-role-admin: #2E6C7B;
+
+.o_bc_role_admin {
+    color: $o-bc-role-admin;
+    background-color: rgba($o-bc-role-admin, 0.10);
+    border: 1px solid rgba($o-bc-role-admin, 0.35);
+}
