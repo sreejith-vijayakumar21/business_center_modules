@@ -47,6 +47,15 @@ class BusinessCenterTeamPortal(BusinessCenterPortal):
         """One person of the member's own company, or an empty recordset."""
 
         return self._bc_team_members().filtered(lambda p: p.id == self._bc_to_int(partner_id))[:1]
+    
+    @staticmethod
+    def _bc_team_sort_key(member, me):
+        """Order of My Team: the signed-in administrator first, then the other
+        corporate admins, then employees, then contacts without a role; each
+        group by name."""
+
+        role_rank = {'admin': 0, 'employee': 1}.get(member.bc_role, 2)
+        return (member != me, role_rank, (member.name or '').lower())
 
     def _bc_team_action(self, operation, done):
         """Run ``operation`` and come back to My Team with ``done`` shown, or
@@ -72,12 +81,13 @@ class BusinessCenterTeamPortal(BusinessCenterPortal):
             return denied
         contracts = self._bc_member_contracts()
         me = request.env.user.partner_id
+        members = self._bc_team_members().sorted(lambda m: self._bc_team_sort_key(m, me))
         rows = [{
             'partner': member,
             'status': member._bc_team_status(),
             'contracts': contracts.filtered(lambda c, m=member: m in c.contact_ids),
             'is_me': member == me,
-        } for member in self._bc_team_members()]
+        } for member in members]
         values = self._prepare_portal_layout_values()
         values.update({
             'page_name': 'team',

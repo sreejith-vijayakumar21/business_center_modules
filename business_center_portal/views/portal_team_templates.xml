@@ -63,7 +63,10 @@
                             <tr t-foreach="rows" t-as="row">
                                 <t t-set="tone" t-value="tones.get(row['status'], ('light', ''))"/>
                                 <td>
-                                    <div t-esc="row['partner'].name"/>
+                                    <div>
+                                        <t t-esc="row['partner'].name"/>
+                                        <span t-if="row['is_me']" class="badge rounded-pill text-bg-primary ms-1">You</span>
+                                    </div>
                                     <div class="small text-muted" t-esc="row['partner'].email"/>
                                 </td>
                                 <td><span t-field="row['partner'].bc_role"/></td>
