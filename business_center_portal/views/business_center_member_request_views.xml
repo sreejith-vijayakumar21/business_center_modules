@@ -11,7 +11,7 @@
                             invisible="state != 'pending'" groups="business_center.group_bc_manager"/>
                     <button name="action_reject" string="Reject" type="object"
                             invisible="state != 'pending'" groups="business_center.group_bc_manager"/>
-                    <field name="state" widget="statusbar"/>
+                    <field name="state" widget="statusbar" statusbar_visible="pending"/>
                 </header>
                 <sheet>
                     <group>
@@ -81,6 +81,8 @@
     <menuitem id="menu_business_center_member_request" name="Team Requests"
               parent="business_center.business_center_menu_root"
               action="action_business_center_member_request"
-              groups="business_center.group_bc_manager" sequence="18"/>
+              groups="business_center_portal.group_bc_team_approval" sequence="18"/>
+
+    <function model="res.company" name="_bc_sync_team_approval_group"/>
 
 </odoo>

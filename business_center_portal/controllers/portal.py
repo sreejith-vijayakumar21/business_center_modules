@@ -312,6 +312,8 @@ class BusinessCenterPortal(CustomerPortal):
                          if state == 'expiring' and partner.bc_membership_valid_until else 0,
             'centers': usable.center_id if running else partner.bc_membership_center_ids,
             'is_admin': is_admin,
+            'role': partner.bc_role,
+            'role_label': dict(partner._fields['bc_role']._description_selection(request.env)).get(partner.bc_role, ''),
             'named': is_admin or not running or bool(usable),
             'running_count': len(usable) if running else 0,
             'next_end': next_end,
